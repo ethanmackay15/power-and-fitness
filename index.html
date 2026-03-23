@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>8-Week Cut Tracker</title>
+  <title>Body Composition Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     :root {
       --bg: #f1f5f9;
@@ -15,6 +17,9 @@
       --border: #e2e8f0;
       --green: #10b981;
       --red: #f43f5e;
+      --orange: #f97316;
+      --yellow: #f59e0b;
+      --blue: #3b82f6;
       --radius: 16px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,101 +33,110 @@
     }
 
     /* ───── Saturday override ───── */
-    body.sat {
-      background: linear-gradient(135deg, #fff7ed 0%, #fef9c3 40%, #fce7f3 100%);
-    }
+    body.sat { background: linear-gradient(135deg, #fff7ed 0%, #fef9c3 40%, #fce7f3 100%); }
     body.sat .card { background: rgba(255,255,255,0.82); backdrop-filter: blur(6px); }
     body.sat .progress-fill { background: linear-gradient(90deg, #fb923c, #ec4899); }
     body.sat .btn { background: linear-gradient(135deg, #fb923c, #ec4899); box-shadow: 0 4px 14px rgba(251,146,60,.35); }
     body.sat .stat-primary { color: #f97316; }
+    body.sat .tab-active { background: linear-gradient(135deg, #fb923c, #ec4899) !important; }
     body.sat input:focus, body.sat textarea:focus { border-color: #f97316; }
 
     /* ───── Layout ───── */
-    .wrap { max-width: 920px; margin: 0 auto; padding: 28px 16px 60px; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
 
     /* ───── Saturday banner ───── */
     #sat-banner {
       display: none;
       background: linear-gradient(135deg, #fb923c, #ec4899);
-      color: #fff;
-      text-align: center;
-      padding: 14px 20px;
-      border-radius: var(--radius);
-      margin-bottom: 24px;
-      font-size: 1.1rem;
-      font-weight: 700;
-      letter-spacing: 0.2px;
+      color: #fff; text-align: center; padding: 14px 20px;
+      border-radius: var(--radius); margin-bottom: 24px;
+      font-size: 1.1rem; font-weight: 700; letter-spacing: 0.2px;
       animation: glow 2.4s ease-in-out infinite;
     }
     body.sat #sat-banner { display: block; }
     @keyframes glow { 0%,100%{box-shadow:0 0 0 rgba(251,146,60,0)} 50%{box-shadow:0 0 22px rgba(251,146,60,.55)} }
 
     /* ───── Header ───── */
-    .header { text-align: center; margin-bottom: 28px; }
+    .header { text-align: center; margin-bottom: 20px; }
     .header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
-    body.sat .header h1 {
-      background: linear-gradient(135deg,#f97316,#ec4899);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    body.sat .header h1 { background: linear-gradient(135deg,#f97316,#ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .header .sub { color: var(--muted); margin-top: 4px; font-size: 0.93rem; }
 
-    /* ───── Progress bar ───── */
+    /* ───── Tabs ───── */
+    .tabs { display: flex; gap: 6px; margin-bottom: 20px; background: var(--card);
+      padding: 6px; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+    .tab {
+      flex: 1; padding: 10px 16px; border: none; border-radius: 10px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer; color: var(--muted);
+      background: none; transition: all .2s;
+    }
+    .tab:hover { color: var(--text); background: var(--bg); }
+    .tab-active {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+      color: #fff !important; box-shadow: 0 3px 10px rgba(99,102,241,.3);
+    }
+
+    /* ───── Tab Panels ───── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ───── Card ───── */
     .card {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 22px 24px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      background: var(--card); border-radius: var(--radius);
+      padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.07);
       margin-bottom: 18px;
     }
+    .card h2 {
+      font-size: 0.85rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .6px; margin-bottom: 16px;
+    }
+    .card-title-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .card-title-row h2 { margin-bottom: 0; }
+
+    /* ───── Progress bar ───── */
     .prog-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .prog-label { font-weight: 700; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
     .prog-right { font-size: 0.85rem; color: var(--muted); }
     .prog-track { background: var(--border); border-radius: 999px; height: 13px; overflow: hidden; }
-    .progress-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #6366f1, #8b5cf6);
-      transition: width .6s cubic-bezier(.4,0,.2,1);
-    }
+    .progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width .6s cubic-bezier(.4,0,.2,1); }
     .week-ticks { display: flex; justify-content: space-between; margin-top: 5px; }
     .week-tick { font-size: 0.68rem; color: var(--muted); }
 
     /* ───── Stats grid ───── */
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
-    @media(max-width:600px){
-      .stats { grid-template-columns: repeat(2,1fr); }
-      .header h1 { font-size: 1.6rem; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .stats-3 { grid-template-columns: repeat(3, 1fr); }
+    @media(max-width:700px){ .stats { grid-template-columns: repeat(2,1fr); } .header h1 { font-size: 1.6rem; } }
+    .stat {
+      background: var(--card); border-radius: var(--radius);
+      padding: 18px 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.07);
     }
-    .stat { background: var(--card); border-radius: var(--radius); padding: 18px 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
-    .stat-val { font-size: 1.75rem; font-weight: 800; line-height: 1.1; }
+    .stat-val { font-size: 1.65rem; font-weight: 800; line-height: 1.1; }
     .stat-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+    .stat-sub { font-size: 0.73rem; color: var(--muted); margin-top: 2px; }
     .stat-primary { color: var(--primary); }
     .clr-green { color: var(--green); }
     .clr-red { color: var(--red); }
+    .clr-orange { color: var(--orange); }
+    .clr-blue { color: var(--blue); }
+    .clr-yellow { color: var(--yellow); }
 
     /* ───── Two-col grid ───── */
     .two-col { display: grid; grid-template-columns: 1fr 1.4fr; gap: 18px; margin-bottom: 18px; }
-    @media(max-width:640px){
-      .two-col { grid-template-columns: 1fr; }
-      table { min-width: unset; font-size: 0.82rem; }
-      th, td { padding: 8px 8px; }
-      .note-cell { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .backup-bar { flex-direction: column; text-align: center; gap: 8px; }
-      .backup-bar span { min-width: unset; }
-      .backup-bar .btn-sm { width: 100%; }
-      .sync-bar { font-size: 0.78rem; padding: 8px 14px; }
-      .col-avg, .col-delta { display: none; }
-    }
+    @media(max-width:640px){ .two-col { grid-template-columns: 1fr; } }
+    .equal-col { grid-template-columns: 1fr 1fr; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+    @media(max-width:640px){ .three-col { grid-template-columns: 1fr; } }
 
     /* ───── Log form ───── */
-    .card h2 { font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 16px; }
     .fld { margin-bottom: 14px; }
     .fld label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
     input[type=number], textarea {
       width: 100%; padding: 10px 13px; border: 2px solid var(--border);
       border-radius: 10px; font-size: 1rem; font-family: inherit;
-      background: #f8fafc; color: var(--text); outline: none;
-      transition: border-color .2s;
+      background: #f8fafc; color: var(--text); outline: none; transition: border-color .2s;
     }
     input[type=number]:focus, textarea:focus { border-color: var(--primary); background: #fff; }
     textarea { resize: vertical; min-height: 72px; }
@@ -136,25 +150,27 @@
     .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(99,102,241,.45); }
     .btn:active { transform: none; }
     .logged-ok {
-      text-align: center; padding: 12px 10px;
-      background: #f0fdf4; border-radius: 10px;
-      color: var(--green); font-weight: 700; font-size: 0.9rem;
-      line-height: 1.4;
+      text-align: center; padding: 12px 10px; background: #f0fdf4;
+      border-radius: 10px; color: var(--green); font-weight: 700; font-size: 0.9rem; line-height: 1.4;
     }
     .edit-link { display:block; text-align:center; margin-top:8px; font-size:0.8rem; color:var(--primary); cursor:pointer; }
     .edit-link:hover { text-decoration:underline; }
 
-    /* ───── Chart ───── */
-    canvas#chart { width:100%; height:200px; display:block; }
+    /* ───── Chart containers ───── */
+    .chart-wrap { position: relative; width: 100%; }
+    .chart-wrap canvas { width: 100% !important; }
 
-    /* ───── History ───── */
+    /* ───── History table ───── */
     .history-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 480px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 520px; }
     th { padding: 8px 12px; text-align: left; font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; border-bottom: 2px solid var(--border); }
     td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
     tr:last-child td { border-bottom: none; }
     tr.sat-row td { background: #fff7ed; }
+    tr.best-row td { background: #f0fdf4; }
     .tag { display:inline-block; background:#fef3c7; color:#d97706; border-radius:4px; padding:1px 6px; font-size:0.72rem; font-weight:700; margin-left:4px; }
+    .tag-green { background:#dcfce7; color:#16a34a; }
+    .tag-blue { background:#dbeafe; color:#2563eb; }
     .note-cell { color: var(--muted); font-size: 0.82rem; max-width: 200px; }
     .btn-delete, .btn-edit {
       background: none; border: none; cursor: pointer; padding: 4px 6px;
@@ -163,17 +179,48 @@
     }
     .btn-delete:hover { color: var(--red); background: #fff1f2; }
     .btn-edit:hover { color: var(--primary); background: #eff6ff; }
-    .note-input {
-      width: 100%; padding: 4px 8px; border: 2px solid var(--primary);
-      border-radius: 6px; font-size: 0.82rem; font-family: inherit;
-      background: #fff; outline: none;
-    }
-    .btn-save {
-      background: none; border: none; cursor: pointer; padding: 4px 6px;
-      color: var(--green); border-radius: 6px; font-size: 1rem; line-height: 1;
-      transition: color .15s, background .15s;
-    }
+    .note-input { width: 100%; padding: 4px 8px; border: 2px solid var(--primary); border-radius: 6px; font-size: 0.82rem; font-family: inherit; background: #fff; outline: none; }
+    .btn-save { background: none; border: none; cursor: pointer; padding: 4px 6px; color: var(--green); border-radius: 6px; font-size: 1rem; line-height: 1; transition: color .15s, background .15s; }
     .btn-save:hover { background: #f0fdf4; }
+
+    /* ───── DEXA specific ───── */
+    .scan-highlight {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-radius: 12px; margin-bottom: 10px;
+    }
+    .highlight-green { background: #f0fdf4; border: 1.5px solid #86efac; }
+    .highlight-blue { background: #eff6ff; border: 1.5px solid #93c5fd; }
+    .highlight-orange { background: #fff7ed; border: 1.5px solid #fdba74; }
+    .scan-highlight .hl-icon { font-size: 1.5rem; }
+    .scan-highlight .hl-text strong { font-size: 1.05rem; }
+    .scan-highlight .hl-text span { font-size: 0.82rem; color: var(--muted); display: block; }
+
+    .region-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+    .region-row { margin-bottom: 6px; }
+    .region-label { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 3px; }
+    .region-label span:first-child { font-weight: 600; }
+    .region-label span:last-child { color: var(--muted); }
+    .region-track { background: var(--border); border-radius: 999px; height: 8px; overflow: hidden; }
+    .region-fill { height: 100%; border-radius: 999px; transition: width .6s ease; }
+    .fill-arms { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+    .fill-legs { background: linear-gradient(90deg, #8b5cf6, #6366f1); }
+    .fill-trunk { background: linear-gradient(90deg, #f97316, #ef4444); }
+    .fill-android { background: linear-gradient(90deg, #ef4444, #dc2626); }
+    .fill-gynoid { background: linear-gradient(90deg, #ec4899, #a855f7); }
+
+    .vat-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 999px; font-size: 0.82rem; font-weight: 700;
+    }
+    .vat-good { background: #dcfce7; color: #16a34a; }
+    .vat-warn { background: #fef9c3; color: #92400e; }
+    .vat-bad { background: #fee2e2; color: #dc2626; }
+
+    .muscle-compare { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px 14px; align-items: center; }
+    .muscle-side { text-align: center; }
+    .muscle-side .side-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .muscle-side .side-val { font-size: 1.15rem; font-weight: 800; }
+    .muscle-divider { font-size: 0.75rem; color: var(--muted); text-align: center; }
 
     /* ───── Backup bar ───── */
     .backup-bar {
@@ -190,14 +237,10 @@
       font-size: 0.85rem; font-weight: 700; cursor: pointer;
       transition: transform .15s, box-shadow .2s; white-space: nowrap;
     }
-    .btn-export {
-      background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
-      box-shadow: 0 3px 10px rgba(99,102,241,.3);
-    }
-    body.sat .btn-export { background: linear-gradient(135deg,#fb923c,#ec4899); box-shadow: 0 3px 10px rgba(251,146,60,.3); }
+    .btn-export { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; box-shadow: 0 3px 10px rgba(99,102,241,.3); }
+    body.sat .btn-export { background: linear-gradient(135deg,#fb923c,#ec4899); }
     .btn-import { background: var(--bg); color: var(--text); border: 2px solid var(--border); }
     .btn-sm:hover { transform: translateY(-1px); }
-    .btn-sm:active { transform: none; }
     #import-file { display: none; }
     .import-toast {
       display: none; position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
@@ -207,7 +250,6 @@
     }
     @keyframes fadeup { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
 
-
     /* ───── Sync indicator ───── */
     .sync-bar {
       display: flex; align-items: center; gap: 8px;
@@ -216,10 +258,7 @@
       margin-bottom: 18px; font-size: 0.82rem; color: var(--muted);
     }
     body.sat .sync-bar { background: rgba(255,255,255,0.82); }
-    .sync-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      display: inline-block; flex-shrink: 0;
-    }
+    .sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
     .sync-dot.green { background: #10b981; }
     .sync-dot.yellow { background: #f59e0b; animation: pulse-dot 1.2s infinite; }
     .sync-dot.red { background: #ef4444; }
@@ -255,10 +294,7 @@
     .settings-panel input[type=text]:focus { border-color: var(--primary); background: #fff; }
     .settings-panel .hint { font-size: 0.75rem; color: var(--muted); margin-top: -8px; margin-bottom: 14px; line-height: 1.4; }
     .settings-panel .btn { margin-top: 6px; }
-    .settings-overlay {
-      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,.25); z-index: 199;
-    }
+    .settings-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.25); z-index: 199; }
     .settings-overlay.open { display: block; }
     .settings-actions { display: flex; gap: 8px; margin-top: 14px; }
     .settings-actions .btn { flex: 1; font-size: 0.88rem; padding: 10px; }
@@ -273,55 +309,53 @@
     #confetti { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; }
 
     /* ───── Inspiration image ───── */
-    .inspo {
-      position: relative;
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-top: 8px;
-    }
-    .inspo img {
-      display: block;
-      width: 100%;
-      border-radius: var(--radius);
-    }
+    .inspo { position: relative; border-radius: var(--radius); overflow: hidden; margin-top: 8px; }
+    .inspo img { display: block; width: 100%; border-radius: var(--radius); }
     .inspo::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 50%;
-      background: linear-gradient(to top, rgba(241,245,249,0.95) 0%, transparent 100%);
-      pointer-events: none;
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 50%; background: linear-gradient(to top, rgba(241,245,249,0.95) 0%, transparent 100%); pointer-events: none;
     }
-    body.sat .inspo::after {
-      background: linear-gradient(to top, rgba(255,247,237,0.95) 0%, transparent 100%);
+    body.sat .inspo::after { background: linear-gradient(to top, rgba(255,247,237,0.95) 0%, transparent 100%); }
+    .inspo-text { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 0.85rem; font-weight: 600; color: var(--muted); letter-spacing: 0.3px; z-index: 1; }
+
+    /* ───── Responsive ───── */
+    @media(max-width:580px){
+      table { min-width: unset; font-size: 0.82rem; }
+      th, td { padding: 8px 8px; }
+      .note-cell { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .region-bars { grid-template-columns: 1fr; }
+      .equal-col { grid-template-columns: 1fr; }
     }
-    .inspo-text {
-      position: absolute;
-      bottom: 16px; left: 0; right: 0;
-      text-align: center;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--muted);
-      letter-spacing: 0.3px;
-      z-index: 1;
+
+    /* ───── Insight callout ───── */
+    .insight {
+      background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+      border: 1.5px solid #bfdbfe; border-radius: 12px;
+      padding: 14px 16px; margin-bottom: 14px; font-size: 0.88rem; line-height: 1.5;
+    }
+    .insight strong { color: var(--primary); }
+
+    /* ───── Legend pill ───── */
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* ───── Col hidden on mobile ───── */
+    @media(max-width:600px){
+      .col-avg, .col-delta, .col-bmc, .col-rmr { display: none; }
     }
   </style>
+<link rel="icon" type="image/png" href="iconrecomp.png">
 </head>
 <body>
 <canvas id="confetti"></canvas>
-
-<!-- Settings gear -->
 <button class="settings-toggle" onclick="toggleSettings()" title="Google Sheets settings">⚙</button>
-
-<!-- Settings overlay + panel -->
 <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
 <div class="settings-panel" id="settings-panel">
   <h3>Google Sheets Sync</h3>
   <label for="sheets-url">Apps Script Web App URL</label>
   <input type="text" id="sheets-url" placeholder="https://script.google.com/macros/s/..." />
-  <div class="hint">
-    Deploy the Apps Script in your Google Sheet and paste the URL here. See the setup guide for step-by-step instructions.
-  </div>
+  <div class="hint">Deploy the Apps Script in your Google Sheet and paste the URL here.</div>
   <div class="settings-actions">
     <button class="btn-outline" onclick="toggleSettings()">Cancel</button>
     <button class="btn" onclick="saveSettings()">Save &amp; Sync</button>
@@ -334,152 +368,1038 @@
 </div>
 
 <div class="wrap">
-
   <div id="sat-banner">🎉 Saturday! Treat day — you've earned every bite. Enjoy it! 🍦</div>
 
   <div class="header">
-    <h1>8-Week Cut</h1>
-    <div class="sub" id="sub-dates"></div>
+    <h1>Body Composition</h1>
+    <div class="sub">Ethan Mackay · 11 DEXA scans · July 2023 – present</div>
   </div>
 
-  <!-- Sync status -->
-  <div class="sync-bar" id="sync-bar" style="display:none">
-    <span class="sync-dot gray" id="sync-dot"></span>
-    <span class="sync-msg" id="sync-msg">Not connected to Google Sheets</span>
-    <button class="btn-sm btn-import" onclick="toggleSettings()" style="padding:5px 10px;font-size:0.78rem">Setup</button>
+  <!-- Tab Navigation -->
+  <div class="tabs">
+    <button class="tab tab-active" id="tab-dexa" onclick="switchTab('dexa')">📊 DEXA History</button>
+    <button class="tab" id="tab-timeline" onclick="switchTab('timeline')">📈 4-Year Timeline</button>
+    <button class="tab" id="tab-weight" onclick="switchTab('weight')">⚖️ Daily Weight</button>
+    <button class="tab" id="tab-nutrition" onclick="switchTab('nutrition')">🥗 Nutrition</button>
   </div>
 
-  <!-- Progress -->
-  <div class="card">
-    <div class="prog-row">
-      <span class="prog-label" id="week-label">Week 1 of 8</span>
-      <span class="prog-right" id="days-left"></span>
-    </div>
-    <div class="prog-track">
-      <div class="progress-fill" id="prog-fill" style="width:0%"></div>
-    </div>
-    <div class="week-ticks">
-      <span class="week-tick">W1</span><span class="week-tick">W2</span>
-      <span class="week-tick">W3</span><span class="week-tick">W4</span>
-      <span class="week-tick">W5</span><span class="week-tick">W6</span>
-      <span class="week-tick">W7</span><span class="week-tick">W8</span>
-    </div>
-  </div>
+  <!-- ════════════════════════════════════════════════
+       PANEL: DEXA History
+  ════════════════════════════════════════════════ -->
+  <div class="panel active" id="panel-dexa">
 
-  <!-- Stats -->
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-val stat-primary" id="s-avg">—</div>
-      <div class="stat-lbl">7-Day Avg</div>
-    </div>
-    <div class="stat">
-      <div class="stat-val" id="s-lost">—</div>
-      <div class="stat-lbl">Lost Since Day 1</div>
-    </div>
-    <div class="stat">
-      <div class="stat-val" id="s-proj">—</div>
-      <div class="stat-lbl">Projected Finish</div>
-    </div>
-  </div>
-
-  <!-- Two-col -->
-  <div class="two-col">
-    <!-- Log -->
-    <div class="card">
-      <h2 id="log-heading">Log Today</h2>
-      <div id="log-form">
-        <div class="fld">
-          <label for="w-input">Weight (lbs)</label>
-          <input type="number" id="w-input" step="0.1" min="100" max="400" placeholder="e.g. 190.8" />
-        </div>
-        <div class="fld">
-          <label for="n-input">Notes (optional)</label>
-          <textarea id="n-input" placeholder="How are you feeling? Slept well? Ate salty last night?"></textarea>
-        </div>
-        <button class="btn" onclick="logEntry()">Save Weight</button>
+    <!-- Top KPI cards -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-val clr-green" id="kpi-best-bf">14.3%</div>
+        <div class="stat-lbl">Best BF% Ever</div>
+        <div class="stat-sub">Nov 2023</div>
       </div>
-      <div class="logged-ok" id="logged-ok" style="display:none"></div>
-      <span class="edit-link" id="edit-link" style="display:none" onclick="showForm()">Edit today's entry</span>
+      <div class="stat">
+        <div class="stat-val clr-blue" id="kpi-peak-lean">155.2 lbs</div>
+        <div class="stat-lbl">Peak Lean Mass</div>
+        <div class="stat-sub">Mar – May 2024</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val clr-orange" id="kpi-current-bf">19.3%</div>
+        <div class="stat-lbl">Current BF%</div>
+        <div class="stat-sub">Mar 21, 2026</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val stat-primary">11</div>
+        <div class="stat-lbl">Scans Logged</div>
+        <div class="stat-sub">~5 mo avg interval</div>
+      </div>
     </div>
 
-    <!-- Chart -->
+    <!-- Insight callout -->
+    <div class="insight">
+      💡 <strong>Body recomp story:</strong> You hit peak lean mass of <strong>155.2 lbs</strong> in spring 2024, then lost ~9.4 lbs of muscle through late 2025 — likely from a deficit phase. Your current cut started from <strong>19.3% BF</strong> and <strong>145.8 lbs lean</strong>. Hitting &lt;15% again while protecting lean mass is the goal.
+    </div>
+
+    <!-- BF% Trend Chart -->
     <div class="card">
-      <h2>Weight Trend</h2>
-      <canvas id="chart" height="200"></canvas>
+      <div class="legend" style="margin-bottom:14px">
+        <span style="font-size:0.85rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Body Fat % Over Time</span>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>Body Fat %</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Lean Mass (lbs ÷ 10)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>Fat Mass (lbs ÷ 2)</div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-bf" height="220"></canvas></div>
     </div>
-  </div>
 
-  <!-- History -->
-  <div class="card">
-    <h2>Log History</h2>
-    <div class="history-wrap" id="history-wrap"></div>
-  </div>
+    <!-- VAT chart (full width) -->
+    <div class="card">
+      <h2>Visceral Fat (VAT) Over Time <span style="font-weight:400;font-size:0.8rem">— fat around organs; target is zero</span></h2>
+      <div class="chart-wrap"><canvas id="chart-rmr" height="160"></canvas></div>
+    </div>
 
-  <!-- Backup bar -->
-  <div class="backup-bar">
-    <span><strong>📦 Data backup</strong> — export a JSON snapshot anytime, or import one to restore.</span>
-    <button class="btn-sm btn-export" onclick="exportData()">⬇ Export backup</button>
-    <label class="btn-sm btn-import" style="cursor:pointer">
-      ⬆ Import backup
-      <input type="file" id="import-file" accept=".json" onchange="importData(event)" />
-    </label>
-  </div>
-  <div class="import-toast" id="import-toast"></div>
+    <!-- Latest Scan Deep Dive -->
+    <div class="card">
+      <div class="card-title-row">
+        <h2>Latest Scan — Mar 21, 2026 <span style="font-weight:400;font-size:0.85rem;color:var(--muted)">vs Jan 31, 2026</span></h2>
+        <span class="vat-badge vat-warn" id="vat-badge">VAT: 0.22 lbs</span>
+      </div>
 
+      <div style="display:flex;flex-direction:column;gap:20px;margin-bottom:0">
+        <!-- Regional Fat % comparison -->
+        <div>
+          <div style="font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Regional Fat %</div>
+          <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+            <thead>
+              <tr style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:.4px">
+                <th style="text-align:left;padding:3px 8px 5px 0;font-weight:600">Region</th>
+                <th style="text-align:right;padding:3px 8px 5px;font-weight:600">Jan 31</th>
+                <th style="text-align:right;padding:3px 8px 5px;font-weight:600">Mar 21</th>
+                <th style="text-align:right;padding:3px 0 5px 8px;font-weight:600">Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Arms</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">17.2%</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">18.0%</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#ef4444;font-weight:600;white-space:nowrap">▲ +0.8%</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Legs</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">19.5%</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">19.4%</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#22c55e;font-weight:600;white-space:nowrap">▼ −0.1%</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Trunk</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">17.8%</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">19.7%</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#ef4444;font-weight:600;white-space:nowrap">▲ +1.9%</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Android</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">15.3%</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">18.8%</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#ef4444;font-weight:600;white-space:nowrap">▲ +3.5%</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Gynoid</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">25.8%</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">25.6%</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#22c55e;font-weight:600;white-space:nowrap">▼ −0.2%</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:12px;font-size:0.78rem;color:var(--muted)">Bone Z-Score: <strong style="color:var(--blue)">2.1</strong> (~86th percentile) &nbsp;·&nbsp; A/G: <strong style="color:var(--text)">0.74</strong> <span style="color:var(--green)">✓ &lt;1.0</span></div>
+        </div>
 
+        <!-- Limb Lean Mass comparison -->
+        <div>
+          <div style="font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Limb Lean Mass</div>
+          <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+            <thead>
+              <tr style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:.4px">
+                <th style="text-align:left;padding:3px 8px 5px 0;font-weight:600">Limb</th>
+                <th style="text-align:right;padding:3px 8px 5px;font-weight:600">Jan 31</th>
+                <th style="text-align:right;padding:3px 8px 5px;font-weight:600">Mar 21</th>
+                <th style="text-align:right;padding:3px 0 5px 8px;font-weight:600">Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Right arm</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">9.2 lbs</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">9.2 lbs</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:var(--muted);font-weight:600;white-space:nowrap">— 0.0</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Left arm</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">10.0 lbs</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">10.6 lbs</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#22c55e;font-weight:600;white-space:nowrap">▲ +0.6</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Right leg</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">25.3 lbs</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">25.6 lbs</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#22c55e;font-weight:600;white-space:nowrap">▲ +0.3</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:5px 8px 5px 0;color:var(--text)">Left leg</td>
+                <td style="text-align:right;padding:5px 8px;color:var(--muted)">24.7 lbs</td>
+                <td style="text-align:right;padding:5px 8px;font-weight:600">24.8 lbs</td>
+                <td style="text-align:right;padding:5px 0 5px 8px;color:#22c55e;font-weight:600;white-space:nowrap">▲ +0.1</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:12px;padding:10px;background:#fef9c3;border-radius:8px;font-size:0.78rem;color:#92400e">
+            ⚠️ Left arm carries <strong>1.4 lbs more lean mass</strong> than right arm — worth noting for training symmetry.
+          </div>
+        </div>
+      </div>
+    </div>
 
-  <!-- Inspiration -->
-  <div class="inspo">
-    <img src="10256345_1003947152951883_5404304817066547595_o.webp" alt="Beach" />
-    <div class="inspo-text">Eyes on the prize.</div>
-  </div>
+    <!-- Full DEXA scan history table -->
+    <div class="card">
+      <h2>All Scan History</h2>
+      <div class="history-wrap">
+        <table id="dexa-table">
+          <thead><tr>
+            <th>Date</th>
+            <th>BF%</th>
+            <th>Total Mass</th>
+            <th>Lean Mass</th>
+            <th>Fat Mass</th>
+            <th class="col-bmc">BMC</th>
+            <th class="col-rmr">RMR</th>
+            <th>A/G</th>
+          </tr></thead>
+          <tbody id="dexa-tbody"></tbody>
+        </table>
+      </div>
+    </div>
 
-</div>
+  </div><!-- /panel-dexa -->
+
+  <!-- ════════════════════════════════════════════════
+       PANEL: 4-Year Timeline
+  ════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-timeline">
+
+    <!-- Top KPI cards -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-val clr-green">176.0 lbs</div>
+        <div class="stat-lbl">Scale All-Time Low</div>
+        <div class="stat-sub">Sep 2022</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val clr-red">194.4 lbs</div>
+        <div class="stat-lbl">Scale All-Time High</div>
+        <div class="stat-sub">Dec 2024 / Jan 2025</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val clr-orange">+1.9 lbs</div>
+        <div class="stat-lbl">Avg Cheat Day Spike</div>
+        <div class="stat-sub">next morning vs. prior</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val stat-primary">−2.5 lbs</div>
+        <div class="stat-lbl">Scale vs DEXA Offset</div>
+        <div class="stat-sub">scale reads lighter on avg</div>
+      </div>
+    </div>
+
+    <!-- Callout insights -->
+    <div class="insight">
+      🎯 <strong>Slow carb worked fast:</strong> Starting July 16, 2023, the scale dropped from ~190 → 182.6 in just 8 weeks. DEXA confirmed: BF went from 18.3% → 15.5% (−5.1 lbs fat). A textbook cut.
+    </div>
+    <div class="insight" style="background:linear-gradient(135deg,#fff7ed,#fee2e2);border-color:#fca5a5">
+      🍪 <strong>Holiday 2025 was brutal:</strong> Dec 25–29 binge added <strong>+10.4 lbs on the scale</strong> (180 → 190.2). The March 14 butter &amp; crumble haul spiked <strong>+6 lbs overnight</strong> — the biggest single-day gain in 4 years of data.
+    </div>
+    <div class="insight" style="background:linear-gradient(135deg,#f5f3ff,#eff6ff);border-color:#c4b5fd">
+      📉 <strong>The mystery gap:</strong> No scale data from Feb 17 – Dec 29, 2024 (316 days). When the scale reappeared you were at 194.4 lbs — your heaviest ever. DEXA data from that window shows lean mass peaked at 155.2 lbs (Mar–May '24) then declined.
+    </div>
+
+    <!-- Main 4-year chart -->
+    <div class="card">
+      <div class="card-title-row">
+        <h2>Scale Weight — July 2022 to Present (743 readings)</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:0.75rem;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="toggle-cheat" checked onchange="drawTimeline()"> Cheat days
+          </label>
+          <label style="font-size:0.75rem;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="toggle-dexa-pts" checked onchange="drawTimeline()"> DEXA scans
+          </label>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#94a3b8"></div>Daily scale</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>30-day avg</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316;width:12px;height:12px;border-radius:3px"></div>DEXA scan</div>
+        <div class="legend-item"><div style="width:12px;height:2px;background:#f43f5e;display:inline-block;margin-right:2px"></div>Cheat day</div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-timeline" height="260"></canvas></div>
+    </div>
+
+    <!-- Cheat day impact analysis -->
+    <div class="two-col equal-col">
+      <div class="card">
+        <h2>Cheat Day Spike Distribution</h2>
+        <div class="chart-wrap"><canvas id="chart-cheat-dist" height="200"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Scale vs DEXA — Same-Day Weight</h2>
+        <div class="chart-wrap"><canvas id="chart-calibration" height="200"></canvas></div>
+        <div style="margin-top:10px;font-size:0.8rem;color:var(--muted);line-height:1.5">
+          On 8 of 11 DEXA scan days the scale was also taken. DEXA consistently reads heavier — avg gap is <strong style="color:var(--text)">−2.5 lbs</strong>. If you weigh yourself on the scale, add ~2–3 lbs for a DEXA-equivalent estimate.
+        </div>
+      </div>
+    </div>
+
+    <!-- Cheat day breakdown table -->
+    <div class="card">
+      <h2>Logged Cheat Days — Weight Impact</h2>
+      <div class="history-wrap">
+        <table>
+          <thead><tr>
+            <th>Date</th><th>What</th><th>Wt Before</th><th>Wt After</th><th>Spike</th><th>Days to Recover</th>
+          </tr></thead>
+          <tbody id="cheat-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /panel-timeline -->
+
+  <!-- ════════════════════════════════════════════════
+       PANEL: Daily Weight
+  ════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-weight">
+
+    <!-- Sync status -->
+    <div class="sync-bar" id="sync-bar" style="display:none">
+      <span class="sync-dot gray" id="sync-dot"></span>
+      <span class="sync-msg" id="sync-msg">Not connected to Google Sheets</span>
+      <button class="btn-sm btn-import" onclick="toggleSettings()" style="padding:5px 10px;font-size:0.78rem">Setup</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="card">
+      <div class="prog-row">
+        <span class="prog-label" id="week-label">Week 1 of 8</span>
+        <span class="prog-right" id="days-left"></span>
+      </div>
+      <div class="prog-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="week-ticks">
+        <span class="week-tick">W1</span><span class="week-tick">W2</span>
+        <span class="week-tick">W3</span><span class="week-tick">W4</span>
+        <span class="week-tick">W5</span><span class="week-tick">W6</span>
+        <span class="week-tick">W7</span><span class="week-tick">W8</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats stats-3">
+      <div class="stat">
+        <div class="stat-val stat-primary" id="s-avg">—</div>
+        <div class="stat-lbl">7-Day Avg</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="s-lost">—</div>
+        <div class="stat-lbl">Lost Since Day 1</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="s-proj">—</div>
+        <div class="stat-lbl">Projected Finish</div>
+      </div>
+    </div>
+
+    <!-- Two-col -->
+    <div class="two-col">
+      <div class="card">
+        <h2 id="log-heading">Log Today</h2>
+        <div id="log-form">
+          <div class="fld">
+            <label for="w-input">Weight (lbs)</label>
+            <input type="number" id="w-input" step="0.1" min="100" max="400" placeholder="e.g. 190.8" />
+          </div>
+          <div class="fld">
+            <label for="n-input">Notes (optional)</label>
+            <textarea id="n-input" placeholder="How are you feeling? Slept well? Ate salty last night?"></textarea>
+          </div>
+          <button class="btn" onclick="logEntry()">Save Weight</button>
+        </div>
+        <div class="logged-ok" id="logged-ok" style="display:none"></div>
+        <span class="edit-link" id="edit-link" style="display:none" onclick="showForm()">Edit today's entry</span>
+      </div>
+
+      <div class="card">
+        <h2>Weight Trend</h2>
+        <canvas id="chart-weight" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="card">
+      <h2>Log History</h2>
+      <div class="history-wrap" id="history-wrap"></div>
+    </div>
+
+    <!-- Backup bar -->
+    <div class="backup-bar">
+      <span><strong>📦 Data backup</strong> — export a JSON snapshot anytime, or import one to restore.</span>
+      <button class="btn-sm btn-export" onclick="exportData()">⬇ Export backup</button>
+      <label class="btn-sm btn-import" style="cursor:pointer">
+        ⬆ Import backup
+        <input type="file" id="import-file" accept=".json" onchange="importData(event)" />
+      </label>
+    </div>
+
+    <!-- Inspiration -->
+    <div class="inspo">
+      <img src="10256345_1003947152951883_5404304817066547595_o.webp" alt="Beach" />
+      <div class="inspo-text">Eyes on the prize.</div>
+    </div>
+
+  </div><!-- /panel-weight -->
+
+  <!-- ═══════════════════════ NUTRITION TAB ════════════════════════════════ -->
+  <div class="panel" id="panel-nutrition">
+
+    <!-- Stat cards -->
+    <div class="three-col" style="margin-bottom:0">
+      <div class="card" style="text-align:center;padding:18px 12px">
+        <div style="font-size:2rem;font-weight:700;color:var(--blue)">197</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">days tracked</div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:2px">May 2024 – Oct 2025</div>
+      </div>
+      <div class="card" style="text-align:center;padding:18px 12px">
+        <div style="font-size:2rem;font-weight:700;color:var(--purple)">2,568</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">avg calories / day</div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:2px">range: 593 – 3,730</div>
+      </div>
+      <div class="card" style="text-align:center;padding:18px 12px">
+        <div style="font-size:2rem;font-weight:700;color:var(--green)">237g</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:4px">avg protein / day</div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:2px">98% of days hit 200g+</div>
+      </div>
+    </div>
+
+    <!-- Macro split + Period comparison -->
+    <div class="two-col" style="margin-bottom:0">
+      <div class="card">
+        <h2>Macro Split <span style="font-weight:400;font-size:0.8rem">— avg % of daily calories</span></h2>
+        <div class="chart-wrap" style="max-width:280px;margin:0 auto"><canvas id="chart-macro-donut" height="200"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Tracking Periods Compared</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:0.83rem;margin-top:4px">
+          <thead>
+            <tr style="color:var(--muted);font-size:0.73rem;text-transform:uppercase;letter-spacing:.4px">
+              <th style="text-align:left;padding:4px 8px 6px 0;font-weight:600">Metric</th>
+              <th style="text-align:right;padding:4px 8px 6px;font-weight:600">May–Aug '24</th>
+              <th style="text-align:right;padding:4px 0 6px 8px;font-weight:600">Jun–Oct '25</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:6px 8px 6px 0;color:var(--muted)">Days tracked</td>
+              <td style="text-align:right;padding:6px 8px;font-weight:600">79</td>
+              <td style="text-align:right;padding:6px 0 6px 8px;font-weight:600">118</td>
+            </tr>
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:6px 8px 6px 0;color:var(--muted)">Avg calories</td>
+              <td style="text-align:right;padding:6px 8px;font-weight:600">2,817</td>
+              <td style="text-align:right;padding:6px 0 6px 8px;font-weight:600">2,401</td>
+            </tr>
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:6px 8px 6px 0;color:var(--muted)">Avg protein</td>
+              <td style="text-align:right;padding:6px 8px;font-weight:600">241g</td>
+              <td style="text-align:right;padding:6px 0 6px 8px;font-weight:600">235g</td>
+            </tr>
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:6px 8px 6px 0;color:var(--muted)">Avg fat</td>
+              <td style="text-align:right;padding:6px 8px;font-weight:600">95g</td>
+              <td style="text-align:right;padding:6px 0 6px 8px;font-weight:600">69g</td>
+            </tr>
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:6px 8px 6px 0;color:var(--muted)">DEXA result</td>
+              <td style="text-align:right;padding:6px 8px;font-weight:600;color:var(--green)">14.7% BF ✓</td>
+              <td style="text-align:right;padding:6px 0 6px 8px;font-weight:600;color:var(--muted)">no scan</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:12px;padding:10px;background:rgba(99,102,241,0.08);border-radius:8px;font-size:0.78rem;color:var(--muted)">
+          💡 Your best body fat scan (14.7%) came after the 2024 phase — higher calories, similar protein, more fat in the diet.
+        </div>
+      </div>
+    </div>
+
+    <!-- Calorie + Protein timeline -->
+    <div class="card">
+      <h2>Daily Calories &amp; Protein Over Time</h2>
+      <div class="chart-wrap"><canvas id="chart-macro-timeline" height="180"></canvas></div>
+    </div>
+
+    <!-- Day of week + Top foods -->
+    <div class="two-col" style="margin-bottom:0">
+      <div class="card">
+        <h2>Calories by Day of Week</h2>
+        <div class="chart-wrap"><canvas id="chart-dow" height="200"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Most Logged Foods <span style="font-weight:400;font-size:0.8rem">— top 10 by frequency</span></h2>
+        <div class="chart-wrap"><canvas id="chart-top-foods" height="200"></canvas></div>
+      </div>
+    </div>
+
+  </div><!-- /panel-nutrition -->
+
+</div><!-- /wrap -->
+<div class="import-toast" id="import-toast"></div>
 
 <script>
-// ─── Config ────────────────────────────────────────────────────────────────
+// ─── DEXA Scan Data (extracted from 11 BodySpec PDFs) ────────────────────────
+const DEXA_SCANS = [
+  { date:'2023-07-15', fat_pct:18.3, total_mass:191.1, fat_tissue:34.9, lean_tissue:148.2, bmc:8.0, rmr:1809, vat_mass:0.59, vat_vol:17.26, android_pct:20.4, gynoid_pct:21.7, ag_ratio:0.94, bone_z:2.7,
+    regional:{Arms:{fat_pct:14.5,fat_tissue:3.7,lean_tissue:20.6},Legs:{fat_pct:16.5,fat_tissue:10.6,lean_tissue:50.6},Trunk:{fat_pct:20.6,fat_tissue:18.3,lean_tissue:68.5},Android:{fat_pct:20.4},Gynoid:{fat_pct:21.7}},
+    muscle:{right_arm_lean:10.3,left_arm_lean:10.3,right_leg_lean:25.5,left_leg_lean:25.1} },
+  { date:'2023-09-09', fat_pct:15.5, total_mass:185.9, fat_tissue:28.8, lean_tissue:149.1, bmc:8.0, rmr:1817, vat_mass:0.01, vat_vol:0.28, android_pct:13.9, gynoid_pct:19.2, ag_ratio:0.72, bone_z:2.3,
+    regional:{Arms:{fat_pct:13.7,fat_tissue:3.4,lean_tissue:19.7},Legs:{fat_pct:15.5,fat_tissue:9.9,lean_tissue:51.2},Trunk:{fat_pct:15.5,fat_tissue:13.2,lean_tissue:69.8},Android:{fat_pct:13.9},Gynoid:{fat_pct:19.2}},
+    muscle:{right_arm_lean:9.8,left_arm_lean:9.9,right_leg_lean:25.8,left_leg_lean:25.3} },
+  { date:'2023-11-18', fat_pct:14.3, total_mass:188.1, fat_tissue:26.9, lean_tissue:153.1, bmc:8.1, rmr:1853, vat_mass:0.0, vat_vol:0.0, android_pct:11.1, gynoid_pct:18.7, ag_ratio:0.59, bone_z:2.5,
+    regional:{Arms:{fat_pct:12.4,fat_tissue:2.9,lean_tissue:19.6},Legs:{fat_pct:14.9,fat_tissue:9.5,lean_tissue:51.1},Trunk:{fat_pct:13.8,fat_tissue:12.2,lean_tissue:73.8},Android:{fat_pct:11.1},Gynoid:{fat_pct:18.7}},
+    muscle:{right_arm_lean:9.9,left_arm_lean:9.7,right_leg_lean:25.1,left_leg_lean:26.0} },
+  { date:'2024-01-18', fat_pct:17.2, total_mass:194.1, fat_tissue:33.4, lean_tissue:152.6, bmc:8.2, rmr:1849, vat_mass:0.13, vat_vol:3.93, android_pct:17.2, gynoid_pct:20.8, ag_ratio:0.83, bone_z:2.9,
+    regional:{Arms:{fat_pct:14.4,fat_tissue:3.8,lean_tissue:21.0},Legs:{fat_pct:16.9,fat_tissue:11.4,lean_tissue:52.9},Trunk:{fat_pct:18.1,fat_tissue:15.9,lean_tissue:70.0},Android:{fat_pct:17.2},Gynoid:{fat_pct:20.8}},
+    muscle:{right_arm_lean:10.4,left_arm_lean:10.6,right_leg_lean:26.5,left_leg_lean:26.4} },
+  { date:'2024-03-16', fat_pct:15.5, total_mass:193.3, fat_tissue:30.0, lean_tissue:155.2, bmc:8.1, rmr:1873, vat_mass:0.38, vat_vol:11.17, android_pct:15.1, gynoid_pct:18.7, ag_ratio:0.81, bone_z:2.6,
+    regional:{Arms:{fat_pct:13.6,fat_tissue:3.6,lean_tissue:21.3},Legs:{fat_pct:15.2,fat_tissue:10.0,lean_tissue:52.4},Trunk:{fat_pct:15.9,fat_tissue:14.2,lean_tissue:73.0},Android:{fat_pct:15.1},Gynoid:{fat_pct:18.7}},
+    muscle:{right_arm_lean:10.6,left_arm_lean:10.6,right_leg_lean:26.5,left_leg_lean:25.9} },
+  { date:'2024-05-11', fat_pct:15.5, total_mass:193.2, fat_tissue:29.9, lean_tissue:155.2, bmc:8.1, rmr:1873, vat_mass:0.3, vat_vol:8.79, android_pct:14.7, gynoid_pct:18.2, ag_ratio:0.80, bone_z:2.9,
+    regional:{Arms:{fat_pct:13.8,fat_tissue:3.6,lean_tissue:21.2},Legs:{fat_pct:15.2,fat_tissue:10.1,lean_tissue:53.1},Trunk:{fat_pct:15.7,fat_tissue:13.9,lean_tissue:72.4},Android:{fat_pct:14.7},Gynoid:{fat_pct:18.2}},
+    muscle:{right_arm_lean:10.6,left_arm_lean:10.7,right_leg_lean:26.4,left_leg_lean:26.6} },
+  { date:'2024-06-20', fat_pct:14.7, total_mass:187.8, fat_tissue:27.6, lean_tissue:152.3, bmc:8.0, rmr:1845, vat_mass:0.0, vat_vol:0.0, android_pct:12.3, gynoid_pct:18.0, ag_ratio:0.69, bone_z:2.6,
+    regional:{Arms:{fat_pct:12.8,fat_tissue:3.1,lean_tissue:20.0},Legs:{fat_pct:15.0,fat_tissue:10.1,lean_tissue:54.0},Trunk:{fat_pct:14.4,fat_tissue:12.1,lean_tissue:69.9},Android:{fat_pct:12.3},Gynoid:{fat_pct:18.0}},
+    muscle:{right_arm_lean:10.3,left_arm_lean:9.7,right_leg_lean:27.5,left_leg_lean:26.5} },
+  { date:'2025-11-29', fat_pct:17.7, total_mass:184.0, fat_tissue:32.6, lean_tissue:143.6, bmc:7.9, rmr:1767, vat_mass:0.0, vat_vol:0.0, android_pct:16.5, gynoid_pct:22.8, ag_ratio:0.72, bone_z:2.5,
+    regional:{Arms:{fat_pct:16.5,fat_tissue:4.1,lean_tissue:19.5},Legs:{fat_pct:18.2,fat_tissue:11.7,lean_tissue:49.7},Trunk:{fat_pct:17.5,fat_tissue:14.4,lean_tissue:65.9},Android:{fat_pct:16.5},Gynoid:{fat_pct:22.8}},
+    muscle:{right_arm_lean:9.5,left_arm_lean:10.0,right_leg_lean:25.1,left_leg_lean:24.6} },
+  { date:'2025-12-20', fat_pct:17.1, total_mass:181.7, fat_tissue:31.1, lean_tissue:142.8, bmc:7.8, rmr:1769, vat_mass:0.01, vat_vol:0.37, android_pct:15.3, gynoid_pct:22.9, ag_ratio:0.67, bone_z:2.4,
+    regional:{Arms:{fat_pct:15.2,fat_tissue:3.7,lean_tissue:19.5},Legs:{fat_pct:16.8,fat_tissue:10.8,lean_tissue:50.7},Trunk:{fat_pct:16.4,fat_tissue:13.2,lean_tissue:65.2},Android:{fat_pct:15.3},Gynoid:{fat_pct:22.9}},
+    muscle:{right_arm_lean:9.4,left_arm_lean:10.1,right_leg_lean:25.8,left_leg_lean:25.0} },
+  { date:'2026-01-31', fat_pct:18.4, total_mass:181.5, fat_tissue:33.4, lean_tissue:140.4, bmc:7.7, rmr:1736, vat_mass:0.0, vat_vol:0.0, android_pct:15.3, gynoid_pct:25.8, ag_ratio:0.60, bone_z:2.3,
+    regional:{Arms:{fat_pct:17.2,fat_tissue:4.2,lean_tissue:19.2},Legs:{fat_pct:19.5,fat_tissue:12.9,lean_tissue:50.1},Trunk:{fat_pct:17.8,fat_tissue:14.0,lean_tissue:62.6},Android:{fat_pct:15.3},Gynoid:{fat_pct:25.8}},
+    muscle:{right_arm_lean:9.2,left_arm_lean:10.0,right_leg_lean:25.3,left_leg_lean:24.7} },
+  { date:'2026-03-21', fat_pct:19.3, total_mass:190.2, fat_tissue:36.7, lean_tissue:145.8, bmc:7.7, rmr:1785, vat_mass:0.22, vat_vol:6.38, android_pct:18.8, gynoid_pct:25.6, ag_ratio:0.74, bone_z:2.1,
+    regional:{Arms:{fat_pct:18.0,fat_tissue:4.6,lean_tissue:19.8},Legs:{fat_pct:19.4,fat_tissue:12.8,lean_tissue:50.4},Trunk:{fat_pct:19.7,fat_tissue:16.9,lean_tissue:67.0},Android:{fat_pct:18.8},Gynoid:{fat_pct:25.6}},
+    muscle:{right_arm_lean:9.2,left_arm_lean:10.6,right_leg_lean:25.6,left_leg_lean:24.8} }
+];
+
+// ─── Scale Data (743 daily readings, Jul 2022 – Mar 2026) ───────────────────
+const SCALE_DATA = [{"d":"2022-07-29","w":180.2},{"d":"2022-07-30","w":180.2},{"d":"2022-07-31","w":180.8},{"d":"2022-08-01","w":179.6},{"d":"2022-08-02","w":179.8},{"d":"2022-08-03","w":179.2},{"d":"2022-08-08","w":180.2},{"d":"2022-08-09","w":181.2},{"d":"2022-08-10","w":181.2},{"d":"2022-08-11","w":179.2},{"d":"2022-08-12","w":178.8},{"d":"2022-08-13","w":178.2},{"d":"2022-08-14","w":178.2},{"d":"2022-08-15","w":178.4},{"d":"2022-08-16","w":178.0},{"d":"2022-08-17","w":177.2},{"d":"2022-08-18","w":178.0},{"d":"2022-08-19","w":177.0},{"d":"2022-08-20","w":177.6},{"d":"2022-08-21","w":178.0},{"d":"2022-08-22","w":178.4},{"d":"2022-08-23","w":177.4},{"d":"2022-08-24","w":177.0},{"d":"2022-08-25","w":176.8},{"d":"2022-08-26","w":177.6},{"d":"2022-08-27","w":176.8},{"d":"2022-08-29","w":177.2},{"d":"2022-08-31","w":177.0},{"d":"2022-09-02","w":177.2},{"d":"2022-09-03","w":178.2},{"d":"2022-09-04","w":178.0},{"d":"2022-09-05","w":177.4},{"d":"2022-09-06","w":176.8},{"d":"2022-09-07","w":177.2},{"d":"2022-09-08","w":177.4},{"d":"2022-09-09","w":177.0},{"d":"2022-09-10","w":178.0},{"d":"2022-09-11","w":177.0},{"d":"2022-09-13","w":177.6},{"d":"2022-09-14","w":176.6},{"d":"2022-09-15","w":177.2},{"d":"2022-09-16","w":177.0},{"d":"2022-09-17","w":177.2},{"d":"2022-09-18","w":177.0},{"d":"2022-09-19","w":176.6},{"d":"2022-09-20","w":176.0},{"d":"2022-09-21","w":176.2},{"d":"2022-09-22","w":176.0},{"d":"2022-09-23","w":176.2},{"d":"2022-09-25","w":178.2},{"d":"2022-09-26","w":179.0},{"d":"2022-09-27","w":178.6},{"d":"2022-09-28","w":177.6},{"d":"2022-09-29","w":177.0},{"d":"2022-09-30","w":177.2},{"d":"2022-10-01","w":177.8},{"d":"2022-10-03","w":178.2},{"d":"2022-10-04","w":176.2},{"d":"2022-10-05","w":176.0},{"d":"2022-10-06","w":177.6},{"d":"2022-10-07","w":176.8},{"d":"2022-10-10","w":177.4},{"d":"2022-10-11","w":177.0},{"d":"2022-10-12","w":176.4},{"d":"2022-10-13","w":177.6},{"d":"2022-10-18","w":177.4},{"d":"2022-10-19","w":177.6},{"d":"2022-10-20","w":179.2},{"d":"2022-10-21","w":178.8},{"d":"2022-10-22","w":179.4},{"d":"2022-10-24","w":178.2},{"d":"2022-10-25","w":178.0},{"d":"2022-10-26","w":177.4},{"d":"2022-10-27","w":176.6},{"d":"2022-10-28","w":177.6},{"d":"2022-10-29","w":177.0},{"d":"2022-10-31","w":178.0},{"d":"2022-11-01","w":177.6},{"d":"2022-11-02","w":177.6},{"d":"2022-11-03","w":178.0},{"d":"2022-11-04","w":177.4},{"d":"2022-11-05","w":177.6},{"d":"2022-11-06","w":177.6},{"d":"2022-11-07","w":177.0},{"d":"2022-11-08","w":177.6},{"d":"2022-11-09","w":177.4},{"d":"2022-11-10","w":177.6},{"d":"2022-11-11","w":177.4},{"d":"2022-11-12","w":178.6},{"d":"2022-11-14","w":179.2},{"d":"2022-11-15","w":178.0},{"d":"2022-11-16","w":178.0},{"d":"2022-11-17","w":178.2},{"d":"2022-11-18","w":178.2},{"d":"2022-11-19","w":178.4},{"d":"2022-11-20","w":179.0},{"d":"2022-11-21","w":178.8},{"d":"2022-11-22","w":178.2},{"d":"2022-11-28","w":180.4},{"d":"2022-11-29","w":179.8},{"d":"2022-11-30","w":179.8},{"d":"2022-12-01","w":179.6},{"d":"2022-12-02","w":179.4},{"d":"2022-12-03","w":178.6},{"d":"2022-12-05","w":179.2},{"d":"2022-12-06","w":179.2},{"d":"2022-12-07","w":178.4},{"d":"2022-12-08","w":179.0},{"d":"2022-12-09","w":178.6},{"d":"2022-12-10","w":178.8},{"d":"2022-12-12","w":181.0},{"d":"2022-12-14","w":180.8},{"d":"2022-12-16","w":180.6},{"d":"2022-12-17","w":180.4},{"d":"2022-12-19","w":182.2},{"d":"2022-12-20","w":182.8},{"d":"2022-12-21","w":182.4},{"d":"2023-01-01","w":178.4},{"d":"2023-01-02","w":179.8},{"d":"2023-01-03","w":179.2},{"d":"2023-01-05","w":179.0},{"d":"2023-01-06","w":179.8},{"d":"2023-01-07","w":180.8},{"d":"2023-01-09","w":182.0},{"d":"2023-02-13","w":179.8},{"d":"2023-02-14","w":178.4},{"d":"2023-02-15","w":179.6},{"d":"2023-02-16","w":179.8},{"d":"2023-02-27","w":181.2},{"d":"2023-03-02","w":180.2},{"d":"2023-03-28","w":183.4},{"d":"2023-05-01","w":186.0},{"d":"2023-05-02","w":186.2},{"d":"2023-05-03","w":186.2},{"d":"2023-05-04","w":187.0},{"d":"2023-05-10","w":187.2},{"d":"2023-05-12","w":187.8},{"d":"2023-05-17","w":186.8},{"d":"2023-05-18","w":186.6},{"d":"2023-05-19","w":186.0},{"d":"2023-05-23","w":186.2},{"d":"2023-05-24","w":186.2},{"d":"2023-05-26","w":187.4},{"d":"2023-05-27","w":187.0},{"d":"2023-05-29","w":188.2},{"d":"2023-05-30","w":187.0},{"d":"2023-05-31","w":187.2},{"d":"2023-06-01","w":187.0},{"d":"2023-06-02","w":188.0},{"d":"2023-06-03","w":187.8},{"d":"2023-06-05","w":187.0},{"d":"2023-06-06","w":186.2},{"d":"2023-06-07","w":187.4},{"d":"2023-06-28","w":190.0},{"d":"2023-06-29","w":189.2},{"d":"2023-06-30","w":189.0},{"d":"2023-07-02","w":188.4},{"d":"2023-07-03","w":189.0},{"d":"2023-07-04","w":188.4},{"d":"2023-07-05","w":188.4},{"d":"2023-07-06","w":188.2},{"d":"2023-07-07","w":188.6},{"d":"2023-07-09","w":189.4},{"d":"2023-07-10","w":190.4},{"d":"2023-07-11","w":189.6},{"d":"2023-07-12","w":188.8},{"d":"2023-07-13","w":189.4},{"d":"2023-07-14","w":189.0},{"d":"2023-07-15","w":189.4},{"d":"2023-07-16","w":189.8},{"d":"2023-07-17","w":188.2},{"d":"2023-07-18","w":187.4},{"d":"2023-07-19","w":186.2},{"d":"2023-07-20","w":187.0},{"d":"2023-07-21","w":186.2},{"d":"2023-07-22","w":187.0},{"d":"2023-07-23","w":189.0},{"d":"2023-07-24","w":188.2},{"d":"2023-07-25","w":187.4},{"d":"2023-07-26","w":187.2},{"d":"2023-07-27","w":185.8},{"d":"2023-07-28","w":186.4},{"d":"2023-07-29","w":186.4},{"d":"2023-07-30","w":187.8},{"d":"2023-07-31","w":187.2},{"d":"2023-08-01","w":186.8},{"d":"2023-08-02","w":186.4},{"d":"2023-08-03","w":186.2},{"d":"2023-08-04","w":185.2},{"d":"2023-08-05","w":185.6},{"d":"2023-08-06","w":187.8},{"d":"2023-08-07","w":186.6},{"d":"2023-08-08","w":185.4},{"d":"2023-08-09","w":186.0},{"d":"2023-08-10","w":185.6},{"d":"2023-08-11","w":184.6},{"d":"2023-08-12","w":184.4},{"d":"2023-08-13","w":185.8},{"d":"2023-08-14","w":185.6},{"d":"2023-08-15","w":184.6},{"d":"2023-08-16","w":184.2},{"d":"2023-08-17","w":184.8},{"d":"2023-08-18","w":185.6},{"d":"2023-08-19","w":184.4},{"d":"2023-08-20","w":186.8},{"d":"2023-08-21","w":185.4},{"d":"2023-08-22","w":185.0},{"d":"2023-08-23","w":185.0},{"d":"2023-08-24","w":184.6},{"d":"2023-08-25","w":184.8},{"d":"2023-08-26","w":184.8},{"d":"2023-08-27","w":186.4},{"d":"2023-08-28","w":184.0},{"d":"2023-08-29","w":186.2},{"d":"2023-08-30","w":183.0},{"d":"2023-08-31","w":183.6},{"d":"2023-09-01","w":184.0},{"d":"2023-09-02","w":183.6},{"d":"2023-09-03","w":185.6},{"d":"2023-09-04","w":184.8},{"d":"2023-09-05","w":184.8},{"d":"2023-09-06","w":183.0},{"d":"2023-09-07","w":183.4},{"d":"2023-09-08","w":182.6},{"d":"2023-09-09","w":182.6},{"d":"2023-09-10","w":182.8},{"d":"2023-09-11","w":184.0},{"d":"2023-09-12","w":183.8},{"d":"2023-09-13","w":183.0},{"d":"2023-09-14","w":182.6},{"d":"2023-09-20","w":189.0},{"d":"2023-09-21","w":185.8},{"d":"2023-09-22","w":186.8},{"d":"2023-09-23","w":185.6},{"d":"2023-09-24","w":185.8},{"d":"2023-09-25","w":184.8},{"d":"2023-09-26","w":183.8},{"d":"2023-09-27","w":183.0},{"d":"2023-09-28","w":182.8},{"d":"2023-09-29","w":182.8},{"d":"2023-09-30","w":182.8},{"d":"2023-10-01","w":184.4},{"d":"2023-10-02","w":183.8},{"d":"2023-10-03","w":183.8},{"d":"2023-10-04","w":183.0},{"d":"2023-10-05","w":182.8},{"d":"2023-10-06","w":183.0},{"d":"2023-10-07","w":182.8},{"d":"2023-10-08","w":185.0},{"d":"2023-10-09","w":182.4},{"d":"2023-10-10","w":182.6},{"d":"2023-10-11","w":182.6},{"d":"2023-10-12","w":181.4},{"d":"2023-10-13","w":181.8},{"d":"2023-10-14","w":183.4},{"d":"2023-10-15","w":184.4},{"d":"2023-10-16","w":182.2},{"d":"2023-10-17","w":181.4},{"d":"2023-10-18","w":181.4},{"d":"2023-10-19","w":180.8},{"d":"2023-10-20","w":181.4},{"d":"2023-10-21","w":181.6},{"d":"2023-10-22","w":185.8},{"d":"2023-10-23","w":184.0},{"d":"2023-10-24","w":183.6},{"d":"2023-10-25","w":183.0},{"d":"2023-10-26","w":182.0},{"d":"2023-10-27","w":182.4},{"d":"2023-10-28","w":181.6},{"d":"2023-10-29","w":183.0},{"d":"2023-10-30","w":182.6},{"d":"2023-10-31","w":181.6},{"d":"2023-11-01","w":182.8},{"d":"2023-11-02","w":182.4},{"d":"2023-11-03","w":182.4},{"d":"2023-11-04","w":182.2},{"d":"2023-11-05","w":184.6},{"d":"2023-11-06","w":183.0},{"d":"2023-11-07","w":181.8},{"d":"2023-11-08","w":182.4},{"d":"2023-11-09","w":182.0},{"d":"2023-11-10","w":181.8},{"d":"2023-11-11","w":181.2},{"d":"2023-11-12","w":184.0},{"d":"2023-11-13","w":184.4},{"d":"2023-11-14","w":183.8},{"d":"2023-11-15","w":183.6},{"d":"2023-11-16","w":182.6},{"d":"2023-11-17","w":183.4},{"d":"2023-11-18","w":183.6},{"d":"2023-12-03","w":188.2},{"d":"2023-12-04","w":186.8},{"d":"2023-12-05","w":187.2},{"d":"2023-12-06","w":187.2},{"d":"2023-12-07","w":187.0},{"d":"2023-12-08","w":186.6},{"d":"2023-12-09","w":186.2},{"d":"2023-12-10","w":189.0},{"d":"2023-12-11","w":188.8},{"d":"2023-12-12","w":188.4},{"d":"2023-12-13","w":188.2},{"d":"2023-12-14","w":187.8},{"d":"2023-12-15","w":187.6},{"d":"2023-12-16","w":187.2},{"d":"2023-12-17","w":189.2},{"d":"2023-12-18","w":187.2},{"d":"2023-12-19","w":187.0},{"d":"2023-12-20","w":186.2},{"d":"2023-12-21","w":186.6},{"d":"2023-12-22","w":187.0},{"d":"2023-12-23","w":186.2},{"d":"2023-12-24","w":185.6},{"d":"2023-12-25","w":186.8},{"d":"2023-12-27","w":188.2},{"d":"2023-12-28","w":187.8},{"d":"2023-12-29","w":188.6},{"d":"2023-12-30","w":188.8},{"d":"2023-12-31","w":188.4},{"d":"2024-01-01","w":189.8},{"d":"2024-01-02","w":190.0},{"d":"2024-01-03","w":190.4},{"d":"2024-01-04","w":189.4},{"d":"2024-01-20","w":189.2},{"d":"2024-01-21","w":189.8},{"d":"2024-01-22","w":190.4},{"d":"2024-01-23","w":190.2},{"d":"2024-01-24","w":190.8},{"d":"2024-01-25","w":190.4},{"d":"2024-01-26","w":189.8},{"d":"2024-01-29","w":189.8},{"d":"2024-01-30","w":190.2},{"d":"2024-01-31","w":189.8},{"d":"2024-02-01","w":189.2},{"d":"2024-02-02","w":189.0},{"d":"2024-02-03","w":188.2},{"d":"2024-02-04","w":190.4},{"d":"2024-02-05","w":190.4},{"d":"2024-02-06","w":190.0},{"d":"2024-02-07","w":189.2},{"d":"2024-02-08","w":188.4},{"d":"2024-02-09","w":188.8},{"d":"2024-02-10","w":188.4},{"d":"2024-02-11","w":190.4},{"d":"2024-02-12","w":188.6},{"d":"2024-02-13","w":189.6},{"d":"2024-02-14","w":190.4},{"d":"2024-02-15","w":189.2},{"d":"2024-02-16","w":188.4},{"d":"2024-02-17","w":189.2},{"d":"2024-12-29","w":194.4},{"d":"2024-12-30","w":193.6},{"d":"2024-12-31","w":193.4},{"d":"2025-01-01","w":194.4},{"d":"2025-01-02","w":193.6},{"d":"2025-01-03","w":193.2},{"d":"2025-01-04","w":192.0},{"d":"2025-01-05","w":192.6},{"d":"2025-01-06","w":191.6},{"d":"2025-01-07","w":191.2},{"d":"2025-01-08","w":191.0},{"d":"2025-01-09","w":191.2},{"d":"2025-01-10","w":192.0},{"d":"2025-01-11","w":192.4},{"d":"2025-01-12","w":190.4},{"d":"2025-01-13","w":190.4},{"d":"2025-01-14","w":190.2},{"d":"2025-01-15","w":190.4},{"d":"2025-01-16","w":190.4},{"d":"2025-01-17","w":191.2},{"d":"2025-01-18","w":190.4},{"d":"2025-01-19","w":189.2},{"d":"2025-01-20","w":188.4},{"d":"2025-01-21","w":188.2},{"d":"2025-01-22","w":187.8},{"d":"2025-01-23","w":189.8},{"d":"2025-01-24","w":189.4},{"d":"2025-01-25","w":189.4},{"d":"2025-01-26","w":188.4},{"d":"2025-01-27","w":187.4},{"d":"2025-01-28","w":187.6},{"d":"2025-01-29","w":187.2},{"d":"2025-01-30","w":187.2},{"d":"2025-01-31","w":187.2},{"d":"2025-02-01","w":187.0},{"d":"2025-02-02","w":187.0},{"d":"2025-02-03","w":186.8},{"d":"2025-02-04","w":186.0},{"d":"2025-02-05","w":186.0},{"d":"2025-02-06","w":187.2},{"d":"2025-02-07","w":187.2},{"d":"2025-02-08","w":187.6},{"d":"2025-02-09","w":187.0},{"d":"2025-02-10","w":186.0},{"d":"2025-02-11","w":186.2},{"d":"2025-02-12","w":185.8},{"d":"2025-02-13","w":186.0},{"d":"2025-02-14","w":185.0},{"d":"2025-02-15","w":185.8},{"d":"2025-02-16","w":184.8},{"d":"2025-02-17","w":184.0},{"d":"2025-02-18","w":184.2},{"d":"2025-02-19","w":184.0},{"d":"2025-02-20","w":184.4},{"d":"2025-02-21","w":184.6},{"d":"2025-02-22","w":184.0},{"d":"2025-02-23","w":184.6},{"d":"2025-02-24","w":184.2},{"d":"2025-02-25","w":184.4},{"d":"2025-02-26","w":184.2},{"d":"2025-02-27","w":183.6},{"d":"2025-02-28","w":184.2},{"d":"2025-03-01","w":183.4},{"d":"2025-03-02","w":182.4},{"d":"2025-03-03","w":181.6},{"d":"2025-03-04","w":181.6},{"d":"2025-03-05","w":181.8},{"d":"2025-03-06","w":182.2},{"d":"2025-03-07","w":183.0},{"d":"2025-03-12","w":186.4},{"d":"2025-03-13","w":183.6},{"d":"2025-03-14","w":182.6},{"d":"2025-03-15","w":181.6},{"d":"2025-03-16","w":180.2},{"d":"2025-03-17","w":180.4},{"d":"2025-03-18","w":180.4},{"d":"2025-03-19","w":181.2},{"d":"2025-03-20","w":181.2},{"d":"2025-03-21","w":182.4},{"d":"2025-03-22","w":180.8},{"d":"2025-03-23","w":181.6},{"d":"2025-03-24","w":181.6},{"d":"2025-03-25","w":181.4},{"d":"2025-03-26","w":181.4},{"d":"2025-03-27","w":180.6},{"d":"2025-03-28","w":180.4},{"d":"2025-03-29","w":181.8},{"d":"2025-03-30","w":180.8},{"d":"2025-03-31","w":185.2},{"d":"2025-04-01","w":183.4},{"d":"2025-04-02","w":183.0},{"d":"2025-04-03","w":182.8},{"d":"2025-04-04","w":183.0},{"d":"2025-04-05","w":181.8},{"d":"2025-04-06","w":180.4},{"d":"2025-04-07","w":181.6},{"d":"2025-04-08","w":181.8},{"d":"2025-04-09","w":181.2},{"d":"2025-04-10","w":181.4},{"d":"2025-04-11","w":182.0},{"d":"2025-04-12","w":180.8},{"d":"2025-04-13","w":179.8},{"d":"2025-04-14","w":184.0},{"d":"2025-04-15","w":182.6},{"d":"2025-04-16","w":182.0},{"d":"2025-04-17","w":182.4},{"d":"2025-04-18","w":183.0},{"d":"2025-04-19","w":181.8},{"d":"2025-04-20","w":180.2},{"d":"2025-04-22","w":177.8},{"d":"2025-04-23","w":178.2},{"d":"2025-04-24","w":179.0},{"d":"2025-04-25","w":179.2},{"d":"2025-04-26","w":179.2},{"d":"2025-04-27","w":184.6},{"d":"2025-04-28","w":182.8},{"d":"2025-04-29","w":182.4},{"d":"2025-04-30","w":181.8},{"d":"2025-05-01","w":182.0},{"d":"2025-05-12","w":184.6},{"d":"2025-05-13","w":184.4},{"d":"2025-05-14","w":183.0},{"d":"2025-05-15","w":182.8},{"d":"2025-05-16","w":182.4},{"d":"2025-05-17","w":183.4},{"d":"2025-05-18","w":182.4},{"d":"2025-05-19","w":182.4},{"d":"2025-05-20","w":183.0},{"d":"2025-05-21","w":183.4},{"d":"2025-05-22","w":183.6},{"d":"2025-05-28","w":183.0},{"d":"2025-05-29","w":183.4},{"d":"2025-05-30","w":183.2},{"d":"2025-05-31","w":183.0},{"d":"2025-06-01","w":183.2},{"d":"2025-06-02","w":182.6},{"d":"2025-06-03","w":183.0},{"d":"2025-06-04","w":183.0},{"d":"2025-06-05","w":183.4},{"d":"2025-06-06","w":183.6},{"d":"2025-06-07","w":182.4},{"d":"2025-06-08","w":182.0},{"d":"2025-06-09","w":182.4},{"d":"2025-06-10","w":181.8},{"d":"2025-06-11","w":182.2},{"d":"2025-06-12","w":182.4},{"d":"2025-06-13","w":183.0},{"d":"2025-06-14","w":183.4},{"d":"2025-06-15","w":181.8},{"d":"2025-06-16","w":182.2},{"d":"2025-06-17","w":181.8},{"d":"2025-06-18","w":182.0},{"d":"2025-06-19","w":182.4},{"d":"2025-06-24","w":181.6},{"d":"2025-06-25","w":180.6},{"d":"2025-06-26","w":182.4},{"d":"2025-06-28","w":183.8},{"d":"2025-06-29","w":186.2},{"d":"2025-06-30","w":183.8},{"d":"2025-07-01","w":182.4},{"d":"2025-07-02","w":181.8},{"d":"2025-07-03","w":181.8},{"d":"2025-07-08","w":189.2},{"d":"2025-07-09","w":184.6},{"d":"2025-07-10","w":184.6},{"d":"2025-07-11","w":183.6},{"d":"2025-07-12","w":184.8},{"d":"2025-07-13","w":185.8},{"d":"2025-07-14","w":184.6},{"d":"2025-07-15","w":184.8},{"d":"2025-07-16","w":184.4},{"d":"2025-07-17","w":184.0},{"d":"2025-07-18","w":182.8},{"d":"2025-07-19","w":181.0},{"d":"2025-07-20","w":186.0},{"d":"2025-07-21","w":185.6},{"d":"2025-07-22","w":186.2},{"d":"2025-07-23","w":185.8},{"d":"2025-07-24","w":185.2},{"d":"2025-07-25","w":184.6},{"d":"2025-07-26","w":184.6},{"d":"2025-07-27","w":183.8},{"d":"2025-07-28","w":183.8},{"d":"2025-07-29","w":183.4},{"d":"2025-07-30","w":183.6},{"d":"2025-07-31","w":183.6},{"d":"2025-08-01","w":182.6},{"d":"2025-08-02","w":183.8},{"d":"2025-08-03","w":184.6},{"d":"2025-08-04","w":183.0},{"d":"2025-08-05","w":182.0},{"d":"2025-08-06","w":183.4},{"d":"2025-08-07","w":183.4},{"d":"2025-08-08","w":183.4},{"d":"2025-08-09","w":182.8},{"d":"2025-08-10","w":183.2},{"d":"2025-08-11","w":183.8},{"d":"2025-08-12","w":182.6},{"d":"2025-08-13","w":182.0},{"d":"2025-08-14","w":182.4},{"d":"2025-08-15","w":181.8},{"d":"2025-08-16","w":181.0},{"d":"2025-08-17","w":182.2},{"d":"2025-08-18","w":182.0},{"d":"2025-08-19","w":182.4},{"d":"2025-08-20","w":181.8},{"d":"2025-08-21","w":181.8},{"d":"2025-08-22","w":180.8},{"d":"2025-08-23","w":181.6},{"d":"2025-08-24","w":181.8},{"d":"2025-08-25","w":181.4},{"d":"2025-08-26","w":181.2},{"d":"2025-08-27","w":181.2},{"d":"2025-08-28","w":181.2},{"d":"2025-08-29","w":180.2},{"d":"2025-08-30","w":179.8},{"d":"2025-08-31","w":180.2},{"d":"2025-09-01","w":179.6},{"d":"2025-09-02","w":181.6},{"d":"2025-09-03","w":181.4},{"d":"2025-09-04","w":180.2},{"d":"2025-09-05","w":180.6},{"d":"2025-09-06","w":181.2},{"d":"2025-09-07","w":181.0},{"d":"2025-09-08","w":180.0},{"d":"2025-09-09","w":180.4},{"d":"2025-09-10","w":180.8},{"d":"2025-09-11","w":180.4},{"d":"2025-09-12","w":180.8},{"d":"2025-09-13","w":180.2},{"d":"2025-09-14","w":180.6},{"d":"2025-09-15","w":180.6},{"d":"2025-09-16","w":180.8},{"d":"2025-09-17","w":181.2},{"d":"2025-09-21","w":179.0},{"d":"2025-09-22","w":181.8},{"d":"2025-09-23","w":180.6},{"d":"2025-09-24","w":179.8},{"d":"2025-09-25","w":181.2},{"d":"2025-09-26","w":182.2},{"d":"2025-09-27","w":180.2},{"d":"2025-09-28","w":181.8},{"d":"2025-09-29","w":182.6},{"d":"2025-09-30","w":181.4},{"d":"2025-10-01","w":181.2},{"d":"2025-10-05","w":181.2},{"d":"2025-10-06","w":179.2},{"d":"2025-10-07","w":179.4},{"d":"2025-10-08","w":179.6},{"d":"2025-10-09","w":179.6},{"d":"2025-10-10","w":179.2},{"d":"2025-10-11","w":178.0},{"d":"2025-10-12","w":180.2},{"d":"2025-10-13","w":182.4},{"d":"2025-10-14","w":182.2},{"d":"2025-10-15","w":182.0},{"d":"2025-10-16","w":181.6},{"d":"2025-10-17","w":181.2},{"d":"2025-10-18","w":179.6},{"d":"2025-10-19","w":186.2},{"d":"2025-10-20","w":185.8},{"d":"2025-10-21","w":184.4},{"d":"2025-10-22","w":183.0},{"d":"2025-10-23","w":182.0},{"d":"2025-10-26","w":182.4},{"d":"2025-10-27","w":180.8},{"d":"2025-10-28","w":179.4},{"d":"2025-10-29","w":178.6},{"d":"2025-10-31","w":181.8},{"d":"2025-11-06","w":185.6},{"d":"2025-11-07","w":185.6},{"d":"2025-11-08","w":184.4},{"d":"2025-11-09","w":183.4},{"d":"2025-11-10","w":183.4},{"d":"2025-11-11","w":183.8},{"d":"2025-11-12","w":182.8},{"d":"2025-11-13","w":183.6},{"d":"2025-11-14","w":183.0},{"d":"2025-11-23","w":189.0},{"d":"2025-11-24","w":185.6},{"d":"2025-11-25","w":183.4},{"d":"2025-11-26","w":183.6},{"d":"2025-11-27","w":182.2},{"d":"2025-11-28","w":182.4},{"d":"2025-11-29","w":182.0},{"d":"2025-11-30","w":181.4},{"d":"2025-12-01","w":181.2},{"d":"2025-12-02","w":180.2},{"d":"2025-12-03","w":180.6},{"d":"2025-12-04","w":180.8},{"d":"2025-12-05","w":181.6},{"d":"2025-12-06","w":180.2},{"d":"2025-12-07","w":180.8},{"d":"2025-12-08","w":180.2},{"d":"2025-12-09","w":180.2},{"d":"2025-12-10","w":180.4},{"d":"2025-12-11","w":180.6},{"d":"2025-12-12","w":180.4},{"d":"2025-12-13","w":180.2},{"d":"2025-12-14","w":179.6},{"d":"2025-12-15","w":180.6},{"d":"2025-12-17","w":179.8},{"d":"2025-12-18","w":179.6},{"d":"2025-12-19","w":180.4},{"d":"2025-12-20","w":180.0},{"d":"2025-12-21","w":179.8},{"d":"2025-12-22","w":180.2},{"d":"2025-12-23","w":179.4},{"d":"2025-12-24","w":181.2},{"d":"2025-12-25","w":181.2},{"d":"2025-12-26","w":186.4},{"d":"2025-12-27","w":188.6},{"d":"2025-12-28","w":187.0},{"d":"2025-12-29","w":187.6},{"d":"2025-12-30","w":190.2},{"d":"2025-12-31","w":187.2},{"d":"2026-01-01","w":187.2},{"d":"2026-01-02","w":187.0},{"d":"2026-01-03","w":185.2},{"d":"2026-01-04","w":184.8},{"d":"2026-01-05","w":184.4},{"d":"2026-01-06","w":184.8},{"d":"2026-01-07","w":183.4},{"d":"2026-01-08","w":183.6},{"d":"2026-01-09","w":182.8},{"d":"2026-01-10","w":183.4},{"d":"2026-01-11","w":182.6},{"d":"2026-01-12","w":183.0},{"d":"2026-01-13","w":183.2},{"d":"2026-01-14","w":183.2},{"d":"2026-01-15","w":183.4},{"d":"2026-01-16","w":183.6},{"d":"2026-01-17","w":182.0},{"d":"2026-01-18","w":182.0},{"d":"2026-01-19","w":182.8},{"d":"2026-01-20","w":182.0},{"d":"2026-01-21","w":181.8},{"d":"2026-01-22","w":182.6},{"d":"2026-01-23","w":182.6},{"d":"2026-01-24","w":183.0},{"d":"2026-01-26","w":181.8},{"d":"2026-01-27","w":182.0},{"d":"2026-01-28","w":181.8},{"d":"2026-01-29","w":181.4},{"d":"2026-01-30","w":180.8},{"d":"2026-01-31","w":180.0},{"d":"2026-02-01","w":184.6},{"d":"2026-02-02","w":184.2},{"d":"2026-02-03","w":183.8},{"d":"2026-02-04","w":183.2},{"d":"2026-02-05","w":183.6},{"d":"2026-02-06","w":182.8},{"d":"2026-02-08","w":185.8},{"d":"2026-02-09","w":185.4},{"d":"2026-02-10","w":184.6},{"d":"2026-02-11","w":184.0},{"d":"2026-02-12","w":182.8},{"d":"2026-02-13","w":182.8},{"d":"2026-02-14","w":182.0},{"d":"2026-02-15","w":187.8},{"d":"2026-02-16","w":185.0},{"d":"2026-02-17","w":184.8},{"d":"2026-02-18","w":184.2},{"d":"2026-02-19","w":183.0},{"d":"2026-02-20","w":183.0},{"d":"2026-02-21","w":182.6},{"d":"2026-02-22","w":189.4},{"d":"2026-02-23","w":188.2},{"d":"2026-02-24","w":187.2},{"d":"2026-02-25","w":185.8},{"d":"2026-02-26","w":185.0},{"d":"2026-02-27","w":184.6},{"d":"2026-02-28","w":184.6},{"d":"2026-03-01","w":190.4},{"d":"2026-03-02","w":189.8},{"d":"2026-03-03","w":188.2},{"d":"2026-03-04","w":187.2},{"d":"2026-03-05","w":187.0},{"d":"2026-03-06","w":186.6},{"d":"2026-03-07","w":187.2},{"d":"2026-03-08","w":187.6},{"d":"2026-03-09","w":187.6},{"d":"2026-03-10","w":186.8},{"d":"2026-03-11","w":186.8},{"d":"2026-03-12","w":185.2},{"d":"2026-03-13","w":185.2},{"d":"2026-03-14","w":184.8},{"d":"2026-03-15","w":190.8},{"d":"2026-03-16","w":189.2},{"d":"2026-03-17","w":189.8},{"d":"2026-03-18","w":188.2},{"d":"2026-03-19","w":187.0},{"d":"2026-03-20","w":187.8},{"d":"2026-03-21","w":188.2}];
+
+// ─── MacroFactor Nutrition Data (197 tracked days) ───────────────────────────
+const MACRO_DATA = [
+  {d:"2024-05-16",cal:2570,pro:270,carb:133,fat:104},{d:"2024-05-17",cal:2589,pro:253,carb:135,fat:110},
+  {d:"2024-05-18",cal:2787,pro:253,carb:165,fat:127},{d:"2024-05-20",cal:2610,pro:235,carb:149,fat:117},
+  {d:"2024-05-21",cal:2594,pro:242,carb:153,fat:109},{d:"2024-05-22",cal:2602,pro:244,carb:159,fat:111},
+  {d:"2024-05-23",cal:2608,pro:235,carb:167,fat:109},{d:"2024-05-24",cal:2790,pro:257,carb:181,fat:114},
+  {d:"2024-05-25",cal:2859,pro:270,carb:188,fat:112},{d:"2024-05-26",cal:2567,pro:234,carb:172,fat:102},
+  {d:"2024-05-27",cal:3033,pro:275,carb:208,fat:126},{d:"2024-05-28",cal:2607,pro:236,carb:170,fat:109},
+  {d:"2024-05-29",cal:2590,pro:244,carb:166,fat:102},{d:"2024-05-30",cal:2581,pro:239,carb:162,fat:101},
+  {d:"2024-05-31",cal:2592,pro:246,carb:185,fat:93},{d:"2024-06-01",cal:2912,pro:262,carb:199,fat:124},
+  {d:"2024-06-02",cal:2670,pro:249,carb:195,fat:99},{d:"2024-06-03",cal:2611,pro:232,carb:183,fat:107},
+  {d:"2024-06-04",cal:2670,pro:233,carb:186,fat:113},{d:"2024-06-05",cal:2680,pro:223,carb:184,fat:114},
+  {d:"2024-06-06",cal:2684,pro:218,carb:229,fat:103},{d:"2024-06-07",cal:2672,pro:220,carb:260,fat:87},
+  {d:"2024-06-08",cal:2852,pro:255,carb:296,fat:86},{d:"2024-06-09",cal:2579,pro:235,carb:256,fat:70},
+  {d:"2024-06-10",cal:2658,pro:232,carb:264,fat:73},{d:"2024-06-11",cal:2660,pro:233,carb:252,fat:79},
+  {d:"2024-06-12",cal:2665,pro:232,carb:253,fat:80},{d:"2024-06-13",cal:2666,pro:235,carb:252,fat:81},
+  {d:"2024-06-14",cal:2666,pro:233,carb:254,fat:80},{d:"2024-06-15",cal:2671,pro:238,carb:256,fat:79},
+  {d:"2024-06-16",cal:2644,pro:229,carb:248,fat:88},{d:"2024-06-17",cal:2657,pro:229,carb:254,fat:81},
+  {d:"2024-06-18",cal:2650,pro:230,carb:263,fat:77},{d:"2024-06-19",cal:2512,pro:216,carb:248,fat:75},
+  {d:"2024-06-20",cal:2823,pro:239,carb:288,fat:83},{d:"2024-06-21",cal:2734,pro:261,carb:262,fat:75},
+  {d:"2024-06-24",cal:2639,pro:233,carb:244,fat:85},{d:"2024-06-25",cal:2836,pro:256,carb:269,fat:84},
+  {d:"2024-06-26",cal:3153,pro:300,carb:292,fat:97},{d:"2024-07-02",cal:2738,pro:242,carb:287,fat:77},
+  {d:"2024-07-03",cal:2779,pro:237,carb:296,fat:87},{d:"2024-07-05",cal:2728,pro:224,carb:296,fat:89},
+  {d:"2024-07-06",cal:3303,pro:261,carb:369,fat:96},{d:"2024-07-07",cal:2875,pro:245,carb:303,fat:82},
+  {d:"2024-07-08",cal:3027,pro:252,carb:314,fat:90},{d:"2024-07-09",cal:2728,pro:233,carb:301,fat:78},
+  {d:"2024-07-10",cal:2814,pro:246,carb:288,fat:81},{d:"2024-07-11",cal:2705,pro:210,carb:319,fat:83},
+  {d:"2024-07-15",cal:2745,pro:237,carb:281,fat:84},{d:"2024-07-16",cal:2825,pro:231,carb:290,fat:89},
+  {d:"2024-07-17",cal:2826,pro:249,carb:293,fat:83},{d:"2024-07-18",cal:2872,pro:261,carb:283,fat:83},
+  {d:"2024-07-19",cal:3209,pro:285,carb:344,fat:87},{d:"2024-07-20",cal:3031,pro:271,carb:307,fat:90},
+  {d:"2024-07-21",cal:2783,pro:244,carb:268,fat:85},{d:"2024-07-22",cal:2844,pro:245,carb:266,fat:97},
+  {d:"2024-07-23",cal:2931,pro:236,carb:296,fat:98},{d:"2024-07-24",cal:3081,pro:243,carb:318,fat:100},
+  {d:"2024-07-25",cal:2853,pro:233,carb:269,fat:97},{d:"2024-07-26",cal:3095,pro:242,carb:286,fat:117},
+  {d:"2024-07-28",cal:2996,pro:228,carb:288,fat:116},{d:"2024-07-29",cal:2856,pro:232,carb:276,fat:94},
+  {d:"2024-07-30",cal:2787,pro:229,carb:293,fat:79},{d:"2024-07-31",cal:2949,pro:232,carb:305,fat:90},
+  {d:"2024-08-01",cal:3182,pro:257,carb:304,fat:108},{d:"2024-08-02",cal:2835,pro:230,carb:299,fat:88},
+  {d:"2024-08-03",cal:3363,pro:261,carb:327,fat:135},{d:"2024-08-04",cal:3730,pro:270,carb:404,fat:127},
+  {d:"2024-08-05",cal:2854,pro:239,carb:293,fat:82},{d:"2024-08-06",cal:2835,pro:230,carb:290,fat:87},
+  {d:"2024-08-07",cal:2766,pro:219,carb:301,fat:86},{d:"2024-08-08",cal:2707,pro:208,carb:308,fat:84},
+  {d:"2024-08-11",cal:3051,pro:255,carb:344,fat:83},{d:"2024-08-12",cal:2746,pro:209,carb:300,fat:93},
+  {d:"2024-08-13",cal:3719,pro:259,carb:364,fat:144},{d:"2024-08-14",cal:2791,pro:214,carb:307,fat:93},
+  {d:"2024-08-15",cal:2839,pro:231,carb:298,fat:82},{d:"2024-08-16",cal:2860,pro:245,carb:270,fat:88},
+  {d:"2024-08-20",cal:2969,pro:234,carb:343,fat:78},
+  {d:"2025-06-01",cal:2496,pro:201,carb:233,fat:94},{d:"2025-06-02",cal:2582,pro:221,carb:244,fat:91},
+  {d:"2025-06-03",cal:2695,pro:233,carb:262,fat:102},{d:"2025-06-04",cal:2452,pro:215,carb:260,fat:94},
+  {d:"2025-06-05",cal:2401,pro:202,carb:263,fat:91},{d:"2025-06-06",cal:2481,pro:215,carb:293,fat:79},
+  {d:"2025-06-07",cal:2674,pro:249,carb:279,fat:79},{d:"2025-06-08",cal:2533,pro:218,carb:274,fat:91},
+  {d:"2025-06-09",cal:2265,pro:201,carb:257,fat:75},{d:"2025-06-10",cal:2345,pro:217,carb:256,fat:79},
+  {d:"2025-06-11",cal:2374,pro:224,carb:250,fat:82},{d:"2025-06-12",cal:2400,pro:224,carb:269,fat:74},
+  {d:"2025-06-13",cal:2716,pro:244,carb:296,fat:93},{d:"2025-06-14",cal:2623,pro:231,carb:283,fat:92},
+  {d:"2025-06-15",cal:2406,pro:226,carb:258,fat:82},{d:"2025-06-16",cal:2276,pro:208,carb:244,fat:69},
+  {d:"2025-06-17",cal:2499,pro:210,carb:294,fat:72},{d:"2025-06-18",cal:2506,pro:220,carb:288,fat:72},
+  {d:"2025-06-19",cal:2480,pro:215,carb:305,fat:73},{d:"2025-06-20",cal:2281,pro:204,carb:253,fat:71},
+  {d:"2025-06-21",cal:3005,pro:322,carb:292,fat:73},{d:"2025-06-22",cal:2925,pro:283,carb:335,fat:51},
+  {d:"2025-06-23",cal:2857,pro:273,carb:302,fat:63},{d:"2025-06-24",cal:2901,pro:263,carb:343,fat:72},
+  {d:"2025-06-25",cal:2357,pro:237,carb:266,fat:65},{d:"2025-06-26",cal:2884,pro:279,carb:342,fat:72},
+  {d:"2025-06-29",cal:2609,pro:227,carb:290,fat:69},{d:"2025-06-30",cal:2648,pro:239,carb:296,fat:90},
+  {d:"2025-07-01",cal:2437,pro:227,carb:259,fat:87},{d:"2025-07-02",cal:2547,pro:234,carb:258,fat:97},
+  {d:"2025-07-08",cal:2082,pro:214,carb:253,fat:51},{d:"2025-07-09",cal:2314,pro:215,carb:285,fat:61},
+  {d:"2025-07-10",cal:2395,pro:231,carb:282,fat:65},{d:"2025-07-11",cal:2691,pro:264,carb:267,fat:88},
+  {d:"2025-07-13",cal:2309,pro:227,carb:249,fat:59},{d:"2025-07-14",cal:2261,pro:219,carb:285,fat:54},
+  {d:"2025-07-15",cal:2555,pro:240,carb:288,fat:66},{d:"2025-07-17",cal:2303,pro:213,carb:257,fat:58},
+  {d:"2025-07-18",cal:2493,pro:206,carb:271,fat:53},{d:"2025-07-20",cal:2230,pro:224,carb:270,fat:62},
+  {d:"2025-07-21",cal:2256,pro:233,carb:276,fat:62},{d:"2025-07-22",cal:2114,pro:197,carb:287,fat:55},
+  {d:"2025-07-23",cal:2272,pro:214,carb:285,fat:65},{d:"2025-07-24",cal:2366,pro:226,carb:309,fat:58},
+  {d:"2025-07-25",cal:2439,pro:236,carb:325,fat:61},{d:"2025-07-26",cal:2465,pro:236,carb:334,fat:63},
+  {d:"2025-07-27",cal:2503,pro:236,carb:341,fat:62},{d:"2025-07-28",cal:2241,pro:217,carb:292,fat:60},
+  {d:"2025-07-29",cal:2301,pro:222,carb:315,fat:60},{d:"2025-07-30",cal:2297,pro:212,carb:326,fat:56},
+  {d:"2025-07-31",cal:2462,pro:234,carb:334,fat:59},{d:"2025-08-01",cal:2233,pro:220,carb:289,fat:59},
+  {d:"2025-08-03",cal:2324,pro:226,carb:294,fat:69},{d:"2025-08-04",cal:2274,pro:214,carb:305,fat:59},
+  {d:"2025-08-05",cal:2357,pro:229,carb:298,fat:69},{d:"2025-08-06",cal:2261,pro:215,carb:294,fat:59},
+  {d:"2025-08-07",cal:2338,pro:229,carb:297,fat:64},{d:"2025-08-08",cal:2310,pro:222,carb:311,fat:60},
+  {d:"2025-08-09",cal:2566,pro:255,carb:323,fat:76},{d:"2025-08-10",cal:2283,pro:231,carb:295,fat:68},
+  {d:"2025-08-11",cal:2104,pro:214,carb:276,fat:55},{d:"2025-08-12",cal:2300,pro:224,carb:302,fat:59},
+  {d:"2025-08-13",cal:2201,pro:221,carb:289,fat:60},{d:"2025-08-14",cal:2119,pro:205,carb:284,fat:55},
+  {d:"2025-08-15",cal:2175,pro:214,carb:275,fat:59},{d:"2025-08-16",cal:2630,pro:264,carb:333,fat:73},
+  {d:"2025-08-17",cal:2139,pro:217,carb:264,fat:60},{d:"2025-08-18",cal:2306,pro:228,carb:289,fat:60},
+  {d:"2025-08-19",cal:2149,pro:207,carb:283,fat:56},{d:"2025-08-20",cal:2152,pro:204,carb:286,fat:55},
+  {d:"2025-08-21",cal:2066,pro:213,carb:254,fat:55},{d:"2025-08-22",cal:2250,pro:223,carb:295,fat:55},
+  {d:"2025-08-23",cal:2510,pro:259,carb:312,fat:72},{d:"2025-08-24",cal:2134,pro:211,carb:272,fat:55},
+  {d:"2025-08-25",cal:2225,pro:214,carb:285,fat:60},{d:"2025-08-26",cal:2111,pro:208,carb:269,fat:55},
+  {d:"2025-08-27",cal:2235,pro:218,carb:295,fat:56},{d:"2025-08-28",cal:2072,pro:199,carb:273,fat:55},
+  {d:"2025-08-29",cal:2284,pro:240,carb:279,fat:65},{d:"2025-08-30",cal:2365,pro:250,carb:316,fat:55},
+  {d:"2025-08-31",cal:2449,pro:264,carb:327,fat:58},{d:"2025-09-01",cal:2317,pro:249,carb:291,fat:58},
+  {d:"2025-09-02",cal:2678,pro:279,carb:385,fat:60},{d:"2025-09-03",cal:2245,pro:212,carb:315,fat:59},
+  {d:"2025-09-04",cal:2251,pro:227,carb:284,fat:63},{d:"2025-09-05",cal:2356,pro:244,carb:300,fat:68},
+  {d:"2025-09-06",cal:2477,pro:258,carb:320,fat:66},{d:"2025-09-07",cal:2400,pro:261,carb:309,fat:75},
+  {d:"2025-09-08",cal:2300,pro:259,carb:302,fat:57},{d:"2025-09-09",cal:2383,pro:260,carb:315,fat:62},
+  {d:"2025-09-10",cal:2342,pro:248,carb:294,fat:61},{d:"2025-09-11",cal:2368,pro:263,carb:305,fat:64},
+  {d:"2025-09-12",cal:2397,pro:247,carb:332,fat:64},{d:"2025-09-13",cal:2625,pro:277,carb:329,fat:82},
+  {d:"2025-09-14",cal:2450,pro:278,carb:315,fat:68},{d:"2025-09-15",cal:2460,pro:264,carb:302,fat:73},
+  {d:"2025-09-16",cal:2447,pro:262,carb:296,fat:68},{d:"2025-09-17",cal:2445,pro:237,carb:323,fat:71},
+  {d:"2025-09-18",cal:2416,pro:234,carb:319,fat:70},{d:"2025-09-19",cal:2477,pro:232,carb:312,fat:82},
+  {d:"2025-09-20",cal:2613,pro:258,carb:347,fat:85},{d:"2025-09-21",cal:2855,pro:286,carb:332,fat:95},
+  {d:"2025-09-22",cal:2522,pro:260,carb:321,fat:79},{d:"2025-09-23",cal:2519,pro:254,carb:333,fat:75},
+  {d:"2025-09-24",cal:2529,pro:240,carb:316,fat:78},{d:"2025-09-25",cal:2669,pro:271,carb:320,fat:82},
+  {d:"2025-09-26",cal:2528,pro:244,carb:319,fat:77},{d:"2025-09-28",cal:2518,pro:263,carb:320,fat:80},
+  {d:"2025-09-29",cal:2473,pro:260,carb:319,fat:71},{d:"2025-09-30",cal:2637,pro:285,carb:318,fat:79},
+  {d:"2025-10-01",cal:1821,pro:220,carb:216,fat:48},{d:"2025-10-02",cal:593,pro:50,carb:70,fat:25},
+  {d:"2025-10-05",cal:2585,pro:268,carb:311,fat:73},{d:"2025-10-06",cal:2521,pro:254,carb:320,fat:70},
+  {d:"2025-10-07",cal:2438,pro:248,carb:320,fat:68},{d:"2025-10-08",cal:2603,pro:275,carb:293,fat:89},
+  {d:"2025-10-09",cal:2587,pro:263,carb:299,fat:82},{d:"2025-10-10",cal:2595,pro:266,carb:293,fat:73}
+];
+
+// Build lookup for scale data
+const SCALE_MAP = {};
+SCALE_DATA.forEach(r => { SCALE_MAP[r.d] = r.w; });
+
+// ─── Cheat Day Data ───────────────────────────────────────────────────────────
+const CHEAT_DAYS = [
+  {date:'2023-07-22', label:'Donuts + Shake Shack'},
+  {date:'2023-07-29', label:'Shake Shack triple choc shake'},
+  {date:'2023-08-05', label:'Cereal + Junior Mints + beer'},
+  {date:'2023-08-12', label:'Donuts + brownie'},
+  {date:'2023-08-19', label:'Donuts + M&Ms'},
+  {date:'2023-08-26', label:'Sidecar donut + Chipotle'},
+  {date:'2023-09-02', label:'2 Sidecar donuts + Chipotle'},
+  {date:'2023-09-09', label:'Sidecar donut + Chipotle'},
+  {date:'2023-09-30', label:'SuzeCakes cake + Chipotle'},
+  {date:'2023-10-07', label:'Bay Cities sandwich + cake'},
+  {date:'2023-10-14', label:'2 cakes + chocolate + Chipotle'},
+  {date:'2023-10-21', label:'Acai bowl + cake + apple pie + wine'},
+  {date:'2023-10-28', label:'Cake + coconut bread pudding'},
+  {date:'2023-11-04', label:'SuzeCakes + friendship bread'},
+  {date:'2023-11-11', label:'Pumpkin cupcake + cake'},
+  {date:'2023-11-18', label:'SuzeCakes + chips'},
+  {date:'2023-12-09', label:'Cake + Reese\'s ice cream sandwich'},
+  {date:'2023-12-16', label:'Cinnabon + PB cups'},
+  {date:'2024-01-27', label:'Sidecar donut + SuzeCakes'},
+  {date:'2024-02-03', label:'SuzeCakes lemon + choc'},
+  {date:'2024-02-10', label:'SuzeCakes cookie + cake'},
+  {date:'2024-02-17', label:'Gjusta choc cake + Cheerios'},
+  {date:'2025-12-21', label:'Day one (holiday season)'},
+  {date:'2025-12-25', label:'Apple pie + Levain cookies (Christmas)'},
+  {date:'2025-12-26', label:'Apple pie + Dubai choc + Reese\'s'},
+  {date:'2025-12-27', label:'Slow carb + Lindt + popcorn'},
+  {date:'2025-12-28', label:'Slow carb + grape nuts + popcorn'},
+  {date:'2025-12-29', label:'Cheesecake Factory + Oreos'},
+  {date:'2026-01-03', label:'Return to locked in'},
+  {date:'2026-01-10', label:'Locked in'},
+  {date:'2026-03-14', label:'Butter & Crumble + Chipotle + Levain cookies'},
+];
+
+// ─── DEXA Scale Calibration Data ─────────────────────────────────────────────
+const DEXA_SCALE_PAIRS = [
+  {date:'2023-07-15', dexa:191.1, scale:189.4, bf:18.3},
+  {date:'2023-09-09', dexa:185.9, scale:182.6, bf:15.5},
+  {date:'2023-11-18', dexa:188.1, scale:183.6, bf:14.3},
+  {date:'2024-01-18', dexa:194.1, scale:189.2, bf:17.2},
+  {date:'2025-11-29', dexa:184.0, scale:182.0, bf:17.7},
+  {date:'2025-12-20', dexa:181.7, scale:180.0, bf:17.1},
+  {date:'2026-01-31', dexa:181.5, scale:180.0, bf:18.4},
+  {date:'2026-03-21', dexa:190.2, scale:188.2, bf:19.3},
+];
+
+// ─── Weight Tracker Config ────────────────────────────────────────────────────
 const CFG = {
   startDate:    '2026-03-15',
   startWeight:  190.8,
-  durationDays: 55,   // ends May 9 (Saturday)
-  goalRate:     0.625 // lbs/week target (midpoint of 0.5–0.75)
+  durationDays: 55,
+  goalRate:     0.625
 };
 const KEY = 'cut_tracker_v2';
 const SHEETS_URL_KEY = 'cut_tracker_sheets_url';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 const isSat = d => new Date(d + 'T12:00:00').getDay() === 6;
-const daysBetween = (a, b) =>
-  Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 86400000);
-const addDays = (d, n) => {
-  const dt = new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+n);
-  return dt.toISOString().slice(0,10);
-};
-const fmtDate = d => {
-  const dt = new Date(d+'T12:00:00');
-  return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-};
-const fmtShort = d => {
-  const dt = new Date(d+'T12:00:00');
-  return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-};
+const daysBetween = (a, b) => Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 86400000);
+const addDays = (d, n) => { const dt = new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
+const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
+const fmtDateShort = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}); };
+const fmtMonYear = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',year:'numeric'}); };
 const esc = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
 
-// ─── Local Storage ──────────────────────────────────────────────────────────
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('tab-active');
+  document.getElementById('panel-'+tab).classList.add('active');
+  if (tab === 'weight') { setTimeout(()=>{ const d=load(); drawWeightChart(d); }, 50); }
+  if (tab === 'dexa') { setTimeout(drawDexaCharts, 50); }
+  if (tab === 'timeline') { setTimeout(drawTimeline, 50); }
+  if (tab === 'nutrition') { setTimeout(drawNutrition, 50); }
+}
+
+// ─── DEXA Charts ─────────────────────────────────────────────────────────────
+let dexaCharts = {};
+
+function drawDexaCharts() {
+  const labels = DEXA_SCANS.map(s => fmtMonYear(s.date));
+  const colors = {
+    purple: '#6366f1', purpleA: 'rgba(99,102,241,0.15)',
+    green: '#10b981', greenA: 'rgba(16,185,129,0.1)',
+    orange: '#f97316', orangeA: 'rgba(249,115,22,0.1)',
+    red: '#ef4444', redA: 'rgba(239,68,68,0.1)',
+    blue: '#3b82f6', blueA: 'rgba(59,130,246,0.1)',
+    yellow: '#f59e0b',
+  };
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8', maxRotation: 40 } },
+      y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#94a3b8' } }
+    }
+  };
+
+  // Chart 1: BF% + lean + fat
+  destroyChart('chart-bf');
+  dexaCharts['chart-bf'] = new Chart(document.getElementById('chart-bf'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Body Fat %', data: DEXA_SCANS.map(s => s.fat_pct), borderColor: colors.purple, backgroundColor: colors.purpleA, fill: true, tension: 0.3, pointRadius: 5, pointHoverRadius: 7, yAxisID: 'y' },
+        { label: 'Lean Mass ÷10', data: DEXA_SCANS.map(s => +(s.lean_tissue/10).toFixed(2)), borderColor: colors.green, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, borderDash: [4,3], yAxisID: 'y' },
+        { label: 'Fat Mass ÷2', data: DEXA_SCANS.map(s => +(s.fat_tissue/2).toFixed(2)), borderColor: colors.orange, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, borderDash: [2,3], yAxisID: 'y' }
+      ]
+    },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins,
+      tooltip: { callbacks: { label: ctx => {
+        if (ctx.datasetIndex === 0) return ` BF: ${ctx.raw}%`;
+        if (ctx.datasetIndex === 1) return ` Lean: ${(ctx.raw*10).toFixed(1)} lbs`;
+        return ` Fat: ${(ctx.raw*2).toFixed(1)} lbs`;
+      }}}
+    }}
+  });
+
+  // Chart 2: VAT Only
+  destroyChart('chart-rmr');
+  dexaCharts['chart-rmr'] = new Chart(document.getElementById('chart-rmr'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'VAT Volume (in³)', data: DEXA_SCANS.map(s => s.vat_vol), borderColor: colors.red, backgroundColor: 'rgba(239,68,68,0.12)', fill: true, tension: 0.3, pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` VAT: ${ctx.raw} in³` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8', maxRotation: 40 } },
+        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#94a3b8' }, title: { display: true, text: 'VAT Volume (in³)', font:{size:9}, color:'#94a3b8' }, min: 0 }
+      }
+    }
+  });
+
+  // Render DEXA table
+  renderDexaTable();
+}
+
+function destroyChart(id) {
+  if (dexaCharts[id]) { dexaCharts[id].destroy(); delete dexaCharts[id]; }
+}
+
+function renderDexaTable() {
+  const tbody = document.getElementById('dexa-tbody');
+  const lowestBF = Math.min(...DEXA_SCANS.map(s => s.fat_pct));
+  const highestLean = Math.max(...DEXA_SCANS.map(s => s.lean_tissue));
+  let html = '';
+  [...DEXA_SCANS].reverse().forEach(s => {
+    const isBestBF = s.fat_pct === lowestBF;
+    const isPeakLean = s.lean_tissue === highestLean;
+    html += `<tr class="${isBestBF?'best-row':''}">
+      <td>${fmtDateShort(s.date)}${isBestBF?'<span class="tag tag-green">best BF</span>':''}${isPeakLean?'<span class="tag tag-blue">peak lean</span>':''}</td>
+      <td><strong>${s.fat_pct}%</strong></td>
+      <td>${s.total_mass} lbs</td>
+      <td>${s.lean_tissue} lbs</td>
+      <td>${s.fat_tissue} lbs</td>
+      <td class="col-bmc">${s.bmc} lbs</td>
+      <td class="col-rmr">${s.rmr ? s.rmr.toLocaleString() : '—'} cal</td>
+      <td>${s.ag_ratio ? s.ag_ratio.toFixed(2) : '—'}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+// ─── Timeline Tab ─────────────────────────────────────────────────────────────
+function drawTimeline() {
+  const showCheat = document.getElementById('toggle-cheat')?.checked ?? true;
+  const showDexa = document.getElementById('toggle-dexa-pts')?.checked ?? true;
+
+  // Build 30-day rolling average
+  const scaleMap = {};
+  SCALE_DATA.forEach(r => { scaleMap[r.d] = r.w; });
+
+  // Rolling avg using sorted data
+  const avgData = SCALE_DATA.map((r, i) => {
+    const start = Math.max(0, i - 29);
+    const slice = SCALE_DATA.slice(start, i + 1);
+    const avg = slice.reduce((s, x) => s + x.w, 0) / slice.length;
+    return { x: r.d, y: +avg.toFixed(2) };
+  });
+
+  // DEXA overlay points
+  const dexaPoints = DEXA_SCANS.filter(s => scaleMap[s.date]).map(s => ({
+    x: s.date, y: s.total_mass, bf: s.fat_pct, lean: s.lean_tissue
+  }));
+
+  // Cheat day points (on scale data)
+  const cheatPoints = CHEAT_DAYS.filter(c => scaleMap[c.date]).map(c => ({
+    x: c.date, y: scaleMap[c.date], label: c.label
+  }));
+
+  destroyChart('chart-timeline');
+  const datasets = [
+    {
+      label: 'Daily Scale', type: 'line',
+      data: SCALE_DATA.map(r => ({ x: r.d, y: r.w })),
+      borderColor: 'rgba(148,163,184,0.5)', backgroundColor: 'transparent',
+      borderWidth: 1, pointRadius: 0, tension: 0, order: 3
+    },
+    {
+      label: '30-Day Avg', type: 'line',
+      data: avgData,
+      borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)',
+      borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: true, order: 2
+    }
+  ];
+  if (showDexa) {
+    datasets.push({
+      label: 'DEXA Scan', type: 'scatter',
+      data: dexaPoints,
+      backgroundColor: '#f97316', borderColor: '#fff',
+      borderWidth: 2, pointRadius: 8, pointStyle: 'rectRot', order: 0
+    });
+  }
+  if (showCheat) {
+    datasets.push({
+      label: 'Cheat Day', type: 'scatter',
+      data: cheatPoints,
+      backgroundColor: 'rgba(244,63,94,0.7)', borderColor: '#f43f5e',
+      borderWidth: 1.5, pointRadius: 5, pointStyle: 'triangle', order: 1
+    });
+  }
+
+  dexaCharts['chart-timeline'] = new Chart(document.getElementById('chart-timeline'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => {
+              const d = ctx[0]?.raw?.x;
+              if (!d) return '';
+              return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+            },
+            label: ctx => {
+              if (ctx.dataset.label === 'DEXA Scan') return ` DEXA: ${ctx.raw.y} lbs (${ctx.raw.bf}% BF, ${ctx.raw.lean} lbs lean)`;
+              if (ctx.dataset.label === 'Cheat Day') return ` Cheat: ${ctx.raw.y} lbs — ${ctx.raw.label}`;
+              if (ctx.dataset.label === '30-Day Avg') return ` 30d avg: ${ctx.raw.y} lbs`;
+              return ` Scale: ${ctx.raw.y} lbs`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'month', tooltipFormat: 'MMM yyyy', displayFormats: { month: 'MMM yy' } },
+          grid: { display: false },
+          ticks: { font: { size: 10 }, color: '#94a3b8', maxRotation: 0 }
+        },
+        y: {
+          min: 174, max: 197,
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 10 }, color: '#94a3b8', callback: v => v + ' lbs' }
+        }
+      }
+    }
+  });
+
+  // Cheat spike distribution chart
+  buildCheatDistChart();
+  buildCalibrationChart();
+  buildCheatTable();
+}
+
+function buildCheatDistChart() {
+  const spikes = [];
+  CHEAT_DAYS.forEach(c => {
+    const cdDate = new Date(c.date + 'T12:00:00');
+    const dayBefore = new Date(cdDate); dayBefore.setDate(dayBefore.getDate() - 1);
+    const dayAfter = new Date(cdDate); dayAfter.setDate(dayAfter.getDate() + 1);
+    const db = dayBefore.toISOString().slice(0, 10);
+    const da = dayAfter.toISOString().slice(0, 10);
+    if (SCALE_MAP[db] && SCALE_MAP[da]) {
+      spikes.push({ date: c.date, label: c.label, spike: +(SCALE_MAP[da] - SCALE_MAP[db]).toFixed(1) });
+    }
+  });
+
+  spikes.sort((a, b) => a.spike - b.spike);
+  const colors = spikes.map(s => s.spike > 4 ? '#ef4444' : s.spike > 2 ? '#f97316' : s.spike > 0 ? '#f59e0b' : '#10b981');
+
+  destroyChart('chart-cheat-dist');
+  dexaCharts['chart-cheat-dist'] = new Chart(document.getElementById('chart-cheat-dist'), {
+    type: 'bar',
+    data: {
+      labels: spikes.map(s => new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })),
+      datasets: [{
+        label: 'Next-morning spike (lbs)',
+        data: spikes.map(s => s.spike),
+        backgroundColor: colors.map(c => c + 'bb'),
+        borderColor: colors, borderWidth: 1.5, borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw > 0 ? '+' : ''}${ctx.raw} lbs: ${spikes[ctx.dataIndex]?.label}` } }
+      },
+      scales: {
+        x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, color: '#94a3b8', callback: v => (v > 0 ? '+' : '') + v + ' lbs' } },
+        y: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#64748b' } }
+      }
+    }
+  });
+}
+
+function buildCalibrationChart() {
+  destroyChart('chart-calibration');
+  dexaCharts['chart-calibration'] = new Chart(document.getElementById('chart-calibration'), {
+    type: 'bar',
+    data: {
+      labels: DEXA_SCALE_PAIRS.map(p => new Date(p.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })),
+      datasets: [
+        { label: 'DEXA (lbs)', data: DEXA_SCALE_PAIRS.map(p => p.dexa), backgroundColor: 'rgba(249,115,22,0.6)', borderColor: '#f97316', borderWidth: 1.5, borderRadius: 4 },
+        { label: 'Scale (lbs)', data: DEXA_SCALE_PAIRS.map(p => p.scale), backgroundColor: 'rgba(99,102,241,0.5)', borderColor: '#6366f1', borderWidth: 1.5, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: true, labels: { font: { size: 10 }, color: '#64748b', boxWidth: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} lbs` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#94a3b8', maxRotation: 40 } },
+        y: { min: 178, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, color: '#94a3b8' } }
+      }
+    }
+  });
+}
+
+function buildCheatTable() {
+  const tbody = document.getElementById('cheat-table-body');
+  if (!tbody) return;
+  let html = '';
+  const allSpikes = [];
+
+  CHEAT_DAYS.forEach(c => {
+    const cdDate = new Date(c.date + 'T12:00:00');
+    const dayBefore = new Date(cdDate); dayBefore.setDate(dayBefore.getDate() - 1);
+    const dayAfter = new Date(cdDate); dayAfter.setDate(dayAfter.getDate() + 1);
+    const db = dayBefore.toISOString().slice(0, 10);
+    const da = dayAfter.toISOString().slice(0, 10);
+    const wBefore = SCALE_MAP[db];
+    const wAfter = SCALE_MAP[da];
+    const spike = (wBefore && wAfter) ? +(wAfter - wBefore).toFixed(1) : null;
+    if (spike !== null) allSpikes.push(spike);
+
+    // Recovery: days to return to wBefore
+    let recovery = '—';
+    if (wBefore && spike && spike > 0) {
+      for (let d = 2; d <= 14; d++) {
+        const check = new Date(cdDate); check.setDate(check.getDate() + d);
+        const ck = check.toISOString().slice(0, 10);
+        if (SCALE_MAP[ck] && SCALE_MAP[ck] <= wBefore + 0.3) { recovery = `~${d}d`; break; }
+      }
+      if (recovery === '—') recovery = '>14d';
+    } else if (spike !== null && spike <= 0) {
+      recovery = 'none';
+    }
+
+    const spikeColor = spike === null ? '' : spike > 4 ? 'color:#ef4444;font-weight:700' : spike > 2 ? 'color:#f97316;font-weight:700' : spike > 0 ? 'color:#f59e0b' : 'color:#10b981';
+    const spikeStr = spike === null ? '—' : `<span style="${spikeColor}">${spike > 0 ? '+' : ''}${spike} lbs</span>`;
+
+    html += `<tr>
+      <td>${new Date(c.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+      <td style="font-size:0.8rem;color:var(--muted);max-width:200px">${c.label}</td>
+      <td>${wBefore ? wBefore + ' lbs' : '—'}</td>
+      <td>${wAfter ? wAfter + ' lbs' : '—'}</td>
+      <td>${spikeStr}</td>
+      <td style="font-size:0.8rem;color:var(--muted)">${recovery}</td>
+    </tr>`;
+  });
+
+  if (allSpikes.length > 0) {
+    const avg = (allSpikes.reduce((a, b) => a + b, 0) / allSpikes.length).toFixed(1);
+    const max = Math.max(...allSpikes).toFixed(1);
+    html += `<tr style="background:#f8fafc;font-size:0.82rem">
+      <td colspan="2" style="font-weight:700;color:var(--muted)">AVERAGES / TOTALS</td>
+      <td colspan="2"></td>
+      <td style="font-weight:700">avg +${avg} lbs</td>
+      <td style="color:var(--red)">max +${max} lbs</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = html;
+}
+
+// ─── Local Storage ─────────────────────────────────────────────────────────────
 function load() {
   try { const r = localStorage.getItem(KEY); if(r) return JSON.parse(r); } catch(e){}
   return { entries: [] };
 }
 function save(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
 
-// ─── Google Sheets Sync ─────────────────────────────────────────────────────
-function getSheetsUrl() {
-  try { return localStorage.getItem(SHEETS_URL_KEY) || ''; } catch(e) { return ''; }
-}
-function setSheetsUrl(url) {
-  localStorage.setItem(SHEETS_URL_KEY, url);
-}
+// ─── Google Sheets Sync ────────────────────────────────────────────────────────
+function getSheetsUrl() { try { return localStorage.getItem(SHEETS_URL_KEY) || ''; } catch(e) { return ''; } }
+function setSheetsUrl(url) { localStorage.setItem(SHEETS_URL_KEY, url); }
 
 function updateSyncUI(status, msg) {
   const bar = document.getElementById('sync-bar');
@@ -490,200 +1410,106 @@ function updateSyncUI(status, msg) {
   msgEl.textContent = msg;
 }
 
-// Push entries to Google Sheets (fire-and-forget with status updates)
 async function pushToSheets(entries) {
-  const url = getSheetsUrl();
-  if (!url) return;
+  const url = getSheetsUrl(); if (!url) return;
   updateSyncUI('yellow', 'Syncing to Google Sheets...');
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sync', entries }),
-      mode: 'no-cors' // Apps Script redirects; we use no-cors for fire-and-forget
-    });
-    // With no-cors we can't read the response, but if it didn't throw, it likely worked
+    await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'sync',entries}), mode:'no-cors' });
     updateSyncUI('green', 'Synced to Google Sheets');
-    setTimeout(() => {
-      if (document.getElementById('sync-dot').classList.contains('green'))
-        updateSyncUI('green', 'Connected to Google Sheets');
-    }, 3000);
-  } catch (err) {
-    updateSyncUI('red', 'Sync failed — check your connection');
-    console.error('Sheets push error:', err);
-  }
+    setTimeout(()=>{ if(document.getElementById('sync-dot').classList.contains('green')) updateSyncUI('green','Connected to Google Sheets'); }, 3000);
+  } catch(err) { updateSyncUI('red','Sync failed — check your connection'); }
 }
 
-// Push a delete action to Google Sheets
 async function pushDeleteToSheets(date) {
-  const url = getSheetsUrl();
-  if (!url) return;
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'delete', date }),
-      mode: 'no-cors'
-    });
-  } catch (err) { console.error('Sheets delete error:', err); }
+  const url = getSheetsUrl(); if (!url) return;
+  try { await fetch(url, {method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'delete',date}),mode:'no-cors'}); } catch(e){}
 }
 
-// Push a date-change action to Google Sheets
 async function pushDateChangeToSheets(oldDate, newDate) {
-  const url = getSheetsUrl();
-  if (!url) return;
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'update_date', oldDate, newDate }),
-      mode: 'no-cors'
-    });
-  } catch (err) { console.error('Sheets date-change error:', err); }
+  const url = getSheetsUrl(); if (!url) return;
+  try { await fetch(url, {method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'update_date',oldDate,newDate}),mode:'no-cors'}); } catch(e){}
 }
 
-// Pull from Google Sheets and merge with local data
 async function pullFromSheets() {
-  const url = getSheetsUrl();
-  if (!url) return null;
-  updateSyncUI('yellow', 'Pulling from Google Sheets...');
+  const url = getSheetsUrl(); if (!url) return null;
+  updateSyncUI('yellow','Pulling from Google Sheets...');
   try {
-    const res = await fetch(url);
-    const json = await res.json();
-    if (!json.ok || !Array.isArray(json.entries)) {
-      updateSyncUI('red', 'Pull failed — invalid response');
-      return null;
-    }
-    updateSyncUI('green', 'Connected to Google Sheets');
-    return json.entries;
-  } catch (err) {
-    updateSyncUI('red', 'Could not reach Google Sheets');
-    console.error('Sheets pull error:', err);
-    return null;
-  }
+    const res = await fetch(url); const json = await res.json();
+    if (!json.ok || !Array.isArray(json.entries)) { updateSyncUI('red','Pull failed — invalid response'); return null; }
+    updateSyncUI('green','Connected to Google Sheets'); return json.entries;
+  } catch(err) { updateSyncUI('red','Could not reach Google Sheets'); return null; }
 }
 
-// Merge remote entries into local (remote wins on conflict)
 function mergeEntries(local, remote) {
   const map = {};
-  local.forEach(e => { if(e.date && e.weight) map[e.date] = e; });
-  remote.forEach(e => { if(e.date && e.weight) map[e.date] = e; }); // remote overwrites
-  return Object.values(map).sort((a,b) => a.date.localeCompare(b.date));
+  local.forEach(e=>{if(e.date&&e.weight)map[e.date]=e;});
+  remote.forEach(e=>{if(e.date&&e.weight)map[e.date]=e;});
+  return Object.values(map).sort((a,b)=>a.date.localeCompare(b.date));
 }
 
-// ─── Settings UI ────────────────────────────────────────────────────────────
+// ─── Settings UI ──────────────────────────────────────────────────────────────
 function toggleSettings() {
-  const panel = document.getElementById('settings-panel');
-  const overlay = document.getElementById('settings-overlay');
-  const isOpen = panel.classList.contains('open');
-  panel.classList.toggle('open');
-  overlay.classList.toggle('open');
-  if (!isOpen) {
+  document.getElementById('settings-panel').classList.toggle('open');
+  document.getElementById('settings-overlay').classList.toggle('open');
+  if (document.getElementById('settings-panel').classList.contains('open'))
     document.getElementById('sheets-url').value = getSheetsUrl();
-  }
 }
 
 async function saveSettings() {
   const url = document.getElementById('sheets-url').value.trim();
-  if (url && !url.startsWith('https://script.google.com/')) {
-    alert('Please enter a valid Google Apps Script URL (starts with https://script.google.com/)');
-    return;
-  }
-  setSheetsUrl(url);
-  toggleSettings();
+  if (url && !url.startsWith('https://script.google.com/')) { alert('Please enter a valid Google Apps Script URL'); return; }
+  setSheetsUrl(url); toggleSettings();
   if (url) {
-    // Try to pull and merge
     const remote = await pullFromSheets();
     const local = load();
-    if (remote) {
-      local.entries = mergeEntries(local.entries, remote);
-      save(local);
-      // Push merged data back
-      await pushToSheets(local.entries);
-    }
-    render();
-  } else {
-    updateSyncUI('gray', 'Not connected to Google Sheets');
-  }
+    if (remote) { local.entries = mergeEntries(local.entries, remote); save(local); await pushToSheets(local.entries); }
+    renderWeight();
+  } else { updateSyncUI('gray','Not connected to Google Sheets'); }
 }
 
 async function forcePull() {
   const remote = await pullFromSheets();
-  if (remote) {
-    const local = load();
-    local.entries = mergeEntries(local.entries, remote);
-    save(local);
-    render();
-    showToast('✓ Pulled & merged from Google Sheets');
-  }
+  if (remote) { const local=load(); local.entries=mergeEntries(local.entries,remote); save(local); renderWeight(); showToast('✓ Pulled & merged from Google Sheets'); }
 }
+async function forcePush() { const data=load(); updateSyncUI('yellow','Pushing all data...'); await pushToSheets(data.entries); showToast('✓ Pushed all entries'); }
+function disconnectSheets() { setSheetsUrl(''); updateSyncUI('gray','Disconnected'); toggleSettings(); showToast('Disconnected — local data preserved'); }
 
-async function forcePush() {
-  const data = load();
-  updateSyncUI('yellow', 'Pushing all data to Sheets...');
-  await pushToSheets(data.entries);
-  showToast('✓ Pushed all entries to Google Sheets');
-}
-
-function disconnectSheets() {
-  setSheetsUrl('');
-  document.getElementById('sheets-url').value = '';
-  updateSyncUI('gray', 'Disconnected from Google Sheets');
-  toggleSettings();
-  showToast('Disconnected from Google Sheets — local data preserved');
-}
-
-// ─── Calculations ────────────────────────────────────────────────────────────
+// ─── Weight Calculations ──────────────────────────────────────────────────────
 function rollingAvg(entries, date, n=7) {
-  const valid = entries.filter(e => e.weight && e.date <= date).slice(-n);
+  const valid = entries.filter(e=>e.weight&&e.date<=date).slice(-n);
   if (!valid.length) return null;
   return valid.reduce((s,e)=>s+e.weight,0)/valid.length;
 }
-
 function currentAvg(entries) { return rollingAvg(entries, today()); }
-
 function projectedEndWeight(entries) {
   const w = entries.filter(e=>e.weight);
   if (w.length < 2) return null;
-  const recent = w.slice(-Math.min(14, w.length));
+  const recent = w.slice(-Math.min(14,w.length));
   const n = recent.length;
-  const xs = recent.map((_,i)=>i);
-  const ys = recent.map(e=>e.weight);
+  const xs = recent.map((_,i)=>i), ys = recent.map(e=>e.weight);
   const xm = xs.reduce((a,b)=>a+b,0)/n, ym = ys.reduce((a,b)=>a+b,0)/n;
   const denom = xs.reduce((s,x)=>s+(x-xm)**2,0);
   if (!denom) return ys[ys.length-1];
   const slope = xs.reduce((s,x,i)=>s+(x-xm)*(ys[i]-ym),0)/denom;
   const daysLeft = daysBetween(today(), addDays(CFG.startDate, CFG.durationDays));
-  return Math.max(0, ys[ys.length-1] + slope * Math.max(daysLeft, 0));
+  return Math.max(0, ys[ys.length-1] + slope * Math.max(daysLeft,0));
 }
 
-function calcStreak(entries) {
-  let check = today(), streak = 0;
-  const m = {};
-  entries.forEach(e => { if(e.weight) m[e.date]=true; });
-  while(m[check]) { streak++; check = addDays(check,-1); }
-  return streak;
-}
-
-// ─── Render ──────────────────────────────────────────────────────────────────
-function render() {
+// ─── Render Weight Panel ──────────────────────────────────────────────────────
+function renderWeight() {
   const data = load();
   const td = today();
   const endDate = addDays(CFG.startDate, CFG.durationDays);
 
-  // Saturday mode (also force-on with ?preview=saturday)
+  // Saturday mode
   const previewSat = new URLSearchParams(window.location.search).get('preview') === 'saturday';
   if (isSat(td) || previewSat) document.body.classList.add('sat');
   else document.body.classList.remove('sat');
 
-  // Sync bar visibility
+  // Sync bar
   const sheetsUrl = getSheetsUrl();
-  const syncBar = document.getElementById('sync-bar');
-  syncBar.style.display = 'flex'; // always show
-
-  // Header
-  document.getElementById('sub-dates').textContent =
-    `${fmtDate(CFG.startDate)} → ${fmtDate(endDate)}`;
+  document.getElementById('sync-bar').style.display = 'flex';
+  if (!sheetsUrl) updateSyncUI('gray','Not connected — tap ⚙ to set up Google Sheets');
 
   // Progress
   const elapsed = Math.max(0, Math.min(daysBetween(CFG.startDate, td), CFG.durationDays));
@@ -697,19 +1523,17 @@ function render() {
   // Stats
   const avg = currentAvg(data.entries);
   document.getElementById('s-avg').textContent = avg ? avg.toFixed(1)+' lbs' : '—';
-
   const lost = avg ? CFG.startWeight - avg : null;
   const lostEl = document.getElementById('s-lost');
   if (lost !== null) {
     lostEl.textContent = (lost>=0?'−':'+')+Math.abs(lost).toFixed(1)+' lbs';
-    lostEl.className = 'stat-val ' + (lost>=0 ? 'clr-green' : 'clr-red');
+    lostEl.className = 'stat-val ' + (lost>=0?'clr-green':'clr-red');
   } else { lostEl.textContent='—'; lostEl.className='stat-val'; }
-
   const proj = projectedEndWeight(data.entries);
   document.getElementById('s-proj').textContent = proj ? proj.toFixed(1)+' lbs' : '—';
 
   // Log form
-  const todayEntry = data.entries.find(e => e.date === td);
+  const todayEntry = data.entries.find(e=>e.date===td);
   if (todayEntry && todayEntry.weight) {
     document.getElementById('log-form').style.display = 'none';
     const ok = document.getElementById('logged-ok');
@@ -722,7 +1546,7 @@ function render() {
     document.getElementById('edit-link').style.display = 'none';
   }
 
-  drawChart(data);
+  drawWeightChart(data);
   renderHistory(data);
 }
 
@@ -730,218 +1554,166 @@ function showForm() {
   document.getElementById('log-form').style.display = 'block';
   document.getElementById('logged-ok').style.display = 'none';
   document.getElementById('edit-link').style.display = 'none';
-  const data = load();
-  const entry = data.entries.find(e => e.date === today());
+  const entry = load().entries.find(e=>e.date===today());
   if (entry) {
     if (entry.weight) document.getElementById('w-input').value = entry.weight;
     if (entry.notes)  document.getElementById('n-input').value = entry.notes;
   }
 }
 
-// ─── Log today ───────────────────────────────────────────────────────────────
 function logEntry() {
   const td = today();
   const w = parseFloat(document.getElementById('w-input').value);
   const notes = document.getElementById('n-input').value.trim();
-  if (!w || isNaN(w) || w<100 || w>400) {
-    alert('Please enter a valid weight (100–400 lbs).'); return;
-  }
+  if (!w || isNaN(w) || w<100 || w>400) { alert('Please enter a valid weight (100–400 lbs).'); return; }
   const data = load();
   data.entries = data.entries.filter(e=>e.date!==td);
-  const newEntry = { date:td, weight:w, notes };
+  const newEntry = {date:td, weight:w, notes};
   data.entries.push(newEntry);
   data.entries.sort((a,b)=>a.date.localeCompare(b.date));
   save(data);
-  // Sync to Sheets
   pushToSheets([newEntry]);
   if (isSat(td)) fireworks();
-  render();
+  renderWeight();
 }
 
-// ─── Chart ───────────────────────────────────────────────────────────────────
-function drawChart(data) {
-  const canvas = document.getElementById('chart');
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.clientWidth, H = canvas.clientHeight || 200;
-  canvas.width = W*dpr; canvas.height = H*dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+// ─── Weight Chart ─────────────────────────────────────────────────────────────
+let weightChartInst = null;
+function drawWeightChart(data) {
+  const canvas = document.getElementById('chart-weight');
+  if (!canvas) return;
+  if (weightChartInst) { weightChartInst.destroy(); weightChartInst = null; }
 
   const entries = data.entries.filter(e=>e.weight);
   const saturday = document.body.classList.contains('sat');
   const blue = saturday ? '#f97316' : '#6366f1';
   const lineColor = saturday ? '#ec4899' : '#8b5cf6';
 
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight || 200;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
   if (!entries.length) {
-    ctx.fillStyle='#94a3b8'; ctx.font='13px system-ui';
-    ctx.textAlign='center';
-    ctx.fillText('Log your first weight to see the trend!', W/2, H/2);
-    return;
+    ctx.fillStyle='#94a3b8'; ctx.font='13px system-ui'; ctx.textAlign='center';
+    ctx.fillText('Log your first weight to see the trend!', W/2, H/2); return;
   }
 
-  const pad = { t:14, r:12, b:28, l:46 };
-  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
-
+  const pad = {t:14,r:12,b:28,l:46};
+  const cW = W-pad.l-pad.r, cH = H-pad.t-pad.b;
   const weights = entries.map(e=>e.weight);
   let minW = Math.min(...weights), maxW = Math.max(...weights);
-  // Also include goal line
-  const goalEnd = CFG.startWeight - (CFG.goalRate * 8);
-  minW = Math.min(minW, goalEnd) - 1.5;
-  maxW = Math.max(maxW, CFG.startWeight) + 1.5;
-
-  const xOf = d => pad.l + (daysBetween(CFG.startDate, d) / CFG.durationDays) * cW;
-  const yOf = w => pad.t + cH - ((w - minW)/(maxW - minW)) * cH;
+  const goalEnd = CFG.startWeight - (CFG.goalRate*8);
+  minW = Math.min(minW,goalEnd)-1.5; maxW = Math.max(maxW,CFG.startWeight)+1.5;
+  const xOf = d => pad.l+(daysBetween(CFG.startDate,d)/CFG.durationDays)*cW;
+  const yOf = w => pad.t+cH-((w-minW)/(maxW-minW))*cH;
 
   // Grid
-  const ticks = 4;
   ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1;
-  for (let i=0;i<=ticks;i++) {
-    const w = minW + (i/ticks)*(maxW-minW);
-    const y = yOf(w);
+  for (let i=0;i<=4;i++) {
+    const w=minW+(i/4)*(maxW-minW), y=yOf(w);
     ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
     ctx.fillStyle='#94a3b8'; ctx.font='10px system-ui'; ctx.textAlign='right';
-    ctx.fillText(w.toFixed(1), pad.l-4, y+3);
+    ctx.fillText(w.toFixed(1),pad.l-4,y+3);
   }
 
-  // Goal trajectory (dashed green)
-  const endDate = addDays(CFG.startDate, CFG.durationDays);
+  // Goal line
+  const endDate = addDays(CFG.startDate,CFG.durationDays);
   ctx.strokeStyle='#34d399'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
-  ctx.beginPath();
-  ctx.moveTo(xOf(CFG.startDate), yOf(CFG.startWeight));
-  ctx.lineTo(xOf(endDate), yOf(goalEnd));
-  ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(xOf(CFG.startDate),yOf(CFG.startWeight)); ctx.lineTo(xOf(endDate),yOf(goalEnd)); ctx.stroke(); ctx.setLineDash([]);
 
-  // 7-day avg line
+  // 7-day avg
   const avgPts = [];
   for (let i=6;i<entries.length;i++) {
     const slice = entries.slice(i-6,i+1);
-    avgPts.push({ date:entries[i].date, val: slice.reduce((s,e)=>s+e.weight,0)/slice.length });
+    avgPts.push({date:entries[i].date, val:slice.reduce((s,e)=>s+e.weight,0)/slice.length});
   }
   if (avgPts.length>1) {
     ctx.strokeStyle=lineColor; ctx.lineWidth=2.5; ctx.lineJoin='round';
     ctx.beginPath();
-    avgPts.forEach((p,i)=>{
-      const x=xOf(p.date), y=yOf(p.val);
-      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    });
+    avgPts.forEach((p,i)=>{const x=xOf(p.date),y=yOf(p.val);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
     ctx.stroke();
   }
 
   // Dots
   entries.forEach(e=>{
-    const r = isSat(e.date)?5.5:4;
-    ctx.beginPath();
-    ctx.arc(xOf(e.date), yOf(e.weight), r, 0, Math.PI*2);
-    ctx.fillStyle = isSat(e.date) ? '#f97316' : blue;
-    ctx.fill();
+    const r=isSat(e.date)?5.5:4;
+    ctx.beginPath(); ctx.arc(xOf(e.date),yOf(e.weight),r,0,Math.PI*2);
+    ctx.fillStyle=isSat(e.date)?'#f97316':blue; ctx.fill();
     ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
   });
 
   // Legend
   ctx.font='9px system-ui'; ctx.textAlign='left';
-  ctx.fillStyle=blue;      ctx.fillText('● Daily', pad.l, H-6);
-  ctx.fillStyle=lineColor; ctx.fillText('─ 7-day avg', pad.l+52, H-6);
-  ctx.fillStyle='#34d399'; ctx.fillText('- - goal pace', pad.l+118, H-6);
+  ctx.fillStyle=blue; ctx.fillText('● Daily',pad.l,H-6);
+  ctx.fillStyle=lineColor; ctx.fillText('─ 7-day avg',pad.l+52,H-6);
+  ctx.fillStyle='#34d399'; ctx.fillText('- - goal pace',pad.l+118,H-6);
 }
 
-// ─── Edit date ───────────────────────────────────────────────────────────────
+// ─── Date / Note editing ──────────────────────────────────────────────────────
 function editDate(date) {
-  const cell = document.getElementById('date-' + date);
-  cell.innerHTML = `
-    <input type="date" class="note-input" id="date-input-${date}" value="${date}" style="width:130px" />
-    <button class="btn-save" onclick="saveDate('${date}')" title="Save">✓</button>`;
-  const input = document.getElementById('date-input-' + date);
+  const cell = document.getElementById('date-'+date);
+  cell.innerHTML = `<input type="date" class="note-input" id="date-input-${date}" value="${date}" style="width:130px" /><button class="btn-save" onclick="saveDate('${date}')" title="Save">✓</button>`;
+  const input = document.getElementById('date-input-'+date);
   input.focus();
-  input.addEventListener('keydown', e => { if(e.key==='Enter') saveDate(date); if(e.key==='Escape') render(); });
+  input.addEventListener('keydown', e=>{if(e.key==='Enter')saveDate(date);if(e.key==='Escape')renderWeight();});
 }
-
 function saveDate(oldDate) {
-  const input = document.getElementById('date-input-' + oldDate);
-  if (!input) return;
+  const input = document.getElementById('date-input-'+oldDate); if(!input) return;
   const newDate = input.value;
-  if (!newDate || newDate === oldDate) { render(); return; }
+  if (!newDate||newDate===oldDate){renderWeight();return;}
   const data = load();
-  if (data.entries.find(e => e.date === newDate)) {
-    alert(`There's already an entry for ${fmtDate(newDate)}. Delete it first if you want to move this entry there.`);
-    render(); return;
-  }
-  const entry = data.entries.find(e => e.date === oldDate);
-  if (entry) { entry.date = newDate; }
-  data.entries.sort((a,b) => a.date.localeCompare(b.date));
-  save(data);
-  pushDateChangeToSheets(oldDate, newDate);
-  render();
+  if (data.entries.find(e=>e.date===newDate)){alert(`Already an entry for ${fmtDate(newDate)}.`);renderWeight();return;}
+  const entry = data.entries.find(e=>e.date===oldDate);
+  if (entry) entry.date=newDate;
+  data.entries.sort((a,b)=>a.date.localeCompare(b.date));
+  save(data); pushDateChangeToSheets(oldDate,newDate); renderWeight();
 }
-
-// ─── Edit note ───────────────────────────────────────────────────────────────
 function editNote(date) {
-  const data = load();
-  const entry = data.entries.find(e => e.date === date);
-  const cell = document.getElementById('note-' + date);
-  const current = entry ? (entry.notes || '') : '';
-  cell.innerHTML = `
-    <input class="note-input" id="note-input-${date}" type="text" value="${current.replace(/"/g,'&quot;')}" />
-    <button class="btn-save" onclick="saveNote('${date}')" title="Save">✓</button>`;
-  const input = document.getElementById('note-input-' + date);
+  const data=load(), entry=data.entries.find(e=>e.date===date);
+  const cell=document.getElementById('note-'+date);
+  const current=entry?(entry.notes||''):'';
+  cell.innerHTML=`<input class="note-input" id="note-input-${date}" type="text" value="${current.replace(/"/g,'&quot;')}" /><button class="btn-save" onclick="saveNote('${date}')" title="Save">✓</button>`;
+  const input=document.getElementById('note-input-'+date);
   input.focus();
-  input.addEventListener('keydown', e => { if(e.key==='Enter') saveNote(date); if(e.key==='Escape') render(); });
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')saveNote(date);if(e.key==='Escape')renderWeight();});
 }
-
 function saveNote(date) {
-  const input = document.getElementById('note-input-' + date);
-  if (!input) return;
-  const data = load();
-  const entry = data.entries.find(e => e.date === date);
-  if (entry) {
-    entry.notes = input.value.trim();
-    save(data);
-    pushToSheets([entry]);
-  }
-  render();
+  const input=document.getElementById('note-input-'+date); if(!input) return;
+  const data=load(), entry=data.entries.find(e=>e.date===date);
+  if(entry){entry.notes=input.value.trim();save(data);pushToSheets([entry]);}
+  renderWeight();
 }
-
-// ─── Delete entry ────────────────────────────────────────────────────────────
 function deleteEntry(date) {
-  const data = load();
-  data.entries = data.entries.filter(e => e.date !== date);
-  save(data);
-  pushDeleteToSheets(date);
-  render();
+  const data=load(); data.entries=data.entries.filter(e=>e.date!==date); save(data); pushDeleteToSheets(date); renderWeight();
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────
 function renderHistory(data) {
   const el = document.getElementById('history-wrap');
   const entries = [...data.entries].filter(e=>e.weight).reverse();
-  if (!entries.length) {
-    el.innerHTML='<p style="color:#94a3b8;text-align:center;padding:20px 0">No entries yet — start logging!</p>';
-    return;
-  }
-  let html = `<table><thead><tr>
-    <th>Date</th><th>Weight</th><th class="col-avg">7-Day Avg</th><th class="col-delta">vs Prior</th><th>Notes</th><th></th>
-  </tr></thead><tbody>`;
+  if (!entries.length) { el.innerHTML='<p style="color:#94a3b8;text-align:center;padding:20px 0">No entries yet — start logging!</p>'; return; }
   const all = data.entries;
+  let html = `<table><thead><tr><th>Date</th><th>Weight</th><th>7-Day Avg</th><th>vs Prior</th><th>Notes</th><th></th></tr></thead><tbody>`;
   entries.forEach(e=>{
-    const sat = isSat(e.date);
-    const avg = rollingAvg(all, e.date);
-    const idx = all.findIndex(x=>x.date===e.date);
-    const prior = all.slice(0,idx).reverse().find(x=>x.weight);
-    const delta = prior ? e.weight - prior.weight : null;
-    const dStr = delta!==null
-      ? `<span style="color:${delta<=0?'#10b981':'#f43f5e'}">${delta>0?'+':''}${delta.toFixed(1)}</span>`
-      : '—';
-    html += `<tr class="${sat?'sat-row':''}">
+    const sat=isSat(e.date);
+    const avg=rollingAvg(all,e.date);
+    const idx=all.findIndex(x=>x.date===e.date);
+    const prior=all.slice(0,idx).reverse().find(x=>x.weight);
+    const delta=prior?e.weight-prior.weight:null;
+    const dStr=delta!==null?`<span style="color:${delta<=0?'#10b981':'#f43f5e'}">${delta>0?'+':''}${delta.toFixed(1)}</span>`:'—';
+    html+=`<tr class="${sat?'sat-row':''}">
       <td id="date-${e.date}">${fmtDate(e.date)}${sat?'<span class="tag">🎉 treat</span>':''}</td>
       <td><strong>${e.weight}</strong> lbs</td>
-      <td class="col-avg">${avg?avg.toFixed(1)+' lbs':'—'}</td>
-      <td class="col-delta">${dStr}</td>
+      <td>${avg?avg.toFixed(1)+' lbs':'—'}</td>
+      <td>${dStr}</td>
       <td class="note-cell" id="note-${e.date}">${e.notes?esc(e.notes):''}</td>
       <td style="white-space:nowrap">
         <button class="btn-edit" onclick="editDate('${e.date}')" title="Edit date">📅</button>
         <button class="btn-edit" onclick="editNote('${e.date}')" title="Edit note">✎</button>
         <button class="btn-delete" onclick="deleteEntry('${e.date}')" title="Delete">✕</button>
-      </td>
-    </tr>`;
+      </td></tr>`;
   });
   html += '</tbody></table>';
   el.innerHTML = html;
@@ -949,100 +1721,188 @@ function renderHistory(data) {
 
 // ─── Confetti ────────────────────────────────────────────────────────────────
 function fireworks() {
-  const c = document.getElementById('confetti');
-  const ctx = c.getContext('2d');
-  c.width = window.innerWidth; c.height = window.innerHeight;
-  const pieces = Array.from({length:150},()=>({
-    x: Math.random()*c.width, y: -10-Math.random()*60,
-    size: 5+Math.random()*8, speed: 2.5+Math.random()*3.5,
-    angle: Math.random()*Math.PI*2, spin: (Math.random()-.5)*.25,
-    color: ['#f97316','#ec4899','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6'][Math.floor(Math.random()*7)]
-  }));
+  const c=document.getElementById('confetti'); const ctx=c.getContext('2d');
+  c.width=window.innerWidth; c.height=window.innerHeight;
+  const pieces=Array.from({length:150},()=>({x:Math.random()*c.width,y:-10-Math.random()*60,size:5+Math.random()*8,speed:2.5+Math.random()*3.5,angle:Math.random()*Math.PI*2,spin:(Math.random()-.5)*.25,color:['#f97316','#ec4899','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6'][Math.floor(Math.random()*7)]}));
   let frame=0;
-  (function loop(){
-    ctx.clearRect(0,0,c.width,c.height);
-    pieces.forEach(p=>{
-      p.y+=p.speed; p.x+=Math.sin(p.angle); p.angle+=p.spin;
-      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.angle);
-      ctx.fillStyle=p.color;
-      ctx.fillRect(-p.size/2,-p.size*0.3,p.size,p.size*0.55);
-      ctx.restore();
-    });
-    if(++frame<180) requestAnimationFrame(loop);
-    else ctx.clearRect(0,0,c.width,c.height);
-  })();
+  (function loop(){ctx.clearRect(0,0,c.width,c.height);pieces.forEach(p=>{p.y+=p.speed;p.x+=Math.sin(p.angle);p.angle+=p.spin;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size*.3,p.size,p.size*.55);ctx.restore();});if(++frame<180)requestAnimationFrame(loop);else ctx.clearRect(0,0,c.width,c.height);})();
 }
 
-// ─── Export / Import ─────────────────────────────────────────────────────────
+// ─── Export / Import ──────────────────────────────────────────────────────────
 function exportData() {
-  const data = load();
-  const filename = `cut-tracker-backup-${today()}.json`;
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
+  const data=load();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`body-tracker-backup-${today()}.json`; a.click();
   URL.revokeObjectURL(url);
 }
-
 function importData(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
     try {
-      const parsed = JSON.parse(ev.target.result);
-      if (!Array.isArray(parsed.entries)) throw new Error('Invalid format');
-      // Validate & sanitize each entry
-      parsed.entries = parsed.entries.filter(e =>
-        e != null && typeof e === 'object' &&
-        typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date) &&
-        typeof e.weight === 'number' && isFinite(e.weight) && e.weight > 0 && e.weight < 1000
-      ).map(e => ({
-        date: e.date,
-        weight: e.weight,
-        notes: typeof e.notes === 'string' ? e.notes.slice(0, 500) : ''
-      }));
-      save(parsed);
-      showToast(`✓ Imported ${parsed.entries.length} entries from ${file.name}`);
-      render();
-    } catch(err) {
-      showToast('⚠ Could not read that file — is it a valid backup?');
-    }
-    // Reset so same file can be re-imported if needed
-    e.target.value = '';
+      const parsed=JSON.parse(ev.target.result);
+      if(!Array.isArray(parsed.entries)) throw new Error();
+      parsed.entries=parsed.entries.filter(e=>e!=null&&typeof e==='object'&&typeof e.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(e.date)&&typeof e.weight==='number'&&isFinite(e.weight)&&e.weight>0&&e.weight<1000).map(e=>({date:e.date,weight:e.weight,notes:typeof e.notes==='string'?e.notes.slice(0,500):''}));
+      save(parsed); showToast(`✓ Imported ${parsed.entries.length} entries`); renderWeight();
+    } catch(err){showToast('⚠ Could not read that file');}
+    e.target.value='';
   };
   reader.readAsText(file);
 }
 
 function showToast(msg) {
-  const el = document.getElementById('import-toast');
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 3500);
+  const el=document.getElementById('import-toast');
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>{el.style.display='none';},3500);
+}
+
+// ─── Nutrition Tab ────────────────────────────────────────────────────────────
+let nutritionCharts = {};
+function destroyNChart(id) {
+  if (nutritionCharts[id]) { nutritionCharts[id].destroy(); delete nutritionCharts[id]; }
+}
+
+function drawNutrition() {
+  const nc = { purple:'#6366f1', green:'#22c55e', blue:'#3b82f6', red:'#ef4444', yellow:'#f59e0b',
+    purpleA:'rgba(99,102,241,0.15)', greenA:'rgba(34,197,94,0.15)' };
+
+  // ── Macro donut ──
+  destroyNChart('chart-macro-donut');
+  nutritionCharts['chart-macro-donut'] = new Chart(document.getElementById('chart-macro-donut'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Protein (37%)', 'Carbs (44%)', 'Fat (28%)'],
+      datasets: [{ data: [37.2, 44.0, 27.5],
+        backgroundColor: [nc.green+'cc', nc.purple+'cc', nc.yellow+'cc'],
+        borderColor: ['#fff','#fff','#fff'], borderWidth: 3, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '62%',
+      plugins: { legend: { position: 'bottom', labels: { font:{size:11}, color:'#64748b', padding:12, boxWidth:12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: avg ${ctx.raw}% of calories` } } }
+    }
+  });
+
+  // ── Calorie + Protein timeline ──
+  destroyNChart('chart-macro-timeline');
+  const tlLabels = MACRO_DATA.map(d => d.d);
+  nutritionCharts['chart-macro-timeline'] = new Chart(document.getElementById('chart-macro-timeline'), {
+    type: 'bar',
+    data: {
+      labels: tlLabels,
+      datasets: [
+        { label: 'Calories', data: MACRO_DATA.map(d => d.cal), backgroundColor: nc.purpleA,
+          borderColor: nc.purple, borderWidth: 1, borderRadius: 2, yAxisID: 'y', order: 2 },
+        { label: 'Protein (g)', data: MACRO_DATA.map(d => d.pro), type: 'line',
+          borderColor: nc.green, backgroundColor: 'transparent', tension: 0.3, pointRadius: 0,
+          borderWidth: 2, yAxisID: 'y2', order: 1 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: true, labels: { font:{size:10}, color:'#64748b', boxWidth:10 } },
+        tooltip: { mode:'index', intersect:false, callbacks: {
+          title: ctx => { const d = new Date(ctx[0].label+'T12:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+        }}
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{display:false} },
+        y: { grid:{color:'#f1f5f9'}, ticks:{font:{size:10},color:'#94a3b8'},
+          title:{display:true,text:'Calories',font:{size:9},color:'#94a3b8'}, min:0 },
+        y2: { position:'right', grid:{display:false}, ticks:{font:{size:10},color:'#22c55e'},
+          title:{display:true,text:'Protein (g)',font:{size:9},color:'#22c55e'}, min:0 }
+      }
+    }
+  });
+
+  // ── Day of week ──
+  destroyNChart('chart-dow');
+  const dowNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  // computed from Python analysis
+  const dowCals = [2539, 2591, 2521, 2475, 2573, 2754, 2594];
+  const dowColors = dowCals.map(c => c === Math.max(...dowCals) ? nc.purple+'cc' :
+                                     c === Math.min(...dowCals) ? nc.green+'cc' : nc.purple+'44');
+  nutritionCharts['chart-dow'] = new Chart(document.getElementById('chart-dow'), {
+    type: 'bar',
+    data: {
+      labels: dowNames,
+      datasets: [{ label: 'Avg Calories', data: dowCals, backgroundColor: dowColors,
+        borderColor: dowColors.map(c => c.replace('44','cc').replace('cc','cc')),
+        borderWidth: 1, borderRadius: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{
+        label: ctx => ` ${ctx.raw.toLocaleString()} cal avg`
+      }}},
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{size:11},color:'#64748b'} },
+        y: { grid:{color:'#f1f5f9'}, ticks:{font:{size:10},color:'#94a3b8'}, min:2300,
+          afterDraw: chart => {
+            const ctx2=chart.ctx, yS=chart.scales.y, xA=chart.chartArea;
+            const y=yS.getPixelForValue(2568);
+            ctx2.save(); ctx2.strokeStyle='#6366f155'; ctx2.lineWidth=1.5; ctx2.setLineDash([5,3]);
+            ctx2.beginPath(); ctx2.moveTo(xA.left,y); ctx2.lineTo(xA.right,y); ctx2.stroke();
+            ctx2.fillStyle='#6366f1'; ctx2.font='9px system-ui';
+            ctx2.fillText('avg 2,568', xA.right-58, y-4); ctx2.restore();
+          }
+        }
+      }
+    }
+  });
+
+  // ── Top foods ──
+  destroyNChart('chart-top-foods');
+  const foods = ['Broccoli Florets','Blueberries','Fage 0% Greek Yogurt','Carrots','Black Beans',
+    'Baby Spinach','Fish Oil','Sweet Potatoes','Chicken Thighs','Chicken Breast'];
+  const foodCounts = [363,332,193,192,189,184,117,98,95,91];
+  nutritionCharts['chart-top-foods'] = new Chart(document.getElementById('chart-top-foods'), {
+    type: 'bar',
+    data: {
+      labels: foods,
+      datasets: [{ label: 'Times logged', data: foodCounts,
+        backgroundColor: nc.blue+'44', borderColor: nc.blue, borderWidth: 1, borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: true,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{
+        label: ctx => ` ${ctx.raw} times logged`
+      }}},
+      scales: {
+        x: { grid:{color:'#f1f5f9'}, ticks:{font:{size:10},color:'#94a3b8'} },
+        y: { grid:{display:false}, ticks:{font:{size:10},color:'#374151'} }
+      }
+    }
+  });
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 (async function init(){
-  render(); // render immediately with local data
-  window.addEventListener('resize', ()=>{ const d=load(); drawChart(d); });
+  // Saturday check globally
+  const td = today();
+  const previewSat = new URLSearchParams(window.location.search).get('preview') === 'saturday';
+  if (isSat(td) || previewSat) document.body.classList.add('sat');
 
-  // Then try to sync with Sheets
+  renderWeight();
+  window.addEventListener('resize', ()=>{ const d=load(); drawWeightChart(d); });
+
+
+
+  // Draw DEXA charts on load since it's the default tab
+  setTimeout(drawDexaCharts, 100);
+
+  // Try Sheets sync
   const sheetsUrl = getSheetsUrl();
   if (sheetsUrl) {
-    updateSyncUI('yellow', 'Connecting to Google Sheets...');
+    updateSyncUI('yellow','Connecting to Google Sheets...');
     const remote = await pullFromSheets();
     if (remote) {
       const local = load();
       const merged = mergeEntries(local.entries, remote);
-      if (JSON.stringify(merged) !== JSON.stringify(local.entries)) {
-        local.entries = merged;
-        save(local);
-        render();
-      }
+      if (JSON.stringify(merged) !== JSON.stringify(local.entries)) { local.entries=merged; save(local); renderWeight(); }
     }
-  } else {
-    updateSyncUI('gray', 'Not connected — tap ⚙ to set up Google Sheets');
-  }
+  } else { updateSyncUI('gray','Not connected — tap ⚙ to set up Google Sheets'); }
 })();
 </script>
 </body>
