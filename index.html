@@ -945,6 +945,14 @@ const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDat
 const fmtDateShort = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}); };
 const fmtMonYear = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',year:'numeric'}); };
 const esc = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+// Normalize any date string to YYYY-MM-DD (handles full Date.toString() from Sheets)
+function normalizeDate(d) {
+  if (!d) return '';
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -1745,7 +1753,19 @@ function getCustomFoods() {
 function saveCustomFoodsDB(foods) { localStorage.setItem(CUSTOM_FOODS_KEY, JSON.stringify(foods)); }
 
 function getFoodEntries() {
-  try { return JSON.parse(localStorage.getItem(FOOD_ENTRIES_KEY)) || []; } catch(e) { return []; }
+  try {
+    const entries = JSON.parse(localStorage.getItem(FOOD_ENTRIES_KEY)) || [];
+    // Normalize any malformed dates (e.g. full Date.toString() from Sheets sync)
+    let dirty = false;
+    entries.forEach(e => {
+      if (e.date && !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+        e.date = normalizeDate(e.date);
+        dirty = true;
+      }
+    });
+    if (dirty) saveFoodEntriesDB(entries); // auto-repair stored data
+    return entries;
+  } catch(e) { return []; }
 }
 function saveFoodEntriesDB(entries) { localStorage.setItem(FOOD_ENTRIES_KEY, JSON.stringify(entries)); }
 
@@ -2199,7 +2219,10 @@ async function pullFoodFromSheets() {
   try {
     const res  = await fetch(url + '?type=food');
     const data = await res.json();
-    return data.ok ? data.entries : null;
+    if (!data.ok || !Array.isArray(data.entries)) return null;
+    // Normalize dates — Sheets may return full Date strings instead of YYYY-MM-DD
+    data.entries.forEach(e => { if (e.date) e.date = normalizeDate(e.date); });
+    return data.entries.filter(e => e.date); // drop entries with unparseable dates
   } catch(e) { return null; }
 }
 
