@@ -2006,12 +2006,12 @@ function saveFoodEdit(id) {
 // ── Render ───────────────────────────────────────────────────────────────────
 function renderFood() {
   // Auto-initialize day from meal plan the FIRST time this date is viewed (local only)
+  // Does NOT mark the date as dirty — only explicit edits (add/delete/edit) trigger sync
   if (!getFoodInitDates().has(foodCurrentDate)) {
     markFoodDateInitialized(foodCurrentDate);
     const planEntries = createPlanEntries(foodCurrentDate);
     const existing = getFoodEntries();
     saveFoodEntriesDB([...existing, ...planEntries]);
-    markFoodDirty();
   }
 
   const allEntries = getFoodEntries();
@@ -2210,11 +2210,12 @@ async function saveCustomFood() {
 
 // ── Google Sheets — Calorie Counting sync ────────────────────────────────────
 // Food sync is now MANUAL — user presses the "Sync to Sheets" button.
+// Only dates with explicit edits get pushed.
 
-let foodDirty = false; // true when local changes haven't been pushed
+const foodDirtyDates = new Set(); // dates with unsaved local changes
 
 function markFoodDirty() {
-  foodDirty = true;
+  foodDirtyDates.add(foodCurrentDate);
   updateFoodSyncUI();
 }
 
@@ -2223,10 +2224,11 @@ function updateFoodSyncUI() {
   const label = document.getElementById('food-sync-label');
   const btn   = document.getElementById('food-sync-btn');
   if (!bar || !label || !btn) return;
-  // Hide the bar entirely when no Sheets URL is configured
   bar.style.display = getSheetsUrl() ? 'flex' : 'none';
-  if (foodDirty) {
-    label.textContent = 'You have unsaved changes';
+  const dirty = foodDirtyDates.size > 0;
+  if (dirty) {
+    const n = foodDirtyDates.size;
+    label.textContent = n === 1 ? 'Unsaved changes for 1 day' : `Unsaved changes for ${n} days`;
     label.className   = 'sync-label dirty';
     btn.textContent   = 'Sync to Sheets';
     btn.className     = 'btn-sync-food dirty';
@@ -2241,14 +2243,20 @@ function updateFoodSyncUI() {
 async function pushFoodToSheets() {
   const url = getSheetsUrl();
   if (!url) { showToast('No Sheets URL configured'); return; }
+  if (!foodDirtyDates.size) { showToast('Nothing to sync'); return; }
   const btn = document.getElementById('food-sync-btn');
   const label = document.getElementById('food-sync-label');
   if (btn) { btn.textContent = 'Syncing…'; btn.className = 'btn-sync-food syncing'; }
   if (label) { label.textContent = 'Pushing to Google Sheets…'; label.className = 'sync-label'; }
   try {
-    const entries = getFoodEntries();
-    await syncFoodEntriesToSheets(entries);
-    foodDirty = false;
+    // Replace all entries for edited dates — this handles additions, edits, AND deletions
+    const dates = [...foodDirtyDates];
+    const allEntries = getFoodEntries();
+    const entriesToSync = allEntries.filter(e => foodDirtyDates.has(e.date));
+    await fetch(url, { method:'POST', mode:'no-cors',
+      body: JSON.stringify({ action:'replaceFoodForDates', dates, entries: entriesToSync }),
+      headers: {'Content-Type':'text/plain'} });
+    foodDirtyDates.clear();
     updateFoodSyncUI();
     showToast('✓ Food log synced to Google Sheets');
   } catch(e) {
