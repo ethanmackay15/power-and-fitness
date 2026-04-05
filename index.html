@@ -1091,12 +1091,23 @@ async function saveSettings() {
     const local = load();
     if (remote) { local.entries = mergeEntries(local.entries, remote); save(local); await pushToSheets(local.entries); }
     renderWeight();
+    // Also pull food data from Sheets
+    const remoteFood = await pullFoodFromSheets();
+    if (remoteFood && remoteFood.length) {
+      const localFood = getFoodEntries();
+      const merged = mergeFoodEntries(localFood, remoteFood);
+      saveFoodEntriesDB(merged);
+      renderFood();
+    }
+    // Re-render Trends if it's the active tab
+    if (document.getElementById('panel-trends').classList.contains('active')) renderTrends();
+    updateFoodSyncUI();
   }
 }
 
 async function forcePull() {
   const remote = await pullFromSheets();
-  if (remote) { const local=load(); local.entries=mergeEntries(local.entries,remote); save(local); renderWeight(); showToast('✓ Pulled & merged from Google Sheets'); }
+  if (remote) { const local=load(); local.entries=mergeEntries(local.entries,remote); save(local); renderWeight(); if (document.getElementById('panel-trends').classList.contains('active')) renderTrends(); showToast('✓ Pulled & merged from Google Sheets'); }
 }
 async function forcePush() { const data=load(); updateSyncUI('yellow','Pushing all data...'); await pushToSheets(data.entries); showToast('✓ Pushed all entries'); }
 function disconnectSheets() { setSheetsUrl(''); updateSyncUI('gray','Disconnected'); toggleSettings(); showToast('Disconnected — local data preserved'); }
