@@ -607,10 +607,10 @@
     .habit-heatmap-row:last-child { margin-bottom:0; }
     .hm-label { font-size:0.82rem; font-weight:600; color:var(--text); text-transform:capitalize; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; }
     .hm-label .hm-pct { font-size:0.72rem; font-weight:600; color:var(--muted); }
-    .hm-squares { display:flex; gap:3px; }
+    .hm-squares { display:flex; gap:3px; width:100%; }
     .hm-sq {
-      width:14px; height:14px; border-radius:3px; flex-shrink:0;
-      position:relative; cursor:default;
+      flex:1; height:14px; border-radius:3px;
+      position:relative; cursor:default; min-width:0;
     }
     .hm-sq.done { background:var(--green); }
     body.sat .hm-sq.done { background:#fb923c; }
@@ -1110,6 +1110,11 @@
         <div class="stat-lbl">vs Goal Pace</div>
         <div class="stat-sub" id="tr-pace-sub">target: —</div>
       </div>
+      <div class="stat">
+        <div class="stat-val clr-green" id="tr-avg-steps">—</div>
+        <div class="stat-lbl">Avg Steps</div>
+        <div class="stat-sub">last 7 days</div>
+      </div>
     </div>
 
     <!-- Insight sentence -->
@@ -1130,12 +1135,13 @@
             <tr>
               <th>Week of</th>
               <th style="text-align:right">Avg Cal</th>
+              <th style="text-align:right">Avg Steps</th>
               <th style="text-align:right">Avg Weight</th>
               <th style="text-align:right">Weekly Δ</th>
             </tr>
           </thead>
           <tbody id="trends-weekly-body">
-            <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Log food and weight to see weekly trends.</td></tr>
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Log food and weight to see weekly trends.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1845,8 +1851,8 @@ function ensureTodayMealPlan() {
   if (sheetsUrl) {
     updateSyncUI('yellow','Connecting to Google Sheets...');
     // Pull weight, food entries, and food library in parallel
-    const [remote, foodRemote, libraryData, habitsRemote] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets()
+    const [remote, foodRemote, libraryData, habitsRemote, stepsRemote] = await Promise.all([
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullStepsFromSheets()
     ]);
     if (remote) {
       const local = load();
@@ -1863,6 +1869,11 @@ function ensureTodayMealPlan() {
       const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
       if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) saveHabitsData(mergedHabits);
     }
+    if (stepsRemote && stepsRemote.length) {
+      const localSteps = getStepsData();
+      const mergedSteps = mergeStepsData(localSteps, stepsRemote);
+      if (JSON.stringify(mergedSteps) !== JSON.stringify(localSteps)) saveStepsData(mergedSteps);
+    }
     if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
       FOOD_DB = libraryData.foods;
       if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) {
@@ -1875,6 +1886,8 @@ function ensureTodayMealPlan() {
     }
     // After Sheets pull, update backup status (meal plan was already ensured above)
     updateBackupStatus();
+    // Re-render trends after all syncs to pick up fresh weight/food/steps data
+    if (document.getElementById('panel-trends').classList.contains('active')) renderTrends();
   }
   // Initialize food sync button state
   updateFoodSyncUI();
@@ -2587,6 +2600,7 @@ function mergeFoodEntries(local, remote) {
 
 
 // ─── Habits ──────────────────────────────────────────────────────────────────
+const STEPS_KEY = 'steps_tracker_v1';
 const HABITS_KEY = 'habits_tracker_v1';
 const HABITS_LIST_KEY = 'habits_list_v1';
 const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch', 'vacuums'];
@@ -2659,13 +2673,6 @@ function renderHabits() {
           </button>
           <div class="habit-info">
             <span class="habit-name">${esc(h)}</span>
-            ${isExercise && entry.done ? `
-              <div class="habit-duration">
-                <input type="number" min="0" max="999" value="${entry.duration||''}" placeholder="min"
-                  onchange="setHabitForDate('${habitViewDate}','${esc(h)}',{duration:this.value?parseInt(this.value):null});renderHabitStreaks()" />
-                <span style="font-size:0.78rem;color:var(--muted);margin-left:2px">minutes</span>
-              </div>
-            ` : ''}
             ${entry.done ? `
               <button class="habit-notes-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
                 ${entry.notes ? 'Edit notes' : 'Add notes'}
@@ -3032,7 +3039,7 @@ async function pushHabitsToSheets() {
         });
       });
     });
-    await fetch(url, { method:'POST', mode:'no-cors',
+    await fetch(url, { method:'POST', redirect:'follow',
       body: JSON.stringify({ action:'replaceHabitsForDates', dates, entries }),
       headers: {'Content-Type':'text/plain'} });
     habitDirtyDates.clear();
@@ -3056,6 +3063,32 @@ async function pullHabitsFromSheets() {
     data.entries.forEach(e => { if (e.date) e.date = normalizeDate(e.date); });
     return data.entries.filter(e => e.date);
   } catch(e) { return null; }
+}
+
+// ── Steps from Sheets ────────────────────────────────────────────────────────
+function getStepsData() {
+  try { return JSON.parse(localStorage.getItem(STEPS_KEY)) || {}; }
+  catch(e) { return {}; }
+}
+function saveStepsData(data) { localStorage.setItem(STEPS_KEY, JSON.stringify(data)); }
+
+async function pullStepsFromSheets() {
+  const url = getSheetsUrl();
+  if (!url) return null;
+  try {
+    const res = await fetch(url + '?type=steps');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.entries)) return null;
+    return data.entries;
+  } catch(e) { return null; }
+}
+
+function mergeStepsData(local, remoteEntries) {
+  const merged = { ...local };
+  remoteEntries.forEach(e => {
+    if (e.date) merged[e.date] = Number(e.steps) || 0;
+  });
+  return merged;
 }
 
 function mergeHabitsData(local, remoteEntries) {
@@ -3112,10 +3145,14 @@ function renderTrends() {
   const weightByDate = {};
   weightData.entries.forEach(e => { weightByDate[e.date] = parseFloat(e.weight); });
 
-  // All dates in range from either source
+  // Steps by date
+  const stepsByDate = getStepsData();
+
+  // All dates in range from any source
   const allDates = [...new Set([
     ...Object.keys(foodByDate),
-    ...Object.keys(weightByDate)
+    ...Object.keys(weightByDate),
+    ...Object.keys(stepsByDate)
   ])].sort();
 
   let dates = allDates;
@@ -3146,8 +3183,12 @@ function renderTrends() {
   const paceSubEl = document.getElementById('tr-pace-sub');
   if (paceSubEl) paceSubEl.textContent = `target: −${goalRate} lbs/wk`;
 
+  const last7steps = last7days.filter(d => stepsByDate[d]);
+  const avgSteps   = last7steps.length ? Math.round(last7steps.reduce((s,d) => s + Number(stepsByDate[d]), 0) / last7steps.length) : null;
+
   document.getElementById('tr-avg-cal').textContent    = avgCal !== null ? avgCal.toLocaleString() + ' kcal' : '—';
   document.getElementById('tr-avg-weight').textContent = avgWt  !== null ? avgWt + ' lbs' : '—';
+  document.getElementById('tr-avg-steps').textContent  = avgSteps !== null ? avgSteps.toLocaleString() : '—';
 
   const wtEl = document.getElementById('tr-wt-change');
   if (weeklyRate !== null) {
@@ -3163,7 +3204,7 @@ function renderTrends() {
   if (weeklyRate !== null) {
     const diff = weeklyRate - (-goalRate); // negative diff = losing faster than goal
     const absDiff = Math.abs(diff).toFixed(1);
-    if (Math.abs(diff) < 0.15) {
+    if (Math.abs(diff) < 0.05) {
       paceEl.textContent = 'On pace';
       paceEl.className = 'stat-val clr-green';
     } else if (diff < 0) {
@@ -3183,7 +3224,7 @@ function renderTrends() {
   if (weeklyRate !== null && insightEl) {
     const wtDir   = weeklyRate < -0.15 ? 'down' : weeklyRate > 0.15 ? 'up' : 'holding steady';
     const calPart = avgCal !== null ? ` at an avg of ${avgCal.toLocaleString()} cal/day` : '';
-    const paceAdj = Math.abs(weeklyRate - (-goalRate)) < 0.15 ? 'right on your goal pace'
+    const paceAdj = Math.abs(weeklyRate - (-goalRate)) < 0.05 ? 'right on your goal pace'
                   : weeklyRate < -goalRate ? `a bit faster than your ${goalRate} lbs/week goal`
                   : `a bit slower than your ${goalRate} lbs/week goal`;
     insightEl.textContent = `Your weight is trending ${wtDir} about ${Math.abs(weeklyRate).toFixed(1)} lbs/week${calPart} — ${paceAdj}.`;
@@ -3194,13 +3235,14 @@ function renderTrends() {
 
   if (!dates.length) {
     document.getElementById('trends-weekly-body').innerHTML =
-      '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No data yet — log food and weight entries to see trends.</td></tr>';
+      '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No data yet — log food and weight entries to see trends.</td></tr>';
     return;
   }
 
   // ── Main chart ──
-  const calData   = dates.map(d => foodByDate[d] ? Math.round(foodByDate[d].cal) : null);
-  const wtAvgData = dates.map(d => { const a = rollingAvg(allWt, d, 7); return a ? parseFloat(a.toFixed(1)) : null; });
+  const calData    = dates.map(d => foodByDate[d] ? Math.round(foodByDate[d].cal) : null);
+  const wtAvgData  = dates.map(d => { const a = rollingAvg(allWt, d, 7); return a ? parseFloat(a.toFixed(1)) : null; });
+  const stepsData  = dates.map(d => stepsByDate[d] ? Number(stepsByDate[d]) : null);
 
   // Set calorie y-axis min: dynamic floor based on lowest day, but never above 2000
   const calValues = calData.filter(v => v !== null);
@@ -3242,6 +3284,22 @@ function renderTrends() {
           yAxisID: 'yWt',
           order: 1,
         },
+        {
+          type: 'line',
+          label: 'Steps',
+          data: stepsData,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.1)',
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          pointBackgroundColor: '#10b981',
+          tension: 0.3,
+          fill: true,
+          spanGaps: true,
+          yAxisID: 'ySteps',
+          order: 2,
+        },
       ]
     },
     options: {
@@ -3258,6 +3316,8 @@ function renderTrends() {
             label: ctx => {
               if (ctx.dataset.label === 'Calories')
                 return ' ' + (ctx.raw !== null ? ctx.raw.toLocaleString() + ' kcal' : '—');
+              if (ctx.dataset.label === 'Steps')
+                return ' ' + (ctx.raw !== null ? ctx.raw.toLocaleString() + ' steps' : '—');
               return ' ' + (ctx.raw !== null ? ctx.raw + ' lbs' : '—');
             }
           }
@@ -3289,6 +3349,13 @@ function renderTrends() {
           ticks: { font: { size: 10 }, color: '#f97316', callback: v => v + ' lbs' },
           title: { display: true, text: 'Weight', font: { size: 10 }, color: '#f97316' },
         },
+        ySteps: {
+          type: 'linear',
+          position: 'right',
+          display: false,
+          min: 0,
+          grid: { display: false },
+        },
       }
     }
   });
@@ -3302,7 +3369,7 @@ function renderTrends() {
     const mon  = new Date(dt);
     mon.setDate(dt.getDate() + diff);
     const wk = mon.toISOString().slice(0, 10);
-    if (!weekMap[wk]) weekMap[wk] = { cal:[], protein:[], carbs:[], fat:[], weight:[] };
+    if (!weekMap[wk]) weekMap[wk] = { cal:[], protein:[], carbs:[], fat:[], weight:[], steps:[] };
     if (foodByDate[d]) {
       weekMap[wk].cal.push(foodByDate[d].cal);
       weekMap[wk].protein.push(foodByDate[d].protein);
@@ -3310,6 +3377,7 @@ function renderTrends() {
       weekMap[wk].fat.push(foodByDate[d].fat);
     }
     if (weightByDate[d]) weekMap[wk].weight.push(weightByDate[d]);
+    if (stepsByDate[d]) weekMap[wk].steps.push(Number(stepsByDate[d]));
   });
 
   const weeks = Object.keys(weekMap).sort().reverse();
@@ -3320,13 +3388,14 @@ function renderTrends() {
 
   const tbody = document.getElementById('trends-weekly-body');
   if (!weeks.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">No data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">No data</td></tr>';
     return;
   }
 
   tbody.innerHTML = weeks.map((wk, i) => {
-    const w       = weekMap[wk];
+    const w        = weekMap[wk];
     const avgCalWk = avg(w.cal);
+    const avgStWk  = avg(w.steps);
     const avgWtWk  = weekAvgWts[i];
     const prevWt   = weekAvgWts[i+1];
     const delta    = (avgWtWk !== null && prevWt !== null) ? avgWtWk - prevWt : null;
@@ -3335,6 +3404,7 @@ function renderTrends() {
     return `<tr>
       <td><strong>${fmtWk(wk)}</strong></td>
       <td style="text-align:right">${avgCalWk !== null ? Math.round(avgCalWk).toLocaleString() : '—'}</td>
+      <td style="text-align:right;color:#10b981">${avgStWk !== null ? Math.round(avgStWk).toLocaleString() : '—'}</td>
       <td style="text-align:right">${avgWtWk  !== null ? avgWtWk : '—'}</td>
       <td style="text-align:right;font-weight:700;${dColor}">${dStr}</td>
     </tr>`;
