@@ -376,13 +376,14 @@
         font-size: 1rem !important; padding: 12px 14px !important; min-height: 48px;
       }
       #panel-food .btn { min-height: 48px; font-size: 1rem; }
-      .food-entry-row { padding: 10px 0; gap: 10px; }
-      .food-delete-btn { min-width: 40px; min-height: 40px; font-size: 1.1rem;
+      .food-entry-row { padding: 10px 0; gap: 8px; flex-wrap: wrap; }
+      .food-entry-info { flex: 1 1 100%; display: flex; align-items: baseline; gap: 6px; }
+      .food-entry-macros { flex: 1 1 auto; font-size: 0.75rem; gap: 6px; padding-left: 0; }
+      .food-delete-btn { min-width: 36px; min-height: 36px; font-size: 1rem;
         display: flex; align-items: center; justify-content: center; }
       .food-meal-header { flex-wrap: wrap; gap: 4px; }
       .food-rem-chip { padding: 10px 8px; }
       .food-rem-chip .rc-val { font-size: 1.2rem; }
-      .food-entry-macros { flex-wrap: wrap; gap: 4px; font-size: 0.72rem; }
       /* Make the food+qty row stack on very narrow screens */
       .food-form-inline { flex-direction: column !important; }
       .food-form-inline > select { width: 100% !important; }
@@ -2918,7 +2919,7 @@ function renderHabitStreaks() {
     return `
       <div class="streak-card">
         <div class="streak-name">${esc(h)}</div>
-        <div class="streak-val ${onTrack7 ? 'on-track' : 'behind'}">${last7} / ${goal}</div>
+        <div class="streak-val ${onTrack7 ? 'on-track' : 'behind'}">${last7}</div>
         <div class="streak-unit">last 7 days</div>
         <div class="streak-30d ${onTrack30 ? 'on-track' : 'behind'}">30-day: ${total30}/${goal30} days (${pct30}%)</div>
       </div>
@@ -3485,17 +3486,19 @@ function renderTrends() {
         },
         yWt: {
           type: 'linear',
-          position: 'right',
+          position: 'left',
           grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#f97316', callback: v => v + ' lbs' },
-          title: { display: true, text: 'Weight', font: { size: 10 }, color: '#f97316' },
+          ticks: { font: { size: 10 }, color: '#f97316', callback: v => v + '' },
+          title: { display: true, text: 'Weight (lbs)', font: { size: 10 }, color: '#f97316' },
         },
         ySteps: {
           type: 'linear',
           position: 'right',
-          display: false,
+          display: true,
           min: 0,
           grid: { display: false },
+          ticks: { font: { size: 10 }, color: '#10b981', callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v },
+          title: { display: true, text: 'Steps', font: { size: 10 }, color: '#10b981' },
         },
       }
     }
