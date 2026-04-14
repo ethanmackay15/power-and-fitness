@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Body Recomposition Tracker</title>
+  <title>Power and Fitness</title>
   <!-- Web App Manifest -->
   <link rel="manifest" href="manifest.json" />
   <!-- iOS standalone mode -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Power" />
+  <meta name="apple-mobile-web-app-title" content="Power and Fitness" />
   <link rel="apple-touch-icon" href="iconrecomp.png" />
   <!-- Theme color for Android Chrome -->
   <meta name="theme-color" content="#6366f1" />
@@ -518,15 +518,16 @@
     .btn-skip-on:hover { background: #d97706; }
     /* ── Food sync button ── */
     .food-sync-bar {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       padding: 10px 16px; border-radius: var(--radius); background: var(--card);
       box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 14px;
     }
-    .food-sync-bar .sync-label { flex: 1; font-size: 0.84rem; color: var(--muted); }
+    .food-sync-bar .sync-label { flex: 1 1 100%; font-size: 0.84rem; color: var(--muted); min-width: 0; }
+    @media(min-width:520px){ .food-sync-bar .sync-label { flex: 1 1 auto; } }
     .food-sync-bar .sync-label.dirty { color: var(--orange); font-weight: 600; }
     .btn-sync-food {
-      padding: 8px 18px; border-radius: 10px; font-size: 0.84rem; font-weight: 700;
-      cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+      padding: 8px 14px; border-radius: 10px; font-size: 0.84rem; font-weight: 700;
+      cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; flex: 0 1 auto;
     }
     .btn-sync-food.clean { background: var(--border); color: var(--muted); }
     .btn-sync-food.dirty { background: var(--primary); color: #fff; }
@@ -818,7 +819,7 @@
   <div id="sat-banner">🎉 Saturday! Treat day — you've earned every bite. Enjoy it! 🍦</div>
 
   <div class="header">
-    <h1>Power</h1>
+    <h1>Power and Fitness</h1>
     <div class="sub">Slow and easy.</div>
   </div>
 
