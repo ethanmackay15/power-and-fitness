@@ -929,6 +929,15 @@
   <div class="modal-bg" id="custom-food-modal" onclick="if(event.target===this)closeCustomFoodModal()">
     <div class="modal-box">
       <h3>Add Custom Food <button class="modal-close-btn" onclick="closeCustomFoodModal()">×</button></h3>
+
+      <!-- Scan Barcode button + camera panel -->
+      <button class="btn" id="cf-scan-btn" type="button" onclick="startBarcodeScan()" style="width:100%;margin-bottom:12px;background:#e0e7ff;color:#4338ca;font-weight:600">📷 Scan Barcode</button>
+      <div id="cf-scan-panel" style="display:none;margin-bottom:12px">
+        <video id="cf-scan-video" playsinline muted style="width:100%;border-radius:10px;background:#000;max-height:260px;object-fit:cover"></video>
+        <div id="cf-scan-status" style="font-size:0.85rem;color:var(--muted);margin-top:8px;text-align:center">Starting camera…</div>
+        <button class="btn" type="button" onclick="stopBarcodeScan()" style="width:100%;margin-top:8px;background:#f1f5f9;color:var(--text)">Cancel Scan</button>
+      </div>
+
       <div class="modal-fld">
         <label>Food name</label>
         <input type="text" id="cf-name" placeholder="e.g. Greek Yogurt" />
@@ -2576,6 +2585,7 @@ function openCustomFoodModal() {
   setTimeout(()=>document.getElementById('cf-name').focus(), 50);
 }
 function closeCustomFoodModal() {
+  stopBarcodeScan(); // ensure camera is released if user closes mid-scan
   document.getElementById('custom-food-modal').classList.remove('open');
   ['cf-name','cf-serving','cf-unit','cf-cal','cf-protein','cf-carbs','cf-fat'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
@@ -2621,6 +2631,199 @@ async function saveCustomFood() {
   document.getElementById('food-select').value = food.id;
   onFoodSelect();
   showToast(`✓ Added "${name}" to your foods`);
+}
+
+// ── Barcode Scanner ──────────────────────────────────────────────────────────
+// Uses native BarcodeDetector when available (iOS 17+, modern Chrome),
+// falls back to @zxing/library loaded on-demand from a CDN.
+// On detection, looks up the barcode in Open Food Facts (free, no key),
+// then pre-fills the Custom Food form for the user to confirm.
+
+let _scanStream = null;          // active MediaStream (native path)
+let _scanNativeActive = false;   // flag to stop the requestAnimationFrame loop
+let _scanZxingControls = null;   // IScannerControls from ZXing
+let _scanZxingReader = null;     // BrowserMultiFormatReader instance
+let _scanInFlight = false;       // prevent double-trigger on rapid detections
+
+function _scanStatus(msg, color) {
+  const el = document.getElementById('cf-scan-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color || 'var(--muted)';
+}
+
+function _loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[data-src="${src}"]`)) return res();
+    const s = document.createElement('script');
+    s.src = src; s.async = true; s.dataset.src = src;
+    s.onload = () => res();
+    s.onerror = () => rej(new Error('Failed to load ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function startBarcodeScan() {
+  const panel = document.getElementById('cf-scan-panel');
+  const btn   = document.getElementById('cf-scan-btn');
+  const video = document.getElementById('cf-scan-video');
+  if (!panel || !btn || !video) return;
+  _scanInFlight = false;
+  panel.style.display = 'block';
+  btn.style.display = 'none';
+  _scanStatus('Starting camera…');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    _scanStatus('Camera not supported in this browser', 'var(--red)');
+    return;
+  }
+
+  try {
+    if ('BarcodeDetector' in window) {
+      await _startNativeScan(video);
+    } else {
+      await _startZXingScan(video);
+    }
+  } catch(e) {
+    console.warn('Scan start failed:', e);
+    _scanStatus('Camera unavailable: ' + (e && e.message ? e.message : e), 'var(--red)');
+    // Attempt fallback to ZXing if native path failed for a reason other than permission
+    if ('BarcodeDetector' in window && e && e.name !== 'NotAllowedError') {
+      try { await _startZXingScan(video); } catch(e2) {}
+    }
+  }
+}
+
+async function _startNativeScan(video) {
+  const formats = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf'];
+  const detector = new BarcodeDetector({ formats });
+  _scanStream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: 'environment' } }, audio: false
+  });
+  video.srcObject = _scanStream;
+  await video.play();
+  _scanNativeActive = true;
+  _scanStatus('Point camera at barcode…');
+
+  const loop = async () => {
+    if (!_scanNativeActive) return;
+    try {
+      const codes = await detector.detect(video);
+      if (codes && codes.length > 0 && !_scanInFlight) {
+        _scanInFlight = true;
+        _onBarcodeDetected(codes[0].rawValue);
+        return;
+      }
+    } catch(e) { /* transient detector errors are normal */ }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+
+async function _startZXingScan(video) {
+  _scanStatus('Loading scanner…');
+  await _loadScript('https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js');
+  if (!window.ZXing || !ZXing.BrowserMultiFormatReader) {
+    throw new Error('Scanner library unavailable');
+  }
+  _scanZxingReader = new ZXing.BrowserMultiFormatReader();
+  _scanStatus('Point camera at barcode…');
+  _scanZxingControls = await _scanZxingReader.decodeFromConstraints(
+    { video: { facingMode: { ideal: 'environment' } }, audio: false },
+    video,
+    (result /*, err */) => {
+      if (result && !_scanInFlight) {
+        _scanInFlight = true;
+        _onBarcodeDetected(result.getText());
+      }
+    }
+  );
+}
+
+function stopBarcodeScan() {
+  _scanNativeActive = false;
+  const panel = document.getElementById('cf-scan-panel');
+  const btn   = document.getElementById('cf-scan-btn');
+  const video = document.getElementById('cf-scan-video');
+  if (panel) panel.style.display = 'none';
+  if (btn)   btn.style.display = '';
+  if (video) { try { video.pause(); video.srcObject = null; } catch(e){} }
+  if (_scanStream) {
+    _scanStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+    _scanStream = null;
+  }
+  if (_scanZxingControls) { try { _scanZxingControls.stop(); } catch(e){} _scanZxingControls = null; }
+  if (_scanZxingReader)   { try { _scanZxingReader.reset(); } catch(e){} _scanZxingReader = null; }
+}
+
+async function _onBarcodeDetected(barcode) {
+  stopBarcodeScan();
+  showToast('Found ' + barcode + ' — looking up…');
+  try {
+    const product = await lookupOpenFoodFacts(barcode);
+    if (product) {
+      _prefillCustomFoodForm(product);
+      showToast('✓ Pre-filled from Open Food Facts — confirm and save');
+    } else {
+      showToast('Barcode ' + barcode + ' not in database — enter manually');
+    }
+  } catch(e) {
+    console.warn('OFF lookup failed:', e);
+    showToast('Lookup failed — enter manually');
+  }
+}
+
+async function lookupOpenFoodFacts(barcode) {
+  const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data.status !== 1 || !data.product) return null;
+  const p = data.product;
+  const n = p.nutriments || {};
+
+  // Prefer per-serving values; fall back to per-100g if serving data is missing.
+  let serving, unit = 'g', cal, prot, carb, fat;
+  const servingQty = parseFloat(p.serving_quantity);
+  if (servingQty && n['energy-kcal_serving'] != null) {
+    serving = servingQty;
+    cal  = n['energy-kcal_serving'];
+    prot = n['proteins_serving'];
+    carb = n['carbohydrates_serving'];
+    fat  = n['fat_serving'];
+  } else {
+    serving = 100;
+    cal  = n['energy-kcal_100g'];
+    prot = n['proteins_100g'];
+    carb = n['carbohydrates_100g'];
+    fat  = n['fat_100g'];
+  }
+
+  const brand = (p.brands || '').split(',')[0].trim();
+  const nm    = (p.product_name_en || p.product_name || '').trim();
+  const name  = [brand, nm].filter(Boolean).join(' — ') || nm || 'Unknown product';
+
+  const round = (v, d) => (v == null || isNaN(v)) ? 0 : +(+v).toFixed(d);
+  return {
+    name,
+    serving: round(serving, 2),
+    unit,
+    cal:     Math.round(cal || 0),
+    protein: round(prot, 1),
+    carbs:   round(carb, 1),
+    fat:     round(fat,  1),
+  };
+}
+
+function _prefillCustomFoodForm(p) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('cf-name',    p.name);
+  set('cf-serving', p.serving);
+  set('cf-unit',    p.unit);
+  set('cf-cal',     p.cal);
+  set('cf-protein', p.protein);
+  set('cf-carbs',   p.carbs);
+  set('cf-fat',     p.fat);
 }
 
 // ── Google Sheets — Calorie Counting sync ────────────────────────────────────
