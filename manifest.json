@@ -1,6 +1,6 @@
 {
-  "name": "Power",
-  "short_name": "Power",
+  "name": "Power and Fitness",
+  "short_name": "Power and Fitness",
   "description": "Track weight, food, habits, and trends",
   "start_url": "./index.html",
   "display": "standalone",
