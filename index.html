@@ -2335,6 +2335,7 @@ const FOOD_LIBRARY_CACHE_KEY = 'foodLibraryCache_v1';
 let FOOD_DB = [
   // Breakfast
   { id:'eggs',           name:'Eggs',                 category:'Breakfast',     serving:1,    unit:'egg',     cal:70,  p:6.5, c:0,    f:5.0  },
+  { id:'egg-whites',     name:'Egg Whites (TJ\'s)',   category:'Breakfast',     serving:3,    unit:'tbsp',    cal:25,  p:5.0, c:0,    f:0.0  },
   { id:'broccoli-b',     name:'Broccoli',              category:'Breakfast',     serving:85,   unit:'g',       cal:20,  p:2.0, c:4.0,  f:0.0  },
   { id:'salsa',          name:'Salsa',                 category:'Breakfast',     serving:2,    unit:'tbsp',    cal:10,  p:0.0, c:2.0,  f:0.0  },
   { id:'red-lentils',    name:'Red Lentils',           category:'Breakfast',     serving:0.25, unit:'cups',    cal:180, p:12.0,c:32.0, f:1.0  },
@@ -2354,7 +2355,9 @@ let FOOD_DB = [
   // Evening Snack
   { id:'spinach',        name:'Spinach',               category:'Evening Snack', serving:4,    unit:'cups',    cal:20,  p:2.0, c:3.0,  f:0.0  },
   { id:'carrots',        name:'Carrots',               category:'Evening Snack', serving:85,   unit:'g',       cal:30,  p:0.0, c:7.0,  f:0.0  },
-  { id:'sweet-potato',   name:'Sweet Potato',          category:'Evening Snack', serving:150,  unit:'g',       cal:142, p:3.2, c:32.7, f:0.2  },
+  { id:'apple-envy',     name:'Apple (Envy)',          category:'Evening Snack', serving:182,  unit:'g',       cal:90,  p:0.0, c:25.0, f:0.0  },
+  { id:'rice-cake',      name:'Rice Cake',             category:'Evening Snack', serving:1,    unit:'cake',    cal:60,  p:1.0, c:12.0, f:1.0  },
+  { id:'cottage-cheese-sn', name:'Cottage Cheese (2%, Good Culture)', category:'Snack', serving:110, unit:'g', cal:90,  p:14.0,c:4.0,  f:2.0  },
   { id:'sardines',       name:'Sardines',              category:'Evening Snack', serving:1,    unit:'tin',     cal:140, p:18.0,c:0.0,  f:8.0  },
   { id:'sauerkraut',     name:'Sauerkraut',            category:'Evening Snack', serving:0.25, unit:'cups',    cal:5,   p:0.0, c:1.0,  f:0.0  },
   { id:'mustard',        name:'Mustard',               category:'Evening Snack', serving:1,    unit:'tbsp',    cal:5,   p:0.0, c:4.0,  f:0.0  },
@@ -2392,10 +2395,11 @@ function toggleSkipDay() {
 // These are pre-populated on every new day automatically.
 let MEAL_PLAN_TEMPLATE = [
   // Breakfast  (food_ids must match Sheets format: nameSlug-sectionSlug)
-  { food_id:'eggs-b',            food_name:'Eggs',                  meal:'Breakfast',     qty:3,      unit:'egg',    calories:210,   protein:19.5,  carbs:0,      fat:15.0  },
+  { food_id:'eggs-b',            food_name:'Eggs',                  meal:'Breakfast',     qty:2,      unit:'egg',    calories:140,   protein:13,    carbs:0,      fat:10    },
+  { food_id:'egg-whites-b',      food_name:'Egg Whites (TJ\'s)',    meal:'Breakfast',     qty:16,     unit:'tbsp',   calories:133.25,protein:26.65, carbs:0,      fat:0     },
   { food_id:'broccoli-b',        food_name:'Broccoli',              meal:'Breakfast',     qty:150,    unit:'g',      calories:37.5,  protein:3.75,  carbs:7.5,    fat:0     },
   { food_id:'salsa-b',           food_name:'Salsa',                 meal:'Breakfast',     qty:4,      unit:'tbsp',   calories:20,    protein:0,     carbs:4,      fat:0     },
-  { food_id:'red-lentils-b',     food_name:'Red Lentils',           meal:'Breakfast',     qty:0.375,  unit:'cups',   calories:270,   protein:18,    carbs:48,     fat:1.5   },
+  { food_id:'red-lentils-b',     food_name:'Red Lentils',           meal:'Breakfast',     qty:0.25,   unit:'cups',   calories:180,   protein:12,    carbs:32,     fat:1     },
   { food_id:'greek-yogurt--nonfat-tj-s--b', food_name:'Greek Yogurt (Nonfat TJ\'s)', meal:'Breakfast', qty:150, unit:'g', calories:90, protein:15, carbs:6, fat:0 },
   { food_id:'cocoa-powder-b',    food_name:'Cocoa Powder',          meal:'Breakfast',     qty:1,      unit:'scoop',  calories:15,    protein:1,     carbs:3,      fat:0.5   },
   { food_id:'fish-pills-b',      food_name:'Fish Pills',            meal:'Breakfast',     qty:1,      unit:'pill',   calories:15,    protein:0,     carbs:0,      fat:1.5   },
@@ -2411,13 +2415,15 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'olive-oil-d',       food_name:'Olive Oil',             meal:'Dinner',        qty:1,      unit:'tbsp',   calories:120,   protein:0,     carbs:0,      fat:14    },
   // Evening Snack
   { food_id:'spinach-es',        food_name:'Spinach',               meal:'Evening Snack', qty:8,      unit:'cups',   calories:40,    protein:4,     carbs:6,      fat:0     },
-  { food_id:'carrots-es',        food_name:'Carrots',               meal:'Evening Snack', qty:115,    unit:'g',      calories:40.5,  protein:0,     carbs:9.45,   fat:0     },
-  { food_id:'sweet-potato-es',   food_name:'Sweet Potato',          meal:'Evening Snack', qty:195,    unit:'g',      calories:184.6, protein:4.16,  carbs:42.51,  fat:0.26  },
+  { food_id:'carrots-es',        food_name:'Carrots',               meal:'Evening Snack', qty:130,    unit:'g',      calories:45.9,  protein:0,     carbs:10.71,  fat:0     },
+  { food_id:'apple--envy--es',   food_name:'Apple (Envy)',          meal:'Evening Snack', qty:210,    unit:'g',      calories:103.5, protein:0,     carbs:28.75,  fat:0     },
+  { food_id:'rice-cake-es',      food_name:'Rice Cake',             meal:'Evening Snack', qty:1,      unit:'cake',   calories:60,    protein:1,     carbs:12,     fat:1     },
   { food_id:'sardines-es',       food_name:'Sardines',              meal:'Evening Snack', qty:1,      unit:'tin',    calories:140,   protein:18,    carbs:0,      fat:8     },
   { food_id:'sauerkraut-es',     food_name:'Sauerkraut',            meal:'Evening Snack', qty:0.5,    unit:'cups',   calories:10,    protein:0,     carbs:2,      fat:0     },
   { food_id:'mustard-es',        food_name:'Mustard',               meal:'Evening Snack', qty:3,      unit:'tbsp',   calories:15,    protein:0,     carbs:12,     fat:0     },
   // Snack
-  { food_id:'trident-white-sn',  food_name:'Trident White',         meal:'Snack',         qty:16,     unit:'pieces', calories:40,    protein:0,     carbs:16,     fat:0     },
+  { food_id:'trident-white-sn',  food_name:'Trident White',         meal:'Snack',         qty:8,      unit:'pieces', calories:20,    protein:0,     carbs:8,      fat:0     },
+  { food_id:'cottage-cheese-sn', food_name:'Cottage Cheese (2%, Good Culture)', meal:'Snack', qty:165, unit:'g',     calories:135,   protein:21,    carbs:6,      fat:3     },
 ];
 
 const FOOD_INIT_DATES_KEY = 'foodInitDates_v1';
