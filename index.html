@@ -12,46 +12,55 @@
   <meta name="apple-mobile-web-app-title" content="Power and Fitness" />
   <link rel="apple-touch-icon" href="iconrecomp.png" />
   <!-- Theme color for Android Chrome -->
-  <meta name="theme-color" content="#6366f1" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     :root {
-      --bg: #f1f5f9;
+      --bg: #f5f5f5;
       --card: #ffffff;
-      --primary: #6366f1;
-      --primary-2: #8b5cf6;
-      --text: #1e293b;
-      --muted: #64748b;
-      --border: #e2e8f0;
+      --primary: #1a1a2e;
+      --primary-2: #2d2d44;
+      --accent: #6366f1;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --border: #e5e7eb;
       --green: #10b981;
-      --red: #f43f5e;
+      --red: #ef4444;
       --orange: #f97316;
       --yellow: #f59e0b;
       --blue: #3b82f6;
-      --radius: 16px;
+      --radius: 12px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       transition: background 0.6s;
+      padding-bottom: 80px;
     }
 
     /* ───── Saturday override ───── */
     body.sat { background: linear-gradient(135deg, #fff7ed 0%, #fef9c3 40%, #fce7f3 100%); }
     body.sat .card { background: rgba(255,255,255,0.82); backdrop-filter: blur(6px); }
     body.sat .progress-fill { background: linear-gradient(90deg, #fb923c, #ec4899); }
-    body.sat .btn { background: linear-gradient(135deg, #fb923c, #ec4899); box-shadow: 0 4px 14px rgba(251,146,60,.35); }
+    body.sat .btn { background: linear-gradient(135deg, #fb923c, #ec4899); }
     body.sat .stat-primary { color: #f97316; }
-    body.sat .tab-active { background: linear-gradient(135deg, #fb923c, #ec4899) !important; }
+    body.sat .tab-active { color: #f97316 !important; }
     body.sat input:focus, body.sat textarea:focus { border-color: #f97316; }
 
     /* ───── Layout ───── */
-    .wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+    .wrap { max-width: 600px; margin: 0 auto; padding: 16px 16px 24px; }
+    @media(min-width:768px){ .wrap { max-width: 760px; } }
+    @media(min-width:1024px){ .wrap { max-width: 900px; padding: 24px 32px 32px; } }
+    @media(min-width:1280px){ .wrap { max-width: 1040px; } }
 
     /* ───── Saturday banner ───── */
     #sat-banner {
@@ -66,24 +75,32 @@
     @keyframes glow { 0%,100%{box-shadow:0 0 0 rgba(251,146,60,0)} 50%{box-shadow:0 0 22px rgba(251,146,60,.55)} }
 
     /* ───── Header ───── */
-    .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
+    .header { text-align: left; margin-bottom: 18px; }
+    .header .date-label { font-size: 0.7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 2px; }
+    .header h1 { font-size: 2.2rem; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }
     body.sat .header h1 { background: linear-gradient(135deg,#f97316,#ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .header .sub { color: var(--muted); margin-top: 4px; font-size: 0.93rem; }
+    .header .sub { color: var(--muted); margin-top: 2px; font-size: 0.85rem; font-weight: 500; }
 
-    /* ───── Tabs ───── */
-    .tabs { display: flex; gap: 6px; margin-bottom: 20px; background: var(--card);
-      padding: 6px; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+    /* ───── Bottom Nav Bar ───── */
+    .tabs {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+      display: flex; gap: 0; background: var(--card);
+      padding: 6px 0 env(safe-area-inset-bottom, 8px);
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+    }
     .tab {
-      flex: 1; padding: 10px 16px; border: none; border-radius: 10px;
-      font-size: 0.9rem; font-weight: 600; cursor: pointer; color: var(--muted);
-      background: none; transition: all .2s;
+      flex: 1; padding: 6px 4px 4px; border: none; border-radius: 0;
+      font-size: 0.65rem; font-weight: 600; cursor: pointer; color: var(--muted);
+      background: none; transition: color .2s;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
     }
-    .tab:hover { color: var(--text); background: var(--bg); }
+    .tab .tab-icon { font-size: 1.3rem; line-height: 1; }
+    .tab:hover { color: var(--text); }
     .tab-active {
-      background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
-      color: #fff !important; box-shadow: 0 3px 10px rgba(99,102,241,.3);
+      color: var(--primary) !important; background: none !important;
     }
+    body.sat .tab-active { color: #f97316 !important; }
 
     /* ───── Tab Panels ───── */
     .panel { display: none; }
@@ -98,7 +115,7 @@
       transition: all .2s;
     }
     .sub-tab:hover { color: var(--text); }
-    .sub-tab-active { background: var(--primary) !important; color: #fff !important; box-shadow: 0 2px 8px rgba(99,102,241,.3); }
+    .sub-tab-active { background: var(--primary) !important; color: #fff !important; }
     body.sat .sub-tab-active { background: linear-gradient(135deg,#fb923c,#ec4899) !important; }
     .sub-panel { display: none; }
     .sub-panel.active { display: block; }
@@ -106,12 +123,12 @@
     /* ───── Card ───── */
     .card {
       background: var(--card); border-radius: var(--radius);
-      padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.07);
-      margin-bottom: 18px;
+      padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      margin-bottom: 14px;
     }
     .card h2 {
-      font-size: 0.85rem; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: .6px; margin-bottom: 16px;
+      font-size: 0.78rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
     }
     .card-title-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -124,7 +141,7 @@
     .prog-label { font-weight: 700; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
     .prog-right { font-size: 0.85rem; color: var(--muted); }
     .prog-track { background: var(--border); border-radius: 999px; height: 13px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width .6s cubic-bezier(.4,0,.2,1); }
+    .progress-fill { height: 100%; border-radius: 999px; background: var(--primary); transition: width .6s cubic-bezier(.4,0,.2,1); }
     .week-ticks { position: relative; height: 16px; margin-top: 5px; }
     .week-tick { position: absolute; transform: translateX(-50%); font-size: 0.68rem; color: var(--muted); }
 
@@ -139,43 +156,36 @@
     .stat-val { font-size: 1.65rem; font-weight: 800; line-height: 1.1; }
     .stat-lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
     .stat-sub { font-size: 0.73rem; color: var(--muted); margin-top: 2px; }
-    .stat-primary { color: var(--primary); }
+    .stat-primary { color: var(--primary); font-weight:900; }
 
     /* ───── Hero stats (Daily Weight tab) ───── */
-    .stats-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+    .stats-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
     @media(max-width:700px){ .stats-hero { grid-template-columns: 1fr; } }
     .stat-hero {
       position: relative; overflow: hidden;
-      background: linear-gradient(145deg, #ffffff 0%, #fafbff 100%);
-      border-radius: 20px; padding: 28px 22px 24px;
-      box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(99,102,241,.12);
-      border: 1px solid rgba(226,232,240,.8);
-      transition: transform .2s cubic-bezier(.4,0,.2,1), box-shadow .2s;
+      background: var(--card);
+      border-radius: var(--radius); padding: 20px 16px 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
     }
-    .stat-hero:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 2px 4px rgba(15,23,42,.05), 0 16px 32px -12px rgba(99,102,241,.18);
-    }
+    .stat-hero:hover { }
     .stat-hero::before {
       content:''; position:absolute; top:0; left:0; right:0; height:3px;
-      background: linear-gradient(90deg, var(--primary), var(--primary-2));
-      opacity:.85;
+      background: var(--primary);
     }
-    .stat-hero.accent-green::before { background: linear-gradient(90deg, #10b981, #34d399); }
-    .stat-hero.accent-teal::before  { background: linear-gradient(90deg, #06b6d4, #14b8a6); }
+    .stat-hero.accent-green::before { background: var(--green); }
+    .stat-hero.accent-teal::before  { background: #06b6d4; }
     .stat-hero-val {
-      font-size: 2.6rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em;
-      background: linear-gradient(135deg, var(--primary), var(--primary-2));
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      font-size: 2rem; font-weight: 900; line-height: 1; letter-spacing: -0.03em;
+      color: var(--primary);
       font-variant-numeric: tabular-nums;
     }
-    .stat-hero.accent-green .stat-hero-val { background: linear-gradient(135deg, #059669, #10b981); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-    .stat-hero.accent-teal  .stat-hero-val { background: linear-gradient(135deg, #0891b2, #14b8a6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .stat-hero.accent-green .stat-hero-val { color: #059669; }
+    .stat-hero.accent-teal  .stat-hero-val { color: #0891b2; }
     .stat-hero-lbl {
-      font-size: 0.72rem; color: var(--muted); text-transform: uppercase;
-      letter-spacing: .09em; font-weight: 700; margin-top: 10px;
+      font-size: 0.68rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 1px; font-weight: 700; margin-top: 8px;
     }
-    .stat-hero-sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; font-weight:500; }
+    .stat-hero-sub { font-size: 0.75rem; color: var(--muted); margin-top: 3px; font-weight:500; }
 
     /* ───── DEXA countdown card ───── */
     .dexa-card {
@@ -329,13 +339,13 @@
     textarea { resize: vertical; min-height: 72px; }
     .btn {
       width: 100%; padding: 12px; border: none; border-radius: 10px;
-      font-size: 1rem; font-weight: 700; cursor: pointer; color: #fff;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      box-shadow: 0 4px 14px rgba(99,102,241,.35);
-      transition: transform .15s, box-shadow .2s;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer; color: #fff;
+      background: var(--primary);
+      box-shadow: none;
+      transition: opacity .15s;
     }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(99,102,241,.45); }
-    .btn:active { transform: none; }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { opacity: 0.75; }
     .logged-ok {
       text-align: center; padding: 12px 10px; background: #f0fdf4;
       border-radius: 10px; color: var(--green); font-weight: 700; font-size: 0.9rem; line-height: 1.4;
@@ -346,6 +356,7 @@
     /* ───── Chart containers ───── */
     .chart-wrap { position: relative; width: 100%; }
     .chart-wrap canvas { width: 100% !important; }
+    /* Charts scale via Chart.js aspectRatio — no CSS min-height needed */
 
     /* ───── History table ───── */
     .history-wrap { overflow-x: auto; }
@@ -424,7 +435,7 @@
       font-size: 0.85rem; font-weight: 700; cursor: pointer;
       transition: transform .15s, box-shadow .2s; white-space: nowrap;
     }
-    .btn-export { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; box-shadow: 0 3px 10px rgba(99,102,241,.3); }
+    .btn-export { background: var(--primary); color: #fff; }
     body.sat .btn-export { background: linear-gradient(135deg,#fb923c,#ec4899); }
     .btn-import { background: var(--bg); color: var(--text); border: 2px solid var(--border); }
     .btn-sm:hover { transform: translateY(-1px); }
@@ -573,6 +584,31 @@
       .food-meal-row > .btn { width: 100% !important; }
     }
 
+    /* ───── Desktop enhancements ───── */
+    @media(min-width:768px){
+      .food-entries-list { padding-left: 96px; }
+      .food-meal-time-pill { width: 84px; }
+      .food-entry-row { padding: 14px 18px; }
+      .food-entry-name { font-size: 1rem; }
+      .food-entry-detail { font-size: 0.84rem; }
+      .macro-top-item { padding: 14px 12px 10px; }
+      .macro-top-vals { font-size: 1.2rem; }
+      .macro-top-bar-track { height: 4px; margin-top: 6px; }
+      .card-title { font-size: 1.05rem; }
+    }
+    @media(min-width:1024px){
+      .food-entries-list { padding-left: 110px; }
+      .food-meal-time-pill { width: 96px; font-size: 0.84rem; }
+      .food-entry-row { padding: 16px 22px; gap: 14px; }
+      .food-entry-name { font-size: 1.05rem; }
+      .food-entry-detail { font-size: 0.88rem; gap: 8px; }
+      .macro-top-item { padding: 16px 14px 12px; }
+      .macro-top-vals { font-size: 1.35rem; }
+      .macro-top-label { font-size: 0.74rem; }
+      .stat-val { font-size: 1.9rem; }
+      .stat-lbl { font-size: 0.78rem; }
+    }
+
     /* ───── Insight callout ───── */
     .insight {
       background: linear-gradient(135deg, #eff6ff, #f0fdf4);
@@ -596,22 +632,54 @@
 
     /* ───── Food Log ───── */
     .food-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-    .food-nav-btn { background:var(--card); border:1.5px solid var(--border); border-radius:10px; width:40px; height:40px; font-size:1.4rem; cursor:pointer; color:var(--text); display:flex; align-items:center; justify-content:center; }
-    .food-nav-btn:hover { background:var(--border); }
-    .food-nav-date { font-size:1.05rem; font-weight:700; color:var(--text); }
+    .food-nav-btn { background:none; border:none; border-radius:10px; width:44px; height:44px; font-size:1.6rem; cursor:pointer; color:var(--muted); display:flex; align-items:center; justify-content:center; }
+    .food-nav-btn:hover { color:var(--text); }
+    .food-nav-date { font-size:1.1rem; font-weight:800; color:var(--text); letter-spacing:-0.3px; }
 
-    .food-cal-row { display:flex; flex-direction:column; align-items:center; margin-bottom:16px; }
-    .food-cal-label { font-size:0.72rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-bottom:2px; }
-    .food-cal-count { font-size:2.4rem; font-weight:800; color:var(--primary); line-height:1; }
-    .food-cal-target { font-size:0.88rem; color:var(--muted); margin-top:2px; }
+    .food-cal-row { display:none; } /* hidden — replaced by macro-top-bar */
+    .food-cal-label { display:none; }
+    .food-cal-count { display:none; }
+    .food-cal-target { display:none; }
+
+    /* ── MacroFactor-style macro top bar ── */
+    .macro-top-bar {
+      display:flex; gap:0; margin-bottom:14px;
+      background:var(--card); border-radius:var(--radius);
+      box-shadow:0 1px 3px rgba(0,0,0,.06); overflow:hidden;
+    }
+    .macro-top-item {
+      flex:1; padding:10px 8px 8px; text-align:center;
+      border-right:1px solid var(--border);
+    }
+    .macro-top-item:last-child { border-right:none; }
+    .macro-top-label {
+      font-size:0.68rem; font-weight:700; letter-spacing:0.5px;
+      margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:3px;
+    }
+    .macro-top-label .mtl-icon { font-size:0.72rem; }
+    .macro-top-vals {
+      font-size:1.1rem; font-weight:800; color:var(--text);
+      font-variant-numeric:tabular-nums;
+    }
+    .macro-top-vals .mtv-current { }
+    .macro-top-vals .mtv-target { color:var(--muted); font-weight:500; font-size:0.95rem; }
+    .macro-top-bar-track {
+      height:3px; background:var(--border); border-radius:2px;
+      margin-top:5px; overflow:hidden;
+    }
+    .macro-top-bar-fill { height:100%; border-radius:2px; transition:width 0.3s ease; }
+    .mtb-cal { background:#3b82f6; }
+    .mtb-p { background:#ef4444; }
+    .mtb-f { background:#f59e0b; }
+    .mtb-c { background:#10b981; }
 
     .macro-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
     .macro-bar-label { width:54px; font-size:0.78rem; font-weight:600; color:var(--muted); flex-shrink:0; }
     .macro-bar-track { flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
     .macro-bar-fill { height:100%; border-radius:4px; transition:width 0.3s ease; }
-    .macro-bar-protein { background:#6366f1; }
+    .macro-bar-protein { background:#ef4444; }
     .macro-bar-carbs { background:#10b981; }
-    .macro-bar-fat { background:#f97316; }
+    .macro-bar-fat { background:#f59e0b; }
     .macro-bar-value { width:90px; font-size:0.78rem; color:var(--muted); text-align:right; flex-shrink:0; }
 
     .food-form-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
@@ -625,23 +693,78 @@
 
     .food-preview { font-size:0.82rem; color:var(--muted); background:var(--bg); padding:8px 12px; border-radius:8px; min-height:34px; display:flex; align-items:center; }
 
-    .food-meal-card { margin-bottom:12px; }
-    .food-meal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border); }
-    .food-meal-name { font-size:0.82rem; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); }
-    .food-meal-cal { font-size:0.88rem; font-weight:700; color:var(--text); }
+    /* ── Timeline container ── */
+    .food-timeline { position:relative; padding-left:0; }
+    .food-timeline::before {
+      content:''; position:absolute; top:0; bottom:0; left:42px;
+      width:2px; background:var(--border);
+    }
 
-    .food-entry-row { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid #f1f5f9; }
-    .food-entry-row:last-child { border-bottom:none; }
+    /* ── Meal time slot ── */
+    .food-meal-card { margin-bottom:0; position:relative; padding:0; background:none; box-shadow:none; border-radius:0; }
+    .food-meal-header {
+      display:flex; align-items:center; gap:0;
+      padding:12px 0 8px; position:relative;
+    }
+    .food-meal-time-pill {
+      width:72px; flex-shrink:0; text-align:center;
+      font-size:0.78rem; font-weight:600; color:var(--muted);
+      position:relative;
+    }
+    .food-meal-time-pill.has-food {
+      color:var(--text); font-weight:700;
+    }
+    .food-meal-time-pill.has-food::after {
+      content:''; position:absolute; right:-8px; top:50%;
+      transform:translateY(-50%);
+      width:6px; height:6px; border-radius:50%; background:var(--text);
+    }
+    body.sat .food-meal-time-pill.has-food::after { background:#f97316; }
+    .food-meal-dot-spacer {
+      width:14px; flex-shrink:0; position:relative; z-index:1;
+    }
+    .food-meal-right {
+      flex:1; display:flex; justify-content:space-between; align-items:center;
+      padding-left:10px; min-width:0;
+    }
+    .food-meal-name { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); }
+    .food-meal-cal {
+      font-size:0.75rem; font-weight:600; color:var(--muted);
+      display:flex; gap:10px; align-items:center; flex-shrink:0;
+    }
+    .food-meal-cal .mc-val { font-weight:700; }
+    .food-meal-cal .mc-p { color:#ef4444; }
+    .food-meal-cal .mc-f { color:#f59e0b; }
+    .food-meal-cal .mc-c { color:#10b981; }
+
+    /* ── Food item cards (within timeline) ── */
+    .food-entries-list { padding-left:86px; padding-bottom:4px; }
+    .food-entry-row {
+      display:flex; align-items:center; gap:10px;
+      padding:12px 14px; margin-bottom:6px;
+      background:var(--card); border-radius:var(--radius);
+      box-shadow:0 1px 3px rgba(0,0,0,.05);
+    }
+    .food-entry-row:last-child { margin-bottom:0; }
     .food-entry-info { flex:1; min-width:0; }
-    .food-entry-name { font-size:0.88rem; font-weight:600; color:var(--text); display:block; }
-    .food-entry-qty { font-size:0.78rem; color:var(--muted); }
-    .food-entry-macros { display:flex; gap:6px; font-size:0.78rem; color:var(--muted); align-items:center; flex-shrink:0; }
-    .food-entry-macros span:first-child { font-weight:700; color:var(--text); }
-    .food-macro-p { color:#6366f1; font-weight:600; }
+    .food-entry-name { font-size:0.92rem; font-weight:600; color:var(--text); display:block; line-height:1.3; }
+    .food-entry-detail {
+      font-size:0.78rem; color:var(--muted); margin-top:2px;
+      display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+    }
+    .food-entry-detail .fd-cal { font-weight:700; color:var(--text); }
+    .food-entry-detail .fd-p { color:#ef4444; font-weight:600; }
+    .food-entry-detail .fd-f { color:#f59e0b; font-weight:600; }
+    .food-entry-detail .fd-c { color:#10b981; font-weight:600; }
+    .food-entry-detail .fd-sep { color:var(--border); }
+    .food-entry-qty { font-size:0.75rem; color:var(--muted); }
+    .food-entry-macros { display:none; } /* hidden — using .food-entry-detail instead */
+    .food-macro-p { color:#ef4444; font-weight:600; }
     .food-macro-c { color:#10b981; font-weight:600; }
-    .food-macro-f { color:#f97316; font-weight:600; }
-    .food-delete-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:0.85rem; padding:4px 6px; border-radius:6px; flex-shrink:0; transition:background 0.15s; }
-    .food-delete-btn:hover { background:#fee2e2; color:var(--red); }
+    .food-macro-f { color:#f59e0b; font-weight:600; }
+    .food-entry-actions { display:flex; gap:2px; flex-shrink:0; }
+    .food-delete-btn { background:none; border:none; color:#d1d5db; cursor:pointer; font-size:0.9rem; padding:4px 5px; border-radius:6px; flex-shrink:0; transition:color 0.15s; }
+    .food-delete-btn:hover { color:var(--text); }
 
     .food-empty { text-align:center; color:var(--muted); font-size:0.88rem; padding:24px 0; }
 
@@ -737,7 +860,7 @@
     /* ───── Trends range buttons ───── */
     .tr-range-btn { background: var(--bg); color: var(--muted); border: 1.5px solid var(--border); padding: 6px 14px; }
     .tr-range-btn:hover { color: var(--text); background: var(--border); }
-    .tr-range-active { background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; }
+    .tr-range-active { background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; border-radius:8px; }
     body.sat .tr-range-active { background: linear-gradient(135deg,#fb923c,#ec4899) !important; border-color: #fb923c !important; }
 
     /* ───── Habits Tab ───── */
@@ -756,7 +879,7 @@
       background:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
       font-size:1rem; flex-shrink:0; transition:all .2s; margin-top:2px;
     }
-    .habit-toggle.done { background:var(--green); border-color:var(--green); color:#fff; }
+    .habit-toggle.done { background:var(--primary); border-color:var(--primary); color:#fff; }
     body.sat .habit-toggle.done { background:linear-gradient(135deg,#fb923c,#ec4899); border-color:#fb923c; }
     .habit-info { flex:1; min-width:0; }
     .habit-name { font-size:0.95rem; font-weight:600; color:var(--text); display:block; margin-bottom:2px; text-transform:capitalize; }
@@ -786,11 +909,11 @@
     .habit-add-input:focus { border-color:var(--primary); background:#fff; }
     .habit-add-btn {
       padding:9px 18px; border:none; border-radius:10px; font-size:0.88rem; font-weight:700;
-      cursor:pointer; color:#fff; background:linear-gradient(135deg,#6366f1,#8b5cf6);
-      white-space:nowrap; transition:transform .15s;
+      cursor:pointer; color:#fff; background:var(--primary);
+      white-space:nowrap; transition:opacity .15s;
     }
     body.sat .habit-add-btn { background:linear-gradient(135deg,#fb923c,#ec4899); }
-    .habit-add-btn:hover { transform:translateY(-1px); }
+    .habit-add-btn:hover { opacity:0.85; }
 
     /* 7-Day Goals */
     .streak-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
@@ -845,12 +968,12 @@
     .iy-summary { font-size:0.75rem; color:var(--muted); }
     .iy-grid-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
     .iy-grid {
-      display:grid; grid-template-rows:repeat(7, 13px);
-      grid-auto-flow:column; grid-auto-columns:13px;
-      gap:2px; width:max-content;
+      display:grid; grid-template-rows:repeat(7, 1fr);
+      grid-auto-flow:column; grid-auto-columns:1fr;
+      gap:3px; width:100%;
     }
     .iy-cell {
-      width:13px; height:13px; border-radius:2.5px; cursor:default;
+      aspect-ratio:1; border-radius:3px; cursor:default; min-width:0; max-width:42px;
     }
     .iy-cell.c0 { background:var(--border); }
     .iy-cell.c1 { background:#86efac; }
@@ -863,11 +986,11 @@
     body.sat .iy-cell.c4 { background:#9a3412; }
     .iy-cell.empty { background:transparent; }
     .iy-cell.future { background:transparent; border:1px dashed var(--border); }
-    .iy-months { display:flex; gap:0; margin-top:3px; width:max-content; }
-    .iy-months span { font-size:0.6rem; color:var(--muted); width:calc(13px * 4.33 + 2px * 3.33); text-align:left; flex-shrink:0; }
+    .iy-months { display:flex; gap:2px; margin-top:3px; width:100%; }
+    .iy-months span { font-size:0.65rem; color:var(--muted); flex:1; text-align:left; }
     .iy-legend { display:flex; align-items:center; gap:4px; margin-top:8px; justify-content:flex-end; }
     .iy-legend span { font-size:0.6rem; color:var(--muted); }
-    .iy-legend .iy-cell { width:11px; height:11px; cursor:default; }
+    .iy-legend .iy-cell { width:11px; height:11px; cursor:default; aspect-ratio:auto; }
 
     .insights-habit-toggle { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
     .insights-habit-toggle button {
@@ -876,7 +999,7 @@
       cursor:pointer; transition:all .15s;
     }
     .insights-habit-toggle button.active {
-      border-color:var(--primary); background:var(--primary); color:#fff;
+      border-color:var(--primary); background:var(--primary); color:#fff; border-radius:20px;
     }
     body.sat .insights-habit-toggle button.active {
       border-color:#fb923c; background:#fb923c;
@@ -995,16 +1118,17 @@
   <div id="sat-banner">🎉 Saturday! Treat day — you've earned every bite. Enjoy it! 🍦</div>
 
   <div class="header">
+    <div class="date-label" id="header-date-label"></div>
     <h1>Power and Fitness</h1>
     <div class="sub">Slow and easy.</div>
   </div>
 
-  <!-- Tab Navigation -->
+  <!-- Bottom Tab Navigation (fixed) -->
   <div class="tabs">
-    <button class="tab tab-active" id="tab-weight" onclick="switchTab('weight')">Daily Weight</button>
-    <button class="tab" id="tab-food"   onclick="switchTab('food')">Food Log</button>
-    <button class="tab" id="tab-habits" onclick="switchTab('habits')">Habits</button>
-    <button class="tab" id="tab-trends" onclick="switchTab('trends')">Trends</button>
+    <button class="tab tab-active" id="tab-weight" onclick="switchTab('weight')"><span class="tab-icon">⚖️</span>Weight</button>
+    <button class="tab" id="tab-food"   onclick="switchTab('food')"><span class="tab-icon">🍽</span>Food</button>
+    <button class="tab" id="tab-habits" onclick="switchTab('habits')"><span class="tab-icon">✓</span>Habits</button>
+    <button class="tab" id="tab-trends" onclick="switchTab('trends')"><span class="tab-icon">📊</span>Trends</button>
   </div>
 
   <!-- ════════════════════════════════════════════════
@@ -1019,25 +1143,33 @@
       <button class="food-nav-btn" onclick="foodNavDay(1)">›</button>
     </div>
 
-    <!-- Daily macro summary -->
-    <div class="card food-macro-summary">
-      <div class="food-cal-row">
-        <div class="food-cal-label" id="food-cal-day-label">Today</div>
-        <span class="food-cal-count" id="food-cal-count">0</span>
-        <span class="food-cal-target">calories</span>
+    <!-- MacroFactor-style macro top bar -->
+    <div class="macro-top-bar food-macro-summary" id="macro-top-bar">
+      <div class="macro-top-item">
+        <div class="macro-top-label" style="color:#3b82f6"><span class="mtl-icon">🔥</span></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span> <span class="mtv-target" id="mtv-cal-target">/ 2401</span></div>
+        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-cal" id="mtb-cal-fill" style="width:0%"></div></div>
       </div>
-      <!-- Macro chips — delta vs minimum targets -->
-      <div class="food-remaining-row" id="food-remaining-row">
-        <div class="food-rem-chip"><div class="rc-val rc-ok" id="rem-protein">0g</div><div class="rc-lbl">protein</div><div class="rc-sub">vs plan</div></div>
-        <div class="food-rem-chip"><div class="rc-val rc-ok" id="rem-carbs">0g</div><div class="rc-lbl">carbs</div><div class="rc-sub">vs plan</div></div>
-        <div class="food-rem-chip"><div class="rc-val rc-ok" id="rem-fat">0g</div><div class="rc-lbl">fat</div><div class="rc-sub">vs plan</div></div>
+      <div class="macro-top-item">
+        <div class="macro-top-label" style="color:#ef4444">P</div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span> <span class="mtv-target" id="mtv-p-target">/ 227</span></div>
+        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-p" id="mtb-p-fill" style="width:0%"></div></div>
       </div>
-      <!-- Macro totals — styled to match chips -->
-      <div class="food-remaining-row" style="margin-bottom:0">
-        <div class="food-rem-chip"><div class="rc-val" id="val-protein" style="color:#6366f1">0g</div><div class="rc-lbl">protein</div><div class="rc-sub">total</div></div>
-        <div class="food-rem-chip"><div class="rc-val" id="val-carbs" style="color:#10b981">0g</div><div class="rc-lbl">carbs</div><div class="rc-sub">total</div></div>
-        <div class="food-rem-chip"><div class="rc-val" id="val-fat" style="color:#f97316">0g</div><div class="rc-lbl">fat</div><div class="rc-sub">total</div></div>
+      <div class="macro-top-item">
+        <div class="macro-top-label" style="color:#f59e0b">F</div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span> <span class="mtv-target" id="mtv-f-target">/ 77</span></div>
+        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-f" id="mtb-f-fill" style="width:0%"></div></div>
       </div>
+      <div class="macro-top-item">
+        <div class="macro-top-label" style="color:#10b981">C</div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span> <span class="mtv-target" id="mtv-c-target">/ 267</span></div>
+        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-c" id="mtb-c-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <!-- Hidden elements for backward compatibility -->
+    <div style="display:none">
+      <span id="food-cal-day-label"></span>
+      <span id="rem-protein"></span><span id="rem-carbs"></span><span id="rem-fat"></span>
     </div>
 
     <!-- Sync to Sheets button -->
@@ -1962,7 +2094,7 @@ function drawWeightChart(data) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: window.innerWidth < 600 ? 1.3 : 2,
+      aspectRatio: window.innerWidth < 600 ? 1.3 : window.innerWidth < 1024 ? 1.8 : 1.6,
       interaction: { mode: 'nearest', intersect: false },
       plugins: {
         legend: {
@@ -2224,6 +2356,26 @@ async function syncOnVisibility() {
   }
 }
 
+// ─── One-time migration: remove rice cake & cottage cheese from stored entries ──
+(function migrateRemoveRiceCakeCottage() {
+  const MIG_KEY = 'migration_removeRiceCakeCottage_v1';
+  if (localStorage.getItem(MIG_KEY)) return; // already ran
+  try {
+    const raw = localStorage.getItem(FOOD_ENTRIES_KEY);
+    if (raw) {
+      const entries = JSON.parse(raw);
+      const filtered = entries.filter(e =>
+        e.food_name !== 'Rice Cake' &&
+        e.food_name !== 'Cottage Cheese (2%, Good Culture)'
+      );
+      if (filtered.length !== entries.length) {
+        localStorage.setItem(FOOD_ENTRIES_KEY, JSON.stringify(filtered));
+      }
+    }
+  } catch(e) { /* ignore */ }
+  localStorage.setItem(MIG_KEY, '1');
+})();
+
 // ─── Ensure today's meal plan exists (runs at boot, regardless of tab) ───────
 // foodInitDates — "plan entries exist in localStorage" (set once per day)
 // Sheets push is now manual via the "Sync to Sheets" button.
@@ -2249,6 +2401,13 @@ function ensureTodayMealPlan() {
   const td = today();
   const previewSat = new URLSearchParams(window.location.search).get('preview') === 'saturday';
   if (isSat(td) || previewSat) document.body.classList.add('sat');
+
+  // Set date label in header (MacroFactor style)
+  const headerDateEl = document.getElementById('header-date-label');
+  if (headerDateEl) {
+    const dt = new Date(td + 'T12:00:00');
+    headerDateEl.textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
+  }
 
   // Load food library from localStorage cache so the dropdown is ready instantly
   try {
@@ -2374,6 +2533,38 @@ const FOOD_TARGET_DEFAULTS = { cal:2401, protein:227, carbs:267, fat:77 };
 
 let foodCurrentDate = today();
 
+// ── Timeline meal times (v2 feature) ────────────────────────────────────────
+const MEAL_TIMES = {
+  'Breakfast': '6:30 AM',
+  'Lunch': '11:00 AM',
+  'Snack': '5:00 PM',
+  'Dinner': '2:30 PM',
+  'Evening Snack': '7:00 PM'
+};
+const MEAL_CHRONO_ORDER = ['Breakfast','Lunch','Dinner','Snack','Evening Snack'];
+
+// Convert "7:30 AM" display time to "07:30" 24-hr format for sorting/storage
+function mealTimeToHHMM(timeStr) {
+  const m = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return '12:00';
+  let h = parseInt(m[1],10);
+  const min = m[2];
+  const ampm = m[3].toUpperCase();
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return String(h).padStart(2,'0') + ':' + min;
+}
+// Convert "07:30" 24-hr format to "7:30 AM" display
+function hhmmToDisplay(hhmm) {
+  if (!hhmm) return '';
+  const [hStr, mStr] = hhmm.split(':');
+  let h = parseInt(hStr,10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return h + ':' + mStr + ' ' + ampm;
+}
+
 // ── Skip Day ────────────────────────────────────────────────────────────────
 const SKIP_DATES_KEY = 'skipDates_v1';
 function getSkipDates() {
@@ -2446,6 +2637,7 @@ function createPlanEntries(date) {
     id: 'plan-' + item.food_id + '-' + date,
     date,
     meal:      item.meal,
+    time:      mealTimeToHHMM(MEAL_TIMES[item.meal] || '12:00 PM'),
     food_name: item.food_name,
     qty:       item.qty,
     unit:      item.unit,
@@ -2496,7 +2688,16 @@ function getFoodEntries() {
 }
 function saveFoodEntriesDB(entries) { localStorage.setItem(FOOD_ENTRIES_KEY, JSON.stringify(entries)); }
 
-function getAllFoods() { return FOOD_DB; }
+function getAllFoods() {
+  // Dedup by name (case-insensitive) — keep first occurrence
+  const seen = new Set();
+  return FOOD_DB.filter(f => {
+    const key = f.name.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 // ── Target settings ──────────────────────────────────────────────────────────
 function saveTargets() {
@@ -2644,10 +2845,22 @@ function logFood() {
   const qty = parseFloat(document.getElementById('food-qty').value) || 0;
   if (qty <= 0) { showToast('Enter a valid amount'); return; }
   const r = qty / food.serving;
+  // Capture actual time: use current clock time if logging for today, otherwise use meal default
+  const meal = document.getElementById('food-meal').value;
+  let logTime;
+  if (foodCurrentDate === today()) {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    logTime = hh + ':' + mm;
+  } else {
+    logTime = mealTimeToHHMM(MEAL_TIMES[meal] || '12:00 PM');
+  }
   const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     date: foodCurrentDate,
-    meal: document.getElementById('food-meal').value,
+    meal,
+    time: logTime,
     food_name: food.name,
     qty, unit: food.unit,
     calories: Math.round(food.cal * r),
@@ -2720,6 +2933,37 @@ function saveFoodEdit(id) {
   showToast('✓ Updated');
 }
 
+function editFoodTime(id) {
+  const entry = getFoodEntries().find(e => e.id === id);
+  if (!entry) return;
+  const row = document.getElementById('frow-' + id);
+  if (!row || row.querySelector('.food-time-edit')) return;
+  const currentTime = entry.time || mealTimeToHHMM(MEAL_TIMES[entry.meal] || '12:00 PM');
+  const editEl = document.createElement('div');
+  editEl.className = 'food-time-edit';
+  editEl.innerHTML = `<input type="time" id="et-${id}" value="${currentTime}"
+    style="padding:4px 8px;border:1.5px solid var(--primary);border-radius:6px;font-size:0.82rem;font-family:inherit;background:var(--bg);color:var(--text)"
+    onkeydown="if(event.key==='Enter')saveFoodTime('${id}')">
+    <button class="btn-save" onclick="saveFoodTime('${id}')" title="Save">✓</button>
+    <button class="btn-save" onclick="renderFood()" title="Cancel" style="color:var(--muted)">✕</button>`;
+  editEl.style.cssText = 'display:flex;align-items:center;gap:4px;margin-top:4px';
+  row.querySelector('.food-entry-info').appendChild(editEl);
+  document.getElementById('et-'+id).focus();
+}
+
+function saveFoodTime(id) {
+  const input = document.getElementById('et-'+id);
+  if (!input || !input.value) { showToast('Pick a time'); return; }
+  const entries = getFoodEntries();
+  const idx = entries.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  entries[idx] = {...entries[idx], time: input.value};
+  saveFoodEntriesDB(entries);
+  renderFood();
+  markFoodDirty();
+  showToast('✓ Time updated');
+}
+
 // ── Render ───────────────────────────────────────────────────────────────────
 function renderFood() {
   // Auto-initialize day from meal plan the FIRST time this date is viewed (local only)
@@ -2786,6 +3030,7 @@ function renderFood() {
     if (macroSummary) macroSummary.style.display = 'none';
     if (foodForm) foodForm.style.display = 'none';
     if (foodEntries) foodEntries.innerHTML = '<div class="card food-skipped-overlay"><div class="skip-big-icon">⏭</div><strong>Day skipped</strong><br>Calorie data for this day won\'t affect your trends or averages.<br>Hit "Resume tracking" below if you change your mind.</div>';
+    updateFoodSyncUI();
     return;
   } else {
     if (macroSummary) macroSummary.style.display = '';
@@ -2798,81 +3043,123 @@ function renderFood() {
   const totC   = dayEntries.reduce((s,e)=>s+(e.carbs||0),0);
   const totF   = dayEntries.reduce((s,e)=>s+(e.fat||0),0);
 
-  // Header: calories
+  // ── MacroFactor-style macro top bar ──
   const calCount = document.getElementById('food-cal-count');
-  if (calCount) calCount.textContent = Math.round(totCal).toLocaleString();
-  // Macro chips — delta from the EXACT meal plan totals (not the rounded settings targets)
-  // This way, following the plan exactly shows +0g instead of small rounding diffs.
+  if (calCount) calCount.textContent = Math.round(totCal);
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setVal('val-protein', Math.round(totP));
+  setVal('val-carbs',   Math.round(totC));
+  setVal('val-fat',     Math.round(totF));
+
+  // Update target labels and progress bars
+  setVal('mtv-cal-target', '/ ' + targets.cal);
+  setVal('mtv-p-target',   '/ ' + targets.protein);
+  setVal('mtv-f-target',   '/ ' + targets.fat);
+  setVal('mtv-c-target',   '/ ' + targets.carbs);
+  const setBar = (id, val, target) => {
+    const el = document.getElementById(id);
+    if (el) el.style.width = Math.min(100, Math.max(0, (val / target) * 100)).toFixed(1) + '%';
+  };
+  setBar('mtb-cal-fill', totCal, targets.cal);
+  setBar('mtb-p-fill',   totP,   targets.protein);
+  setBar('mtb-f-fill',   totF,   targets.fat);
+  setBar('mtb-c-fill',   totC,   targets.carbs);
+
+  // Legacy chips (hidden, but keep for compat)
   const planTotals = MEAL_PLAN_TEMPLATE.reduce((s, e) => ({
     protein: s.protein + (e.protein || 0),
     carbs:   s.carbs   + (e.carbs   || 0),
     fat:     s.fat     + (e.fat     || 0),
   }), { protein: 0, carbs: 0, fat: 0 });
-
   function setChip(id, val, target, macroColor) {
     const el = document.getElementById(id);
     if (!el) return;
-    // Round to 1 decimal to eliminate floating-point noise from summing in different order
     const diff = Math.round((val - target) * 10) / 10;
     el.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'g';
-    // Use the macro's own color when on track; red when way under target
-    const wayUnder = diff < -target * 0.15;
-    el.style.color = wayUnder ? 'var(--red)' : macroColor;
-    el.className = 'rc-val';
   }
   setChip('rem-protein', totP, planTotals.protein, '#6366f1');
   setChip('rem-carbs',   totC, planTotals.carbs,   '#10b981');
   setChip('rem-fat',     totF, planTotals.fat,      '#f97316');
 
-  // Macro totals
-  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setVal('val-protein', (+totP.toFixed(1)) + 'g');
-  setVal('val-carbs',   (+totC.toFixed(1)) + 'g');
-  setVal('val-fat',     (+totF.toFixed(1)) + 'g');
+  // ── Build timeline groups sorted by actual time ──
+  // Each entry gets a time key: its own `time` field, or fall back to MEAL_TIMES default
+  function entryTime(e) {
+    if (e.time) return e.time; // "HH:MM" 24hr
+    return mealTimeToHHMM(MEAL_TIMES[e.meal] || '12:00 PM');
+  }
+  // Group entries by (meal + time) so that e.g. two snacks at different times are separate groups
+  const groups = []; // [{key, meal, time, entries}]
+  const groupMap = {};
+  dayEntries.forEach(e => {
+    const t = entryTime(e);
+    const key = (e.meal||'Other') + '|' + t;
+    if (!groupMap[key]) {
+      groupMap[key] = { key, meal: e.meal||'Other', time: t, entries: [] };
+      groups.push(groupMap[key]);
+    }
+    groupMap[key].entries.push(e);
+  });
+  // Sort groups chronologically by time, then by meal chrono order for ties
+  groups.sort((a,b) => {
+    if (a.time !== b.time) return a.time < b.time ? -1 : 1;
+    const ai = MEAL_CHRONO_ORDER.indexOf(a.meal);
+    const bi = MEAL_CHRONO_ORDER.indexOf(b.meal);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
 
-  // Entries grouped by meal
-  const MEAL_ORDER = ['Breakfast','Lunch','Dinner','Evening Snack','Snack'];
-  const byMeal = {};
-  dayEntries.forEach(e => { (byMeal[e.meal||'Other'] = byMeal[e.meal||'Other']||[]).push(e); });
-  const orderedMeals = [
-    ...MEAL_ORDER.filter(m=>byMeal[m]),
-    ...Object.keys(byMeal).filter(m=>!MEAL_ORDER.includes(m))
-  ];
   const container = document.getElementById('food-entries');
   if (!container) return;
-  if (orderedMeals.length === 0) {
-    container.innerHTML = '<div class="card food-empty">No food logged for this day yet.<br><span style="font-size:0.8rem;margin-top:4px;display:block">Select a food above and tap Add to Log.</span></div>';
+  if (groups.length === 0) {
+    container.innerHTML = '<div class="food-empty" style="text-align:center;color:var(--muted);padding:32px 0;font-size:0.88rem">No food logged for this day yet.</div>';
+    updateFoodSyncUI();
     return;
   }
-  container.innerHTML = orderedMeals.map(meal => {
-    const entries = byMeal[meal];
+  container.innerHTML = '<div class="food-timeline">' + groups.map(g => {
+    const entries = g.entries;
     const mCal = entries.reduce((s,e)=>s+(e.calories||0),0);
     const mP   = entries.reduce((s,e)=>s+(e.protein||0),0);
     const mC   = entries.reduce((s,e)=>s+(e.carbs||0),0);
     const mF   = entries.reduce((s,e)=>s+(e.fat||0),0);
+    const timeLabel = hhmmToDisplay(g.time);
     const rows = entries.map(e => `
       <div class="food-entry-row" id="frow-${e.id}">
         <div class="food-entry-info">
           <span class="food-entry-name">${esc(e.food_name)}</span>
-          <span class="food-entry-qty">${e.qty} ${esc(e.unit)}</span>
+          <div class="food-entry-detail">
+            <span class="fd-cal">${e.calories}🔥</span>
+            <span class="fd-p">${e.protein}P</span>
+            <span class="fd-f">${e.fat}F</span>
+            <span class="fd-c">${e.carbs}C</span>
+            <span class="fd-sep">·</span>
+            <span class="food-entry-qty">${e.qty} ${esc(e.unit)}</span>
+          </div>
         </div>
-        <div class="food-entry-macros">
-          <span>${e.calories} cal</span>
-          <span class="food-macro-p">${e.protein}g P</span>
-          <span class="food-macro-c">${e.carbs}g C</span>
-          <span class="food-macro-f">${e.fat}g F</span>
+        <div class="food-entry-actions">
+          <button class="food-delete-btn" onclick="editFoodTime('${e.id}')" title="Change time">🕐</button>
+          <button class="food-delete-btn" onclick="editFoodEntry('${e.id}')" title="Edit qty">✎</button>
+          <button class="food-delete-btn" onclick="deleteFoodEntry('${e.id}')" title="Delete">✕</button>
         </div>
-        <button class="food-delete-btn" onclick="editFoodEntry('${e.id}')" title="Edit" style="color:var(--primary)">✏</button>
-        <button class="food-delete-btn" onclick="deleteFoodEntry('${e.id}')" title="Delete">🗑</button>
       </div>`).join('');
-    return `<div class="card food-meal-card">
+    return `<div class="food-meal-card">
       <div class="food-meal-header">
-        <span class="food-meal-name">${esc(meal)}</span>
-        <span class="food-meal-cal">${Math.round(mCal)} cal · <span style="color:#6366f1">${mP.toFixed(0)}P</span> <span style="color:#10b981">${mC.toFixed(0)}C</span> <span style="color:#f97316">${mF.toFixed(0)}F</span></span>
+        <div class="food-meal-time-pill has-food">${timeLabel || g.meal}</div>
+        <div class="food-meal-dot-spacer"></div>
+        <div class="food-meal-right">
+          <span class="food-meal-name">${esc(g.meal)}</span>
+          <span class="food-meal-cal">
+            <span class="mc-val">${Math.round(mCal)}🔥</span>
+            <span class="mc-p">${mP.toFixed(0)}P</span>
+            <span class="mc-f">${mF.toFixed(0)}F</span>
+            <span class="mc-c">${mC.toFixed(0)}C</span>
+          </span>
+        </div>
       </div>
-      ${rows}
+      <div class="food-entries-list">${rows}</div>
     </div>`;
-  }).join('');
+  }).join('') + '</div>';
+
+  // Always refresh sync bar visibility
+  updateFoodSyncUI();
 }
 
 // ── Custom Food ──────────────────────────────────────────────────────────────
@@ -3342,10 +3629,10 @@ function renderHabits() {
           <div class="habit-info">
             <span class="habit-name">${esc(h)}</span>
             ${entry.done ? `
-              <button class="habit-notes-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+              ${isExercise ? '' : `<button class="habit-notes-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
                 ${entry.notes ? 'Edit notes' : 'Add notes'}
-              </button>
-              <textarea class="habit-notes" style="display:${entry.notes?'block':'none'}" placeholder="How did it go?"
+              </button>`}
+              <textarea class="habit-notes" style="display:${(isExercise || entry.notes)?'block':'none'}" placeholder="${isExercise ? 'What did you do?' : 'How did it go?'}"
                 onchange="setHabitForDate('${habitViewDate}','${esc(h)}',{notes:this.value})">${esc(entry.notes||'')}</textarea>
             ` : ''}
           </div>
@@ -3629,91 +3916,91 @@ function renderHabitInsights() {
   });
   html += '</div>';
 
-  // ── Yearly heatmaps ──
+  // ── Rolling 3-month heatmap ──
   const filterHabits = insightsActiveHabit === 'all' ? habits : [insightsActiveHabit];
 
-  years.forEach(year => {
-    // Jan 1 of year — find what weekday it is (0=Sun)
-    const jan1 = new Date(year, 0, 1);
-    const jan1Day = jan1.getDay(); // 0-6
-    const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-    const daysInYear = isLeap ? 366 : 365;
-    const lastDayOfYear = year + '-12-31';
-    const yearEnd = lastDayOfYear < td ? lastDayOfYear : td;
+  {
+    const todayDate = new Date(td + 'T12:00:00');
+    const dayOfWeek = todayDate.getDay(); // 0=Sun
 
-    // Count completions per day for this year (for selected habits)
-    let yearTotal = 0;
-    let yearDaysActive = 0;
+    // End = this Saturday
+    const endDate = new Date(todayDate);
+    endDate.setDate(endDate.getDate() + (6 - dayOfWeek));
+
+    // Start = 13 weeks back (Sunday of that week)
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - (13 * 7) + 1); // go back 13 weeks, land on Sunday
+    // Ensure startDate is a Sunday
+    const startDay = startDate.getDay();
+    if (startDay !== 0) startDate.setDate(startDate.getDate() - startDay);
+
+    const totalDays = Math.round((endDate - startDate) / 86400000) + 1;
 
     html += '<div class="insights-year-section">';
-
-    // Grid: 7 rows (Sun-Sat), ~53 columns
     html += '<div class="iy-header">';
-    html += `<span class="iy-year">${year}</span>`;
 
-    // We'll compute summary after building cells
+    // Header: show date range
+    const startLabel = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endLabel = todayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    html += `<span class="iy-year">Last 3 Months</span>`;
+
+    let daysWithDone = 0, totalCompletionsHM = 0;
     let cellsHtml = '<div class="iy-grid-wrap"><div class="iy-grid">';
 
-    // Pad the first week with empty cells
-    for (let p = 0; p < jan1Day; p++) {
-      cellsHtml += '<div class="iy-cell empty"></div>';
-    }
-
-    let daysWithDone = 0;
-    for (let dayNum = 0; dayNum < daysInYear; dayNum++) {
-      const dt = new Date(year, 0, 1 + dayNum);
+    for (let i = 0; i < totalDays; i++) {
+      const dt = new Date(startDate);
+      dt.setDate(dt.getDate() + i);
       const ds = dt.toISOString().slice(0,10);
       if (ds > td) {
         cellsHtml += `<div class="iy-cell future" title="${ds}"></div>`;
         continue;
       }
-      // Count how many of the selected habits were done this day
       let count = 0;
       filterHabits.forEach(h => {
         if (data[ds] && data[ds][h] && data[ds][h].done) count++;
       });
-      if (count > 0) { daysWithDone++; yearTotal += count; }
-      // Intensity: 0=none, 1=1 habit, 2=2, 3=3, 4=4+
+      if (count > 0) { daysWithDone++; totalCompletionsHM += count; }
       const level = count === 0 ? 0 : Math.min(count, 4);
       const title = `${fmtDate(ds)}: ${count}/${filterHabits.length}`;
       cellsHtml += `<div class="iy-cell c${level}" title="${title}"></div>`;
     }
     cellsHtml += '</div>';
 
-    // Month labels
+    // Month labels — figure out which months appear in the range
     cellsHtml += '<div class="iy-months">';
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    monthNames.forEach(m => { cellsHtml += `<span>${m}</span>`; });
+    // Walk week by week, emit a label when the month changes
+    const seenMonths = new Set();
+    let wk = new Date(startDate);
+    while (wk <= endDate) {
+      const m = wk.getMonth();
+      const key = wk.getFullYear() + '-' + m;
+      if (!seenMonths.has(key)) {
+        seenMonths.add(key);
+        cellsHtml += `<span>${monthNames[m]}</span>`;
+      } else {
+        cellsHtml += '<span></span>';
+      }
+      wk.setDate(wk.getDate() + 7);
+    }
     cellsHtml += '</div></div>';
 
-    // Year summary
-    const yearDays = Math.min(daysInYear, Math.round((new Date(yearEnd) - jan1) / 86400000) + 1);
-    const pct = yearDays > 0 ? Math.round((daysWithDone / yearDays) * 100) : 0;
-    html += `<span class="iy-summary">${daysWithDone} active days (${pct}%) &middot; ${yearTotal} completions</span>`;
+    // Summary
+    const trackedDays = Math.round((todayDate - startDate) / 86400000) + 1;
+    const pct = trackedDays > 0 ? Math.round((daysWithDone / trackedDays) * 100) : 0;
+    html += `<span class="iy-summary">${daysWithDone} active days (${pct}%) &middot; ${totalCompletionsHM} completions</span>`;
     html += '</div>';
-
     html += cellsHtml;
 
-    // Legend (only on first year)
-    if (year === years[0]) {
-      html += '<div class="iy-legend"><span>Less</span>';
-      for (let l = 0; l <= 4; l++) html += `<div class="iy-cell c${l}"></div>`;
-      html += '<span>More</span></div>';
-    }
+    // Legend
+    html += '<div class="iy-legend"><span>Less</span>';
+    for (let l = 0; l <= 4; l++) html += `<div class="iy-cell c${l}"></div>`;
+    html += '<span>More</span></div>';
 
     html += '</div>';
-  });
+  }
 
-  // ── Best months per habit ──
-  html += '<div style="margin-top:16px"><div style="font-size:0.82rem;font-weight:700;color:var(--text);margin-bottom:8px;">Best Months</div>';
-  html += '<div class="insights-best-months">';
-  habits.forEach(h => {
-    const bm = calcBestMonth(h);
-    if (bm) {
-      html += `<div class="ibm-card"><span class="ibm-habit">${esc(h)}</span><span class="ibm-month">${bm.label}</span><span class="ibm-detail">${bm.count} days</span></div>`;
-    }
-  });
-  html += '</div></div>';
+  // (Best months section removed)
 
   container.innerHTML = html;
 }
@@ -4025,6 +4312,7 @@ function renderTrends() {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      aspectRatio: window.innerWidth < 600 ? 1.3 : window.innerWidth < 1024 ? 1.8 : 1.6,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
@@ -4277,6 +4565,7 @@ function drawDexaChart(scans) {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      aspectRatio: window.innerWidth < 600 ? 1.2 : window.innerWidth < 1024 ? 1.6 : 1.5,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
