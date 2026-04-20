@@ -2511,7 +2511,7 @@ async function syncOnVisibility() {
   if (!sheetsUrl || document.hidden) return;
   updateSyncUI('yellow', 'Re-syncing...');
   try {
-    const [remote, foodRemote, habitsRemote] = await Promise.all([pullFromSheets(), pullFoodFromSheets(), pullHabitsFromSheets()]);
+    const [remote, foodRemote, habitsRemote] = await Promise.all([pullFromSheets(), pullFoodFromSheets(), pullHabitsFromSheets(), pullRCFromSheets()]);
     if (remote) {
       const local = load();
       const merged = mergeEntries(local.entries, remote);
@@ -2648,7 +2648,8 @@ function ensureTodayMealPlan() {
     updateSyncUI('yellow','Connecting to Google Sheets...');
     // Pull weight, food entries, and food library in parallel
     const [remote, foodRemote, libraryData, habitsRemote, stepsRemote] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullStepsFromSheets()
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullStepsFromSheets(),
+      pullRCFromSheets()
     ]);
     if (remote) {
       const local = load();
@@ -5310,11 +5311,8 @@ renderHabits = function() {
   renderRunChallenge();
 };
 
-// Pull RC data on initial load alongside other data
-(function initRC() {
-  pullRCFromSheets();
-  renderRunChallenge();
-})();
+// Initial render from localStorage (Sheets pull happens in main boot sequence)
+renderRunChallenge();
 </script>
 </body>
 </html>
