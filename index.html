@@ -967,12 +967,18 @@
     body.sat .rc-progress-fill { background:linear-gradient(90deg, #fb923c, #ec4899); }
 
     .rc-day-grid {
-      display:grid; grid-template-columns:repeat(10, 1fr); gap:4px; margin-bottom:16px;
+      display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; margin-bottom:16px;
+    }
+    .rc-day-header {
+      text-align:center; font-size:0.6rem; font-weight:600; color:var(--muted);
+      padding:2px 0 4px; text-transform:uppercase; letter-spacing:0.02em;
     }
     .rc-day {
       aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center;
       font-size:0.68rem; font-weight:700; cursor:default; position:relative;
     }
+    .rc-day.blank { background:transparent; cursor:default; }
+    .rc-day-date { font-size:0.52rem; font-weight:600; opacity:0.7; }
     .rc-day.done { background:var(--green); color:#fff; }
     body.sat .rc-day.done { background:#fb923c; }
     .rc-day.missed { background:#fef2f2; color:#ef4444; }
@@ -5165,8 +5171,25 @@ function renderRunChallenge() {
     </div>
   `;
 
-  // Day grid — click a day to select it for logging
+  // Month label(s) for the challenge period
+  const rcStartDt = new Date(allDays[0] + 'T12:00:00');
+  const rcEndDt = new Date(allDays[29] + 'T12:00:00');
+  const rcStartMonth = rcStartDt.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const rcEndMonth = rcEndDt.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const monthLabel = rcStartMonth === rcEndMonth ? rcStartMonth : `${rcStartDt.toLocaleDateString('en-US',{month:'short'})} – ${rcEndDt.toLocaleDateString('en-US',{month:'short',year:'numeric'})}`;
+  html += `<div style="text-align:center;font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:8px;">${monthLabel}</div>`;
+
+  // Day grid — calendar layout with day-of-week headers
   html += '<div class="rc-day-grid">';
+  const dowHeaders = ['S','M','T','W','T','F','S'];
+  dowHeaders.forEach(d => { html += `<div class="rc-day-header">${d}</div>`; });
+
+  // Add blank cells before the first day to align with day of week
+  const firstDow = new Date(allDays[0] + 'T12:00:00').getDay(); // 0=Sun
+  for (let b = 0; b < firstDow; b++) {
+    html += '<div class="rc-day blank"></div>';
+  }
+
   allDays.forEach((date, i) => {
     const dayNum = i + 1;
     const entry = data.entries[date];
@@ -5182,9 +5205,17 @@ function renderRunChallenge() {
     else if (isMissed) cls += ' missed';
     if (isSelected && !isFuture) cls += ' selected';
     const pace = isDone ? rcCalcPace(entry.distance, entry.time) : '';
-    const title = isDone ? `Day ${dayNum}: ${entry.distance} mi, ${entry.time} (${pace}/mi)` : `Day ${dayNum}: ${fmtDate(date)}`;
+    const dt = new Date(date + 'T12:00:00');
+    const dateLabel = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const title = isDone ? `Day ${dayNum}: ${dateLabel} — ${entry.distance} mi, ${entry.time} (${pace}/mi)` : `Day ${dayNum}: ${dateLabel}`;
     const clickable = !isFuture ? `onclick="rcSelectDay('${date}')" style="cursor:pointer"` : '';
-    const inner = isDone && pace ? `<span class="rc-day-num">${dayNum}</span><span class="rc-day-pace">${pace}</span>` : `${dayNum}`;
+    const dom = dt.getDate();
+    let inner;
+    if (isDone && pace) {
+      inner = `<span class="rc-day-num">${dom}</span><span class="rc-day-pace">${pace}</span>`;
+    } else {
+      inner = `${dom}`;
+    }
     html += `<div class="${cls}" title="${esc(title)}" ${clickable}>${inner}</div>`;
   });
   html += '</div>';
