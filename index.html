@@ -1190,6 +1190,13 @@
     .btn-sync.syncing { background:var(--yellow); color:#fff; cursor:wait; }
     .btn-sync.refresh { background:transparent; color:var(--accent); padding:5px 8px; }
     .btn-sync.refresh:hover { background:#eef2ff; }
+    /* On narrow viewports the label + 2 buttons can't fit on one line — stack the label on top
+       and put the buttons on a clean right-aligned second row instead of wrapping mid-row. */
+    @media(max-width:480px){
+      .tab-sync-bar { flex-wrap:wrap; row-gap:4px; padding:7px 10px; }
+      .tab-sync-bar .sync-label { flex:1 1 100%; }
+      .tab-sync-bar .btn-sync:first-of-type { margin-left:auto; }
+    }
     /* Legacy aliases */
     .habit-sync-bar {
       display:flex; align-items:center; gap:10px; padding:10px 16px;
