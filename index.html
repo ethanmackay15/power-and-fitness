@@ -1934,6 +1934,222 @@ async function pullFromSheets() {
   } catch(err) { updateSyncUI('red','Could not reach Google Sheets'); return null; }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Pending-writes queue (Phase 1 of the Sheets-as-source-of-truth refactor)
+// ═════════════════════════════════════════════════════════════════════════════
+// Goal: every mutation is enqueued and flushed to the sheet asynchronously,
+// with retry on failure. The queue itself is the ONLY remaining legitimate use
+// of localStorage — once Phase 2 ships, no other state lives locally.
+//
+// Phase 1 (this code): infrastructure exists alongside the existing dirty-flag
+// system but is NOT yet wired into UI mutations. Tested via window.__queue.
+// Phase 2: replace dirty-flag/replaceFoodForDates paths with enqueueWrite().
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Strict POST that requires a readable JSON response. No no-cors fallback —
+// a failed write must surface as an error so the queue can retry it.
+async function sheetsPostJson(url, payload) {
+  const res = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(payload),
+    redirect:'follow',
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  let json;
+  try { json = await res.json(); }
+  catch (e) { throw new Error('Invalid JSON response from server'); }
+  if (!json || json.ok !== true) {
+    throw new Error((json && json.error) || 'Server returned ok:false');
+  }
+  return json;
+}
+
+// GET-side strict pull. Used by lastModified probe and future per-tab reads.
+async function sheetsGetJson(url, params) {
+  const qs = params ? ('?' + Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&')) : '';
+  const res = await fetch(url + qs);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  if (!json || json.ok !== true) throw new Error((json && json.error) || 'Server returned ok:false');
+  return json;
+}
+
+// Cheap freshness probe — returns { weight, food, habits, steps, runChallenge }
+// each as ISO timestamp or null. Use to decide whether a tab needs refetch.
+async function fetchLastModified() {
+  const url = getSheetsUrl(); if (!url) return null;
+  try {
+    const json = await sheetsGetJson(url, { type: 'lastModified' });
+    return json.lastModified || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ─── Queue state ─────────────────────────────────────────────────────────────
+const PENDING_WRITES_KEY = 'pending_writes_v1';
+const QUEUE_MAX_ATTEMPTS = 10;
+const QUEUE_FLUSH_DEBOUNCE_MS = 5000;
+
+let _queueFlushTimer = null;
+let _queueFlushing   = false;
+
+function _readQueue() {
+  try { return JSON.parse(localStorage.getItem(PENDING_WRITES_KEY)) || []; }
+  catch (e) { return []; }
+}
+function _writeQueue(q) { safeSetItem(PENDING_WRITES_KEY, JSON.stringify(q)); }
+
+function getQueueStatus() {
+  const q = _readQueue();
+  if (q.length === 0) return 'idle';
+  if (q.some(it => (it.attempt || 0) >= QUEUE_MAX_ATTEMPTS)) return 'error';
+  return 'pending';
+}
+
+// Enqueue a write. Caller is responsible for already having applied the
+// optimistic UI change. Returns the queue item id.
+function enqueueWrite(op, payload) {
+  const item = {
+    id:      'w_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    op, payload,
+    attempt: 0,
+    ts:      new Date().toISOString(),
+  };
+  const q = _readQueue();
+  q.push(item);
+  _writeQueue(q);
+  _updateQueueStatusUI();
+  _scheduleQueueFlush();
+  return item.id;
+}
+
+function _scheduleQueueFlush() {
+  if (_queueFlushTimer) return;
+  _queueFlushTimer = setTimeout(() => {
+    _queueFlushTimer = null;
+    flushQueue();
+  }, QUEUE_FLUSH_DEBOUNCE_MS);
+}
+
+// Map a queue op + payload to an Apps Script POST body.
+function _opToPayload(op, payload) {
+  switch (op) {
+    case 'addFood':
+    case 'updateFood':            return { action: 'syncFood', entries: [payload] };
+    case 'deleteFood':            return { action: 'deleteFood', id: payload.id };
+    case 'setWeight':             return { action: 'sync', entries: [payload] };
+    case 'deleteWeight':          return { action: 'delete', date: payload.date };
+    case 'setHabit':              return { action: 'setHabit', entry: payload };
+    case 'setSteps':              return { action: 'syncSteps', entries: [payload] };
+    case 'setRunChallengeForDate':return { action: 'setRunChallengeForDate', entry: payload };
+    default: throw new Error('Unknown queue op: ' + op);
+  }
+}
+
+// Flush the queue in FIFO order. Stops on first failure (per-item backoff
+// scheduled separately). Re-entrant-safe via _queueFlushing guard.
+async function flushQueue() {
+  if (_queueFlushing) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    _updateQueueStatusUI();
+    return;
+  }
+  const url = getSheetsUrl();
+  if (!url) return;
+  _queueFlushing = true;
+  try {
+    while (true) {
+      const q = _readQueue();
+      if (q.length === 0) break;
+      const item = q[0];
+      if ((item.attempt || 0) >= QUEUE_MAX_ATTEMPTS) break;
+      try {
+        const body = _opToPayload(item.op, item.payload);
+        await sheetsPostJson(url, body);
+        // Success: remove this specific item (queue may have grown during await)
+        const q2 = _readQueue();
+        _writeQueue(q2.filter(it => it.id !== item.id));
+      } catch (err) {
+        // Failure: bump attempt + record error, then break out (backoff elsewhere)
+        const q2 = _readQueue();
+        const idx = q2.findIndex(it => it.id === item.id);
+        if (idx >= 0) {
+          q2[idx].attempt   = (q2[idx].attempt || 0) + 1;
+          q2[idx].lastError = String((err && err.message) || err);
+          _writeQueue(q2);
+        }
+        break;
+      }
+    }
+  } finally {
+    _queueFlushing = false;
+    _updateQueueStatusUI();
+    // If items remain under the cap, schedule another attempt with backoff
+    const remaining = _readQueue();
+    const retryable = remaining.filter(it => (it.attempt || 0) < QUEUE_MAX_ATTEMPTS);
+    if (retryable.length > 0) {
+      const maxAttempt = Math.max.apply(null, retryable.map(it => it.attempt || 0));
+      const backoffMs  = Math.min(30000, 1000 * Math.pow(2, maxAttempt)) + Math.random() * 500;
+      setTimeout(() => flushQueue(), backoffMs);
+    }
+  }
+}
+
+function _updateQueueStatusUI() {
+  const status = getQueueStatus();
+  const q      = _readQueue();
+
+  // 1) Optional dedicated #queue-status element (added in Phase 2 UI work).
+  const el = document.getElementById('queue-status');
+  if (el) {
+    el.dataset.status = status;
+    el.textContent =
+      status === 'idle'    ? '✓ Synced'
+    : status === 'pending' ? '⟳ Syncing (' + q.length + ')'
+                           : '⚠ Sync error (' + q.length + ')';
+  }
+
+  // 2) Global header sync badge — reflect queue activity so the user sees
+  //    "Saving..." while writes are in flight, without needing per-tab UI.
+  //    Only override the badge when the queue is non-idle; idle queue lets
+  //    other code (init/refresh) own the badge messaging.
+  if (typeof updateSyncUI === 'function') {
+    if (status === 'pending') {
+      updateSyncUI('yellow', 'Saving (' + q.length + ')…');
+    } else if (status === 'error') {
+      const failedCount = q.filter(it => (it.attempt || 0) >= QUEUE_MAX_ATTEMPTS).length;
+      updateSyncUI('red', 'Sync error — ' + failedCount + ' failed');
+    } else {
+      // idle: only refresh badge if it currently shows a queue-driven message
+      const msg = document.getElementById('sync-badge-msg');
+      if (msg && /Saving|Sync error/.test(msg.textContent)) {
+        updateSyncUI('green', 'Synced just now');
+      }
+    }
+  }
+}
+
+// ─── Flush triggers ──────────────────────────────────────────────────────────
+if (typeof window !== 'undefined') {
+  window.addEventListener('online',  () => flushQueue());
+  window.addEventListener('focus',   () => flushQueue());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') flushQueue();
+  });
+  // Debug accessor — handy for poking at the queue from devtools.
+  window.__queue = {
+    read:    _readQueue,
+    flush:   flushQueue,
+    status:  getQueueStatus,
+    enqueue: enqueueWrite,
+    clear:   () => { _writeQueue([]); _updateQueueStatusUI(); },
+  };
+}
+// On load, if anything is already pending, attempt a flush after a beat.
+setTimeout(() => { if (_readQueue().length > 0) flushQueue(); }, 1000);
+
 // ─── Weight manual sync (matches Food/Habits pattern) ─────────────────────
 const weightDirtyDates = new Set();
 
@@ -2271,8 +2487,8 @@ function logEntry() {
   data.entries.push(newEntry);
   data.entries.sort((a,b)=>a.date.localeCompare(b.date));
   save(data);
-  // Save + sync in one step
-  pushToSheets([newEntry]);
+  // Phase 2: enqueue the write — flushes async via the queue, retries on failure.
+  enqueueWrite('setWeight', newEntry);
   weightDirtyDates.delete(td);
   updateWeightSyncUI();
   renderWeight();
@@ -2493,7 +2709,11 @@ function saveDate(oldDate) {
   const entry = data.entries.find(e=>e.date===oldDate);
   if (entry) entry.date=newDate;
   data.entries.sort((a,b)=>a.date.localeCompare(b.date));
-  save(data); markWeightDirty(newDate); renderWeight();
+  save(data);
+  // Phase 2: delete old-date row + upsert new-date row via the queue.
+  enqueueWrite('deleteWeight', { date: oldDate });
+  if (entry) enqueueWrite('setWeight', entry);
+  renderWeight();
 }
 function editNote(date) {
   const data=load(), entry=data.entries.find(e=>e.date===date);
@@ -2507,12 +2727,22 @@ function editNote(date) {
 function saveNote(date) {
   const input=document.getElementById('note-input-'+date); if(!input) return;
   const data=load(), entry=data.entries.find(e=>e.date===date);
-  if(entry){entry.notes=input.value.trim();save(data);markWeightDirty(date);}
+  if(entry){
+    entry.notes=input.value.trim();
+    save(data);
+    // Phase 2: upsert the row with the updated notes via the queue.
+    enqueueWrite('setWeight', entry);
+  }
   renderWeight();
 }
 function deleteEntry(date) {
   if (!confirm(`Delete weight entry for ${fmtDate(date)}?`)) return;
-  const data=load(); data.entries=data.entries.filter(e=>e.date!==date); save(data); markWeightDirty(date); renderWeight();
+  const data=load();
+  data.entries=data.entries.filter(e=>e.date!==date);
+  save(data);
+  // Phase 2: delete the row in the sheet via the queue.
+  enqueueWrite('deleteWeight', { date });
+  renderWeight();
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────
@@ -2683,9 +2913,18 @@ function updateBackupStatus() {
 async function syncOnVisibility() {
   const sheetsUrl = getSheetsUrl();
   if (!sheetsUrl || document.hidden) return;
+  // Phase 2: don't refresh while the queue is mid-flight — that would risk
+  // overwriting optimistic-UI state with a stale sheet read. Wait for queue
+  // to drain (it auto-flushes on focus, so usually clears within a beat).
+  if (typeof getQueueStatus === 'function' && getQueueStatus() !== 'idle') {
+    return;
+  }
   updateSyncUI('yellow', 'Re-syncing...');
   try {
-    const [remote, foodRemote, habitsRemote] = await Promise.all([pullFromSheets(), pullFoodFromSheets(), pullHabitsFromSheets(), pullRCFromSheets()]);
+    // Pull all 5 domains so steps + run challenge stay in sync across devices too.
+    const [remote, foodRemote, habitsRemote, stepsRemote] = await Promise.all([
+      pullFromSheets(), pullFoodFromSheets(), pullHabitsFromSheets(), pullStepsFromSheets(), pullRCFromSheets()
+    ]);
     if (remote) {
       const local = load();
       const merged = mergeEntries(local.entries, remote);
@@ -2703,11 +2942,17 @@ async function syncOnVisibility() {
       const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
       if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) saveHabitsData(mergedHabits);
     }
+    if (stepsRemote && stepsRemote.length) {
+      const localSteps = getStepsData();
+      const mergedSteps = mergeStepsData(localSteps, stepsRemote);
+      if (JSON.stringify(mergedSteps) !== JSON.stringify(localSteps)) saveStepsData(mergedSteps);
+    }
     updateSyncUI('green', 'Synced just now');
-    // Re-render visible tab
-    if (document.getElementById('panel-food').classList.contains('active')) renderFood();
-    if (document.getElementById('panel-habits').classList.contains('active')) renderHabits();
-    if (document.getElementById('panel-trends').classList.contains('active')) renderTrends();
+    // Re-render visible tab — and run challenge has its own panel.
+    if (document.getElementById('panel-food')   && document.getElementById('panel-food').classList.contains('active'))   renderFood();
+    if (document.getElementById('panel-habits') && document.getElementById('panel-habits').classList.contains('active')) renderHabits();
+    if (document.getElementById('panel-trends') && document.getElementById('panel-trends').classList.contains('active')) renderTrends();
+    if (document.getElementById('panel-run')    && document.getElementById('panel-run').classList.contains('active')    && typeof renderRunChallenge === 'function') renderRunChallenge();
   } catch(e) {
     updateSyncUI('red', 'Re-sync failed');
   }
@@ -3093,8 +3338,11 @@ function createPlanEntries(date) {
 // v7: Now fixes ALL entries (not just plan entries) using food-name matching via normalizeEntryMeal
 // v8: Catches "Sardines (140cal)" + any future renames via prefix matching in isSupperFoodName
 // v9: Removes ALL rice cake variants ("Rice Cake (Chocolate)", "Rice Cake (Caramel)", etc.) via isRemovedPlanFood prefix matching
+// v10: BUGFIX — v9 was deleting MANUALLY logged rice cakes too because the filter checked food_name only.
+//      Template-removal migrations should only touch autopopulated plan entries, never user-logged data.
+//      Filter now requires e.plan === true OR id starts with 'plan-' before deleting.
 (function migrateMealPlanSync() {
-  const MIG_KEY = 'migration_mealPlanSync_v9';
+  const MIG_KEY = 'migration_mealPlanSync_v10';
   if (localStorage.getItem(MIG_KEY)) return;
   try {
     const raw = localStorage.getItem(FOOD_ENTRIES_KEY);
@@ -3103,7 +3351,10 @@ function createPlanEntries(date) {
       let changed = false;
       const filtered = entries.filter(e => {
         // Remove explicitly excluded foods (Rice Cake, Apple (Envy), Cottage Cheese)
-        if (isRemovedPlanFood(e.food_name)) { changed = true; return false; }
+        // BUT only from autopopulated plan entries — never delete a manually logged entry,
+        // even if its food_name matches the removed list.
+        const isPlanEntry = e.plan === true || (e.id && String(e.id).startsWith('plan-'));
+        if (isPlanEntry && isRemovedPlanFood(e.food_name)) { changed = true; return false; }
         return true;
       }).map(e => {
         // Fix ALL supper items stored as Dinner or Evening Snack — by food name, not just plan IDs
@@ -4082,6 +4333,17 @@ function setHabitForDate(date, habit, fields) {
   saveHabitsData(data);
   habitDirtyDates.add(date);
   updateHabitSyncUI();
+  // Phase 2: enqueue the granular setHabit write (single-row upsert).
+  // Note: previously, only done=TRUE rows were pushed to the sheet (absent = not done).
+  // We now push explicit FALSE rows on toggle-off so the sheet is the source of truth.
+  // mergeHabitsData reads 'TRUE'/'FALSE' as boolean correctly.
+  const e = data[date][habit];
+  enqueueWrite('setHabit', {
+    date, habit,
+    done:     e.done ? 'TRUE' : 'FALSE',
+    notes:    e.notes || '',
+    duration: (e.duration != null ? String(e.duration) : ''),
+  });
 }
 
 function removeHabitDataForDate(date, habit) {
