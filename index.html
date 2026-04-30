@@ -440,6 +440,19 @@
     }
     @keyframes fadeup { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
 
+    /* ───── Phase 2 cleanup: per-tab sync bars hidden ─────
+       The pending-writes queue (Phase 1+2) handles all sheet writes automatically,
+       and the global header sync badge shows queue status. Per-tab "Sync to Sheets"
+       buttons are dead (operate on always-empty dirty sets). The DOM is preserved
+       so any handlers that reference these IDs still resolve, but nothing is shown.
+       Manual force-refresh is now via the global sync badge (clickable). */
+    .tab-sync-bar { display: none !important; }
+
+    /* Make the global sync badge clickable as the single manual-refresh entry point */
+    .sync-badge { cursor: pointer; user-select: none; }
+    .sync-badge:hover { opacity: 0.85; }
+    .sync-badge:active { transform: scale(0.97); }
+
     /* ───── Sync indicator ───── */
     .sync-bar {
       display: flex; align-items: center; gap: 8px;
@@ -1560,7 +1573,7 @@
     <!-- Backup bar -->
     <div class="backup-bar">
       <span><strong>📦 Data backup</strong> — <span id="last-export-label">never exported</span></span>
-      <div class="sync-badge" id="sync-badge-el">
+      <div class="sync-badge" id="sync-badge-el" onclick="manualForceRefresh()" title="Click to force a refresh from Google Sheets">
         <span class="sync-dot gray" id="sync-badge-dot"></span>
         <span id="sync-badge-msg">No Sheets link</span>
       </div>
@@ -2043,7 +2056,8 @@ function _opToPayload(op, payload) {
     case 'deleteWeight':          return { action: 'delete', date: payload.date };
     case 'setHabit':              return { action: 'setHabit', entry: payload };
     case 'setSteps':              return { action: 'syncSteps', entries: [payload] };
-    case 'setRunChallengeForDate':return { action: 'setRunChallengeForDate', entry: payload };
+    case 'setRunChallengeForDate':   return { action: 'setRunChallengeForDate',    entry: payload };
+    case 'deleteRunChallengeForDate':return { action: 'deleteRunChallengeForDate', date:  payload.date };
     default: throw new Error('Unknown queue op: ' + op);
   }
 }
@@ -2150,6 +2164,117 @@ if (typeof window !== 'undefined') {
 // On load, if anything is already pending, attempt a flush after a beat.
 setTimeout(() => { if (_readQueue().length > 0) flushQueue(); }, 1000);
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Phase 3 — One-time backfill migration
+// ═════════════════════════════════════════════════════════════════════════════
+// Runs once on app load AFTER the init pull-merge sequence completes. Compares
+// each domain's local state to the remote pull and enqueues any entries that
+// exist locally but not remotely. Idempotent: re-running is harmless because
+// each enqueued op is an upsert keyed by id (or date/(date,habit) for habits).
+// We do NOT wipe localStorage — it stays as a write-through cache for instant
+// load. The queue is what keeps the sheet authoritative for new writes.
+// ═════════════════════════════════════════════════════════════════════════════
+async function runBackfillMigration({ weightRemote, foodRemote, habitsRemote, stepsRemote }) {
+  const MIG_KEY = 'migration_backfillToSheet_v1';
+  if (localStorage.getItem(MIG_KEY)) return 0;
+  let enqueued = 0;
+
+  // Weight — keyed by date
+  if (Array.isArray(weightRemote)) {
+    const remoteSet = new Set(weightRemote.map(e => e.date));
+    const localEntries = (typeof load === 'function' ? (load().entries || []) : []);
+    localEntries.forEach(e => {
+      if (e && e.date && !remoteSet.has(e.date)) {
+        enqueueWrite('setWeight', e);
+        enqueued++;
+      }
+    });
+  }
+
+  // Food — keyed by id; skip plan entries (derived state, deterministic IDs across devices)
+  if (Array.isArray(foodRemote)) {
+    const remoteIds = new Set(foodRemote.map(e => e.id));
+    const localEntries = (typeof getFoodEntries === 'function' ? getFoodEntries() : []);
+    localEntries.forEach(e => {
+      if (e && e.id && !remoteIds.has(e.id) && !e.plan) {
+        enqueueWrite('addFood', e);
+        enqueued++;
+      }
+    });
+  }
+
+  // Habits — keyed by (date, habit)
+  if (Array.isArray(habitsRemote)) {
+    const remoteSet = new Set(habitsRemote.map(e => e.date + '|' + e.habit));
+    const local = (typeof getHabitsData === 'function' ? getHabitsData() : {});
+    Object.keys(local).forEach(date => {
+      Object.keys(local[date] || {}).forEach(habit => {
+        if (!habit || habit === 'undefined') return;
+        const key = date + '|' + habit;
+        if (!remoteSet.has(key)) {
+          const e = local[date][habit];
+          enqueueWrite('setHabit', {
+            date, habit,
+            done:     e.done ? 'TRUE' : 'FALSE',
+            notes:    e.notes || '',
+            duration: e.duration != null ? String(e.duration) : '',
+          });
+          enqueued++;
+        }
+      });
+    });
+  }
+
+  // Steps — keyed by date
+  if (Array.isArray(stepsRemote)) {
+    const remoteSet = new Set(stepsRemote.map(e => e.date));
+    const local = (typeof getStepsData === 'function' ? getStepsData() : {});
+    Object.keys(local).forEach(date => {
+      if (!remoteSet.has(date) && local[date]) {
+        enqueueWrite('setSteps', { date, steps: local[date] });
+        enqueued++;
+      }
+    });
+  }
+
+  // Run Challenge — keyed by date. pullRCFromSheets doesn't expose remote data
+  // to init (it does its own internal merge), so we re-fetch here.
+  try {
+    const url = getSheetsUrl();
+    if (url && typeof sheetsGetJson === 'function') {
+      const json = await sheetsGetJson(url, { type: 'runChallenge' });
+      const remoteEntries = Array.isArray(json.entries) ? json.entries : [];
+      const remoteSet = new Set(remoteEntries.map(e => e.date));
+      const localData = (typeof getRCData === 'function' ? getRCData() : { entries: {} });
+      Object.keys(localData.entries || {}).forEach(date => {
+        if (!remoteSet.has(date)) {
+          const e = localData.entries[date];
+          const dayNum = localData.startDate && typeof rcDayNumber === 'function' ? rcDayNumber(date, localData.startDate) : '';
+          enqueueWrite('setRunChallengeForDate', {
+            date,
+            day:      dayNum,
+            distance: e.distance,
+            time:     e.time,
+            done:     e.done ? 'TRUE' : 'FALSE',
+          });
+          enqueued++;
+        }
+      });
+    }
+  } catch (e) {
+    // RC backfill is best-effort; don't block the migration
+  }
+
+  // Mark migration complete. If something threw before we got here, it'll re-run
+  // next load, which is fine since enqueues are idempotent.
+  safeSetItem(MIG_KEY, '1');
+
+  if (enqueued > 0 && typeof showToast === 'function') {
+    showToast('Backfilling ' + enqueued + ' unsynced ' + (enqueued === 1 ? 'entry' : 'entries') + '…');
+  }
+  return enqueued;
+}
+
 // ─── Weight manual sync (matches Food/Habits pattern) ─────────────────────
 const weightDirtyDates = new Set();
 
@@ -2173,34 +2298,16 @@ function updateWeightSyncUI() {
   }
 }
 
+// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
+// Function kept so any DOM onclick handler in hidden #weight-sync-bar still resolves.
 async function manualPushWeight() {
-  const url = getSheetsUrl();
-  if (!url) { showToast('No Sheets URL configured'); return; }
-  const btn = document.getElementById('weight-sync-btn');
-  const label = document.getElementById('weight-sync-label');
-  if (btn) { btn.textContent = 'Syncing…'; btn.className = 'btn-sync syncing'; }
-  if (label) { label.textContent = 'Pushing to Google Sheets…'; label.className = 'sync-label'; }
-  try {
-    const data = load();
-    await pushToSheets(data.entries);
-    weightDirtyDates.clear();
-    updateWeightSyncUI();
-    if (btn) btn.textContent = 'Sync to Sheets';
-    showToast('✓ Weight synced to Google Sheets');
-  } catch(e) {
-    if (label) { label.textContent = 'Sync failed — try again'; label.className = 'sync-label dirty'; }
-    if (btn) { btn.textContent = 'Retry Sync'; btn.className = 'btn-sync dirty'; }
-    showToast('Sync failed');
-  }
+  showToast('All weight changes sync automatically');
 }
 
 async function refreshWeightFromSheets() {
   const url = getSheetsUrl();
   if (!url) { showToast('No Sheets URL configured'); return; }
-  if (weightDirtyDates.size > 0 && !confirm(
-    `You have ${weightDirtyDates.size} unsaved local change(s). ` +
-    'Refreshing will merge remote data into local. Continue?'
-  )) return;
+  // Phase 3 cleanup: dropped dirty-set check (queue keeps sheet authoritative).
   const btn = document.getElementById('weight-refresh-btn');
   if (btn) { btn.textContent = 'Refreshing…'; btn.disabled = true; }
   try {
@@ -2209,8 +2316,6 @@ async function refreshWeightFromSheets() {
     const local = load();
     local.entries = mergeEntries(local.entries, remote);
     save(local);
-    weightDirtyDates.clear();
-    updateWeightSyncUI();
     renderWeight();
     showToast('✓ Weight refreshed from Google Sheets');
   } catch(e) {
@@ -2489,8 +2594,6 @@ function logEntry() {
   save(data);
   // Phase 2: enqueue the write — flushes async via the queue, retries on failure.
   enqueueWrite('setWeight', newEntry);
-  weightDirtyDates.delete(td);
-  updateWeightSyncUI();
   renderWeight();
   // Animate the stat cards counting up
   const newAvg = currentAvg(data.entries);
@@ -2910,12 +3013,30 @@ function updateBackupStatus() {
 }
 
 // ─── Auto-sync when tab becomes visible again ────────────────────────────────
-async function syncOnVisibility() {
+// Manual force-refresh — wired to the clickable global sync badge.
+// Drains the queue first so the eventual pull doesn't blow over pending writes,
+// then runs the same multi-domain refresh syncOnVisibility does.
+async function manualForceRefresh() {
   const sheetsUrl = getSheetsUrl();
-  if (!sheetsUrl || document.hidden) return;
+  if (!sheetsUrl) { showToast('No Sheets URL configured'); return; }
+  // If queue has pending work, flush it first.
+  if (typeof getQueueStatus === 'function' && getQueueStatus() !== 'idle') {
+    updateSyncUI('yellow', 'Finishing pending writes…');
+    try { await flushQueue(); } catch (e) { /* surface via badge */ }
+  }
+  // Brief visual feedback in case nothing was pending.
+  updateSyncUI('yellow', 'Refreshing from Google Sheets…');
+  await syncOnVisibility(/* forceEvenIfHidden */ true);
+}
+
+async function syncOnVisibility(forceEvenIfHidden) {
+  const sheetsUrl = getSheetsUrl();
+  if (!sheetsUrl) return;
+  if (!forceEvenIfHidden && document.hidden) return;
   // Phase 2: don't refresh while the queue is mid-flight — that would risk
   // overwriting optimistic-UI state with a stale sheet read. Wait for queue
   // to drain (it auto-flushes on focus, so usually clears within a beat).
+  // manualForceRefresh drains the queue first, so it bypasses this guard.
   if (typeof getQueueStatus === 'function' && getQueueStatus() !== 'idle') {
     return;
   }
@@ -3003,7 +3124,11 @@ async function syncOnVisibility() {
 function ensureTodayMealPlan() {
   const td = today();
   if (!getFoodInitDates().has(td)) {
-    // First time seeing this date — create plan entries locally only
+    // First time seeing this date — create plan entries locally only.
+    // Phase 2: plan entries are DERIVED state from the meal plan template in the sheet
+    // (deterministic IDs like 'plan-eggs-b-2026-04-29' are identical across devices),
+    // so we no longer push them to the sheet. They appear locally on each device, and
+    // get pushed only if the user edits or deletes one (saveFoodEdit / deleteFoodEntry).
     markFoodDateInitialized(td);
     const existing = getFoodEntries();
     const hasExisting = existing.some(e => e.date === td);
@@ -3011,7 +3136,6 @@ function ensureTodayMealPlan() {
       const planEntries = createPlanEntries(td);
       saveFoodEntriesDB([...existing, ...planEntries]);
     }
-    markFoodDirty(); // flag that local changes need syncing
   }
 }
 
@@ -3104,6 +3228,13 @@ function ensureTodayMealPlan() {
     updateBackupStatus();
     // Re-render trends after all syncs to pick up fresh weight/food/steps data
     if (document.getElementById('panel-trends').classList.contains('active')) renderTrends();
+
+    // Phase 3 backfill — push any local-only entries to the sheet (one-time, idempotent).
+    // Runs AFTER pull-merge so we have remote sets to diff against. Don't await:
+    // the queue handles this in the background and we don't want to block init.
+    runBackfillMigration({
+      weightRemote: remote, foodRemote, habitsRemote, stepsRemote
+    }).catch(() => {});
   }
   // Initialize food sync button state
   updateFoodSyncUI();
@@ -3606,7 +3737,8 @@ function logFood() {
   entries.push(entry);
   saveFoodEntriesDB(entries);
   renderFood();
-  markFoodDirty();
+  // Phase 2: enqueue the granular addFood write — single-row upsert in the sheet.
+  enqueueWrite('addFood', entry);
   showToast(`✓ Logged ${food.name}`);
   // Scroll to and highlight the newly added entry
   setTimeout(() => {
@@ -3621,7 +3753,10 @@ function logFood() {
 function deleteFoodEntry(id) {
   saveFoodEntriesDB(getFoodEntries().filter(e => e.id !== id));
   renderFood();
-  markFoodDirty();
+  // Phase 2: enqueue the granular deleteFood write.
+  // Note: if the row never existed in the sheet (e.g. a plan entry never edited),
+  // the Apps Script delete is a no-op — safe.
+  enqueueWrite('deleteFood', { id });
 }
 
 function editFoodEntry(id) {
@@ -3663,7 +3798,8 @@ function saveFoodEdit(id) {
   entries[idx] = {...old, qty:newQty, calories:cal, protein:p, carbs:c, fat:f};
   saveFoodEntriesDB(entries);
   renderFood();
-  markFoodDirty();
+  // Phase 2: enqueue the granular updateFood write (syncFood upserts by id).
+  enqueueWrite('updateFood', entries[idx]);
   showToast('✓ Updated');
 }
 
@@ -3694,7 +3830,7 @@ function saveFoodTime(id) {
   entries[idx] = {...entries[idx], time: input.value};
   saveFoodEntriesDB(entries);
   renderFood();
-  markFoodDirty();
+  // Phase 2: time is local-only — the sheet schema doesn't store time, so no queue write.
   showToast('✓ Time updated');
 }
 
@@ -4180,49 +4316,22 @@ function updateFoodSyncUI() {
   }
 }
 
+// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
 async function pushFoodToSheets() {
-  const url = getSheetsUrl();
-  if (!url) { showToast('No Sheets URL configured'); return; }
-  if (!foodDirtyDates.size) { showToast('Nothing to sync'); return; }
-  const btn = document.getElementById('food-sync-btn');
-  const label = document.getElementById('food-sync-label');
-  if (btn) { btn.textContent = 'Syncing…'; btn.className = 'btn-sync syncing'; }
-  if (label) { label.textContent = 'Pushing to Google Sheets…'; label.className = 'sync-label'; }
-  try {
-    // Replace all entries for edited dates — this handles additions, edits, AND deletions
-    const dates = [...foodDirtyDates];
-    const allEntries = getFoodEntries();
-    const entriesToSync = allEntries.filter(e => foodDirtyDates.has(e.date));
-    await sheetsPost(url, { action:'replaceFoodForDates', dates, entries: entriesToSync });
-    foodDirtyDates.clear();
-    updateFoodSyncUI();
-    showToast('✓ Food log synced to Google Sheets');
-  } catch(e) {
-    if (label) { label.textContent = 'Sync failed — try again'; label.className = 'sync-label dirty'; }
-    if (btn) { btn.textContent = 'Retry Sync'; btn.className = 'btn-sync dirty'; }
-    showToast('Sync failed');
-  }
+  showToast('All food log changes sync automatically');
 }
 
 async function refreshFoodFromSheets() {
   const url = getSheetsUrl();
   if (!url) { showToast('No Sheets URL configured'); return; }
-  if (foodDirtyDates.size > 0 && !confirm(
-    `You have unsaved local changes for ${foodDirtyDates.size} day(s). ` +
-    'Refreshing will discard those changes and replace ALL local food data with Google Sheets. Continue?'
-  )) return;
+  // Phase 3 cleanup: dropped dirty-set check (queue keeps sheet authoritative).
   const btn = document.getElementById('food-refresh-btn');
   if (btn) { btn.textContent = 'Refreshing…'; btn.disabled = true; }
   try {
     const remote = await pullFoodFromSheets();
     if (!remote) throw new Error('Pull failed');
-    // Full replace: wipe local food entries and use Sheets as source of truth
     saveFoodEntriesDB(remote);
-    // Clear init-date tracking so the template won't re-stamp synced dates
-    // (our hasExisting guard will skip dates that already have entries)
     localStorage.removeItem(FOOD_INIT_DATES_KEY);
-    foodDirtyDates.clear();
-    updateFoodSyncUI();
     renderFood();
     showToast('✓ Food log refreshed from Google Sheets (' + remote.length + ' entries)');
   } catch(e) {
@@ -4809,62 +4918,23 @@ function updateHabitSyncUI() {
   }
 }
 
+// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
 async function pushHabitsToSheets() {
-  const url = getSheetsUrl();
-  if (!url) { showToast('No Sheets URL configured'); return; }
-  if (!habitDirtyDates.size) { showToast('Nothing to sync'); return; }
-  const btn = document.getElementById('habit-sync-btn');
-  const label = document.getElementById('habit-sync-label');
-  if (btn) { btn.textContent = 'Syncing…'; btn.className = 'btn-sync syncing'; }
-  if (label) { label.textContent = 'Pushing to Google Sheets…'; label.className = 'sync-label'; }
-  try {
-    const dates = [...habitDirtyDates];
-    const data = getHabitsData();
-    // Flatten: each habit entry becomes a row { date, habit, done, notes, duration }
-    const entries = [];
-    dates.forEach(date => {
-      const dayData = data[date] || {};
-      Object.keys(dayData).forEach(habit => {
-        if (!habit || habit === 'undefined') return; // skip bad keys
-        const h = dayData[habit];
-        if (!h.done) return; // only push TRUE entries — absence means not done
-        entries.push({
-          date, habit,
-          done: 'TRUE',
-          notes: h.notes || '',
-          duration: h.duration || ''
-        });
-      });
-    });
-    await sheetsPost(url, { action:'replaceHabitsForDates', dates, entries });
-    habitDirtyDates.clear();
-    updateHabitSyncUI();
-    showToast('✓ Habits synced to Google Sheets');
-  } catch(e) {
-    if (label) { label.textContent = 'Sync failed — try again'; label.className = 'sync-label dirty'; }
-    if (btn) { btn.textContent = 'Retry Sync'; btn.className = 'btn-sync dirty'; }
-    showToast('Sync failed');
-  }
+  showToast('All habit changes sync automatically');
 }
 
 async function refreshHabitsFromSheets() {
   const url = getSheetsUrl();
   if (!url) { showToast('No Sheets URL configured'); return; }
-  if (habitDirtyDates.size > 0 && !confirm(
-    `You have unsaved local changes for ${habitDirtyDates.size} day(s). ` +
-    'Refreshing will replace local habits data with Google Sheets. Continue?'
-  )) return;
+  // Phase 3 cleanup: dropped dirty-set check (queue keeps sheet authoritative).
   const btn = document.getElementById('habit-refresh-btn');
   if (btn) { btn.textContent = 'Refreshing…'; btn.disabled = true; }
   try {
     const remote = await pullHabitsFromSheets();
     if (!remote) throw new Error('Pull failed');
-    // Merge remote into local (remote wins for existing entries)
     const local = getHabitsData();
     const merged = mergeHabitsData(local, remote);
     saveHabitsData(merged);
-    habitDirtyDates.clear();
-    updateHabitSyncUI();
     renderHabits();
     showToast('✓ Habits refreshed from Google Sheets');
   } catch(e) {
@@ -5610,8 +5680,8 @@ function removeRun(date) {
   if (data.entries[date]) {
     delete data.entries[date];
     saveRCData(data);
-    rcDirtyDates.add(date);
-    updateRCSyncUI();
+    // Phase 2: enqueue the granular delete — single-row removal in the sheet.
+    enqueueWrite('deleteRunChallengeForDate', { date });
     renderRunChallenge();
     showToast('Run removed');
   }
@@ -5636,9 +5706,16 @@ function logRunForDate(date) {
   const data = getRCData();
   data.entries[date] = { done:true, distance, time:timeVal };
   saveRCData(data);
-  rcDirtyDates.add(date);
-  updateRCSyncUI();
   renderRunChallenge();
+  // Phase 2: enqueue the granular setRunChallengeForDate write — single-row upsert.
+  // `day` is the day number (1–30) computed from the challenge start date.
+  const dayNum = data.startDate ? rcDayNumber(date, data.startDate) : '';
+  enqueueWrite('setRunChallengeForDate', {
+    date,
+    day:      dayNum,
+    distance, time: timeVal,
+    done:     'TRUE',
+  });
   showToast('🏃 Run logged!');
 }
 
@@ -5885,37 +5962,9 @@ function updateRCSyncUI() {
   }
 }
 
+// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
 async function pushRCToSheets() {
-  const url = getSheetsUrl();
-  if (!url) { showToast('No Sheets URL configured'); return; }
-  if (!rcDirtyDates.size) { showToast('Nothing to sync'); return; }
-  const btn = document.getElementById('rc-sync-btn');
-  const label = document.getElementById('rc-sync-label');
-  if (btn) { btn.textContent = 'Syncing…'; btn.className = 'btn-sync syncing'; }
-  if (label) { label.textContent = 'Pushing to Google Sheets…'; label.className = 'sync-label'; }
-  try {
-    const data = getRCData();
-    const dates = [...rcDirtyDates];
-    const entries = [];
-    dates.forEach(date => {
-      const e = data.entries[date];
-      if (e && e.done) {
-        const dayNum = data.startDate ? rcDayNumber(date, data.startDate) : '';
-        entries.push({
-          date, day:dayNum, distance:e.distance, time:e.time, done:'TRUE'
-        });
-      }
-      // If not done (removed), we still include the date in `dates` so the sheet row gets cleared
-    });
-    await sheetsPost(url, { action:'replaceRunChallengeForDates', dates, entries, startDate:data.startDate });
-    rcDirtyDates.clear();
-    updateRCSyncUI();
-    showToast('✓ Run challenge synced to Sheets');
-  } catch(e) {
-    if (label) { label.textContent = 'Sync failed'; label.className = 'sync-label dirty'; }
-    if (btn) { btn.textContent = 'Retry Sync'; btn.className = 'btn-sync dirty'; }
-    showToast('Sync failed');
-  }
+  showToast('All run challenge changes sync automatically');
 }
 
 async function pullRCFromSheets() {
