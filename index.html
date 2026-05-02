@@ -2648,8 +2648,14 @@ function animateNumber(elId, from, to, formatter, duration) {
   })(start);
 }
 
-// ─── Weight Chart (Chart.js) ─────────────────────────────────────────────────
+// ─── Chart.js instances ──────────────────────────────────────────────────────
+// Hoisted above the IIFE init so renderWeight()'s synchronous call into
+// renderDexaSection → drawDexaChart doesn't hit a Temporal Dead Zone on
+// dexaChart. (Same reason weightChartInst lives here.)
 let weightChartInst = null;
+let dexaChart = null;
+
+// ─── Weight Chart (Chart.js) ─────────────────────────────────────────────────
 function drawWeightChart(data) {
   const canvas = document.getElementById('chart-weight');
   if (!canvas) return;
@@ -5587,7 +5593,11 @@ function renderTrends() {
 }
 
 // ─── DEXA Body Composition ───────────────────────────────────────────────────
-let dexaChart = null;
+// dexaChart instance is hoisted to the top of the file (alongside
+// weightChartInst) — the IIFE init runs synchronously and reaches drawDexaChart
+// (via renderWeight → renderDexaSection) before this section of the script is
+// evaluated, so declaring `let dexaChart` here would put it in the Temporal
+// Dead Zone and throw ReferenceError. Hoisted declaration is the fix.
 
 function renderDexaSection() {
   const scans = getDexaScans();
