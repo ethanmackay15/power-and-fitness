@@ -1304,14 +1304,8 @@
       .habit-nav-date { font-size:1.1rem; }
     }
 
-    /* ───── Journal (added 2026-05-02) ───── */
-    #journal-card .journal-header {
-      display: flex; align-items: baseline; justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    #journal-card .journal-count {
-      font-size: 0.75rem; color: var(--muted); font-weight: 500;
-    }
+    /* ───── Journal ───── */
+    #journal-card .journal-header { margin-bottom: 12px; }
     .journal-input-row {
       display: flex; gap: 8px; align-items: stretch;
     }
@@ -1331,49 +1325,48 @@
       transition: background 0.15s;
     }
     .journal-add-btn:hover { background: var(--primary-2); }
-    .journal-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .journal-list {
-      display: flex; flex-direction: column; gap: 6px; margin-top: 12px;
+      display: flex; flex-direction: column; gap: 8px; margin-top: 12px;
     }
-    .journal-empty {
-      font-size: 0.85rem; color: var(--muted); padding: 6px 0;
-    }
+    .journal-list:empty { margin-top: 0; }
     .journal-entry {
-      display: flex; gap: 10px; padding: 8px 10px;
-      background: var(--bg); border-radius: 6px;
-      font-size: 0.92rem; line-height: 1.45;
-      align-items: flex-start;
+      display: flex; gap: 14px; padding: 10px 12px;
+      background: var(--bg); border-radius: 8px;
+      font-size: 0.95rem; line-height: 1.5;
+      align-items: flex-start; color: var(--text);
     }
     .journal-entry .journal-time {
-      font-size: 0.72rem; color: var(--muted); white-space: nowrap;
-      flex-shrink: 0; min-width: 56px; padding-top: 2px;
+      font-size: 0.82rem; white-space: nowrap;
+      flex-shrink: 0; min-width: 60px; padding-top: 2px;
       font-variant-numeric: tabular-nums; font-weight: 600;
+      color: var(--text);
     }
     .journal-entry .journal-text {
       flex: 1; word-break: break-word; white-space: pre-wrap;
+      color: var(--text);
     }
     .journal-entry .journal-actions {
-      display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s;
+      display: flex; gap: 8px; opacity: 0; transition: opacity 0.15s;
       flex-shrink: 0;
     }
     .journal-entry:hover .journal-actions,
     .journal-entry:focus-within .journal-actions { opacity: 1; }
-    @media (hover: none) { .journal-entry .journal-actions { opacity: 0.6; } }
+    @media (hover: none) { .journal-entry .journal-actions { opacity: 1; } }
     .journal-action-btn {
       background: none; border: 0; cursor: pointer;
-      padding: 2px 6px; color: var(--muted); font-size: 0.95rem;
-      line-height: 1; border-radius: 4px;
+      padding: 2px 0; color: var(--text); font-size: 0.82rem;
+      font-weight: 500; line-height: 1; font-family: inherit;
     }
-    .journal-action-btn:hover { color: var(--accent); background: var(--card); }
+    .journal-action-btn:hover { color: var(--accent); }
     .journal-history-toggle {
       background: none; border: 0; color: var(--accent);
-      font-size: 0.82rem; font-weight: 600; cursor: pointer;
-      padding: 8px 0 2px; margin-top: 4px;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      padding: 10px 0 2px; margin-top: 4px;
     }
     .journal-history-toggle:hover { text-decoration: underline; }
     .journal-day-header {
-      font-size: 0.7rem; color: var(--muted); margin: 10px 0 4px;
-      font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+      font-size: 0.9rem; color: var(--text); margin: 16px 0 6px;
+      font-weight: 700;
     }
 
   </style>
@@ -1770,15 +1763,14 @@
          with WHOOP / weight / habits when answering personal-assistant questions -->
     <div class="card" id="journal-card">
       <div class="journal-header">
-        <h2>📓 Journal</h2>
-        <span class="journal-count" id="journal-count"></span>
+        <h2>Journal</h2>
       </div>
       <div class="journal-input-row">
-        <textarea id="journal-input" placeholder="Jot down anything — sleep, food, mood, stress, physical sensations…" rows="2" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter')addJournalNote()"></textarea>
+        <textarea id="journal-input" rows="2" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter')addJournalNote()"></textarea>
         <button class="journal-add-btn" onclick="addJournalNote()">Add</button>
       </div>
       <div id="journal-today-list" class="journal-list"></div>
-      <button class="journal-history-toggle" id="journal-history-btn" onclick="toggleJournalHistory()" hidden>Show history ▾</button>
+      <button class="journal-history-toggle" id="journal-history-btn" onclick="toggleJournalHistory()" hidden>Show history</button>
       <div id="journal-history-list" class="journal-list" hidden></div>
     </div>
 
@@ -6369,8 +6361,8 @@ function journalRowHtml(e) {
     '<span class="journal-time">' + esc(timeStr) + '</span>' +
     '<span class="journal-text">' + esc(e.text) + '</span>' +
     '<span class="journal-actions">' +
-      '<button class="journal-action-btn" title="Edit" onclick="editJournalNote(\'' + tsAttr + '\')">✎</button>' +
-      '<button class="journal-action-btn" title="Delete" onclick="deleteJournalNote(\'' + tsAttr + '\')">×</button>' +
+      '<button class="journal-action-btn" onclick="editJournalNote(\'' + tsAttr + '\')">Edit</button>' +
+      '<button class="journal-action-btn" onclick="deleteJournalNote(\'' + tsAttr + '\')">Delete</button>' +
     '</span>' +
   '</div>';
 }
@@ -6379,7 +6371,6 @@ function renderJournal() {
   const todayList   = document.getElementById('journal-today-list');
   const historyList = document.getElementById('journal-history-list');
   const historyBtn  = document.getElementById('journal-history-btn');
-  const countEl     = document.getElementById('journal-count');
   if (!todayList) return;
 
   const entries = getJournalDataLocal();
@@ -6387,23 +6378,11 @@ function renderJournal() {
   const todayEntries = entries.filter(e => e.date === td);
   const olderEntries = entries.filter(e => e.date !== td);
 
-  todayList.innerHTML = todayEntries.length
-    ? todayEntries.map(journalRowHtml).join('')
-    : '<div class="journal-empty">No entries yet today.</div>';
-
-  if (countEl) {
-    countEl.textContent = todayEntries.length === 1
-      ? '1 entry today'
-      : todayEntries.length > 1
-        ? todayEntries.length + ' entries today'
-        : '';
-  }
+  todayList.innerHTML = todayEntries.map(journalRowHtml).join('');
 
   if (historyBtn) {
     historyBtn.hidden = olderEntries.length === 0;
-    historyBtn.textContent = journalHistoryVisible
-      ? 'Hide history ▴'
-      : 'Show history (' + olderEntries.length + ') ▾';
+    historyBtn.textContent = journalHistoryVisible ? 'Hide history' : 'Show history';
   }
   if (historyList) {
     historyList.hidden = !journalHistoryVisible;
