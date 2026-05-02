@@ -3061,9 +3061,12 @@ async function syncOnVisibility(forceEvenIfHidden) {
   }
   updateSyncUI('yellow', 'Re-syncing...');
   try {
-    // Pull all 6 domains so everything stays in sync across devices.
-    const [remote, foodRemote, habitsRemote, stepsRemote, _rc, dexaRemote] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullHabitsFromSheets(), pullStepsFromSheets(), pullRCFromSheets(), pullDexaFromSheets()
+    // Pull all 7 domains so everything stays in sync across devices.
+    // Library was previously init-only, which meant a manual refresh (or PWA
+    // resume) never picked up new foods added to the sheet. 2026-05-02: added
+    // pullFoodLibraryFromSheets so the sync badge actually refreshes it.
+    const [remote, foodRemote, libraryData, habitsRemote, stepsRemote, _rc, dexaRemote] = await Promise.all([
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullStepsFromSheets(), pullRCFromSheets(), pullDexaFromSheets()
     ]);
     if (remote) {
       const local = load();
@@ -3091,6 +3094,16 @@ async function syncOnVisibility(forceEvenIfHidden) {
       const localDexa = getDexaScans();
       const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
       if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) saveDexaScans(mergedDexa);
+    }
+    if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
+      FOOD_DB = libraryData.foods;
+      if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) {
+        MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
+      }
+      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch(e) {}
+      // If the food tab is active, refresh the dropdown immediately so the new
+      // foods appear without requiring a tab-switch.
+      if (document.getElementById('panel-food')?.classList.contains('active')) populateFoodSelect();
     }
     updateSyncUI('green', 'Synced just now');
     // Re-render visible tab — and run challenge has its own panel.
