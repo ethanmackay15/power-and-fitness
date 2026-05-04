@@ -2789,10 +2789,10 @@ function drawWeightChart(data) {
     { x: endDate,       y: goalEnd }
   ];
 
-  // Y-axis bounds — based on actual data only, not goal projection, so the trend stays visible
-  const allWeights = entries.map(e=>e.weight);
-  const yMin = Math.floor(Math.min(...allWeights) - 2);
-  const yMax = Math.ceil(Math.max(Math.max(...allWeights), CFG.startWeight) + 1);
+  // Y-axis bounds — fixed range so the trend visibly moves rather than auto-fitting
+  // to a flat slice. Adjust here if the working weight range shifts materially.
+  const yMin = 182;
+  const yMax = 192;
 
   weightChartInst = new Chart(canvas, {
     data: {
