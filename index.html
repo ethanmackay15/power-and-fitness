@@ -2789,9 +2789,9 @@ function drawWeightChart(data) {
     { x: endDate,       y: goalEnd }
   ];
 
-  // Y-axis bounds — tight padding so data fills the chart area
+  // Y-axis bounds — based on actual data only, not goal projection, so the trend stays visible
   const allWeights = entries.map(e=>e.weight);
-  const yMin = Math.floor(Math.min(Math.min(...allWeights), goalEnd) - 1);
+  const yMin = Math.floor(Math.min(...allWeights) - 2);
   const yMax = Math.ceil(Math.max(Math.max(...allWeights), CFG.startWeight) + 1);
 
   weightChartInst = new Chart(canvas, {
