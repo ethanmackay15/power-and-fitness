@@ -951,38 +951,7 @@
     }
     .habit-toggle.done { background:var(--primary); border-color:var(--primary); color:#fff; }
 
-    /* Countable habit (water etc.) — counter UI instead of toggle. */
-    .habit-counter { align-items:center; }
-    .habit-counter .habit-counter-meta {
-      display:inline-flex; align-items:baseline; gap:0;
-      font-size:0.82rem; color:var(--muted); margin-top:2px;
-    }
-    .habit-counter .habit-counter-num {
-      font-variant-numeric: tabular-nums;
-      font-weight:700; color:var(--text);
-    }
-    .habit-counter.done .habit-counter-num,
-    .habit-counter.done .habit-counter-target { color:var(--green); }
-    .habit-counter .habit-counter-check { margin-left:6px; color:var(--green); font-weight:700; }
-    .habit-counter .habit-counter-sub {
-      display:block; font-size:0.72rem; color:var(--muted); margin-top:2px;
-    }
-
-    .habit-counter-actions { display:flex; gap:6px; flex-shrink:0; }
-    .habit-counter-btn {
-      width:36px; height:36px; border-radius:50%;
-      border:1.5px solid var(--border); background:var(--card);
-      font-size:1.1rem; font-weight:700; color:var(--text);
-      cursor:pointer; display:flex; align-items:center; justify-content:center;
-      transition:transform .08s, background .15s, border-color .15s, color .15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .habit-counter-btn:hover { border-color:var(--text); }
-    .habit-counter-btn:active { transform:scale(0.92); }
-    .habit-counter-btn:disabled { opacity:0.35; cursor:not-allowed; }
-    .habit-counter-plus {
-      background:var(--text); color:var(--card); border-color:var(--text);
-    }
+    /* Counter UI for water removed 2026-05-05 — water is now binary like meditation. */
     .habit-info { flex:1; min-width:0; }
     .habit-name { font-size:0.95rem; font-weight:600; color:var(--text); display:block; margin-bottom:2px; text-transform:capitalize; }
     .habit-duration { font-size:0.78rem; color:var(--muted); margin-top:2px; }
@@ -4593,66 +4562,9 @@ const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch', 'vacuums', 'water']
 let habitViewDate = today();
 const habitDirtyDates = new Set();
 
-// Habits tracked as a count toward a daily target (vs. binary done/not-done).
-// The count lives in the existing `duration` field on the habit entry — no
-// schema change, just a per-habit reinterpretation. `done` is auto-derived
-// from count >= target so all the existing rollup/heatmap logic keeps working.
-//
-// Water: framed as total ounces, where each [+] tap = one 27oz Kleen Kanteen
-// bottle. Target 162 oz = 6 bottles (~1.3 gal) — Ethan's actual hydration
-// baseline (lowered from the original 7-bottle "clean round number" target).
-const COUNTABLE_HABITS = {
-  water: { target: 162, step: 27, label: 'oz' },
-};
-function isCountableHabit(name) {
-  return COUNTABLE_HABITS.hasOwnProperty(String(name).toLowerCase());
-}
-function getCountableConfig(name) {
-  return COUNTABLE_HABITS[String(name).toLowerCase()];
-}
-function getHabitCount(date, habit) {
-  const data = getHabitsData();
-  if (!data[date] || !data[date][habit]) return 0;
-  const e = data[date][habit];
-  const parsed = parseInt(e.duration);
-  if (Number.isFinite(parsed)) return parsed;
-  // Backfill: legacy done=true entries with no count → assume target was hit.
-  // Lets pre-counter water entries still show up correctly in rollups.
-  if (e.done && isCountableHabit(habit)) {
-    const cfg = getCountableConfig(habit);
-    return cfg ? cfg.target : 1;
-  }
-  return 0;
-}
-function incrementHabit(habit) {
-  const cfg = getCountableConfig(habit);
-  if (!cfg) return;
-  const date = habitViewDate;
-  const step = cfg.step || 1;
-  const prevCount = getHabitCount(date, habit);
-  const newCount = prevCount + step;
-  setHabitForDate(date, habit, {
-    duration: String(newCount),
-    done: newCount >= cfg.target,
-  });
-  renderHabits();
-  // Celebrate the first time the increment crosses the target on today's view
-  if (prevCount < cfg.target && newCount >= cfg.target && habitViewDate === today()) {
-    checkCoreHabitsCelebration(habitViewDate);
-  }
-}
-function decrementHabit(habit) {
-  const cfg = getCountableConfig(habit);
-  if (!cfg) return;
-  const date = habitViewDate;
-  const step = cfg.step || 1;
-  const newCount = Math.max(0, getHabitCount(date, habit) - step);
-  setHabitForDate(date, habit, {
-    duration: String(newCount),
-    done: newCount >= cfg.target,
-  });
-  renderHabits();
-}
+// Countable-habit machinery (water as oz/bottles) was removed 2026-05-05.
+// Water is now a binary toggle like meditation. Historical entries with a
+// `duration` field are harmless — only `done` is read by streaks/rollups.
 
 function getHabitsList() {
   try { return JSON.parse(localStorage.getItem(HABITS_LIST_KEY)) || [...DEFAULT_HABITS]; }
@@ -4727,33 +4639,7 @@ function renderHabits() {
       const isDefault = DEFAULT_HABITS.includes(h);
       const isExercise = (h === 'exercise');
 
-      // Countable habit (water): show a counter UI instead of a toggle.
-      if (isCountableHabit(h)) {
-        const cfg = getCountableConfig(h);
-        const count = getHabitCount(habitViewDate, h);
-        const isDone = count >= cfg.target;
-        const step = cfg.step || 1;
-        const bottlesDone = Math.floor(count / step);
-        const bottlesTarget = Math.round(cfg.target / step);
-        return `
-          <div class="habit-item habit-counter ${isDone ? 'done' : ''}">
-            <div class="habit-info">
-              <span class="habit-name">${esc(h)}</span>
-              <span class="habit-counter-meta">
-                <span class="habit-counter-num">${count}</span><span class="habit-counter-target"> / ${cfg.target} ${esc(cfg.label)}</span>
-                ${isDone ? '<span class="habit-counter-check">✓</span>' : ''}
-              </span>
-              <span class="habit-counter-sub">${bottlesDone} of ${bottlesTarget} bottles</span>
-            </div>
-            <div class="habit-counter-actions">
-              <button class="habit-counter-btn" onclick="decrementHabit('${esc(h)}')" title="Undo a bottle (−${step} ${esc(cfg.label)})" ${count === 0 ? 'disabled' : ''}>−</button>
-              <button class="habit-counter-btn habit-counter-plus" onclick="incrementHabit('${esc(h)}')" title="Add a bottle (+${step} ${esc(cfg.label)})">+</button>
-            </div>
-          </div>
-        `;
-      }
-
-      // Default binary habit UI
+      // Default binary habit UI (all habits, including water as of 2026-05-05).
       return `
         <div class="habit-item">
           <button class="habit-toggle ${entry.done?'done':''}" onclick="toggleHabit('${esc(h)}')" title="${entry.done?'Mark not done':'Mark done'}">
