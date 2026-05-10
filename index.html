@@ -3308,17 +3308,37 @@ function ensureTodayMealPlan() {
     if (foodRemote) {
       const localFood  = getFoodEntries();
       const mergedFood = mergeFoodEntries(localFood, foodRemote);
-      if (JSON.stringify(mergedFood) !== JSON.stringify(localFood)) saveFoodEntriesDB(mergedFood);
+      if (JSON.stringify(mergedFood) !== JSON.stringify(localFood)) {
+        saveFoodEntriesDB(mergedFood);
+        // RENDER FIX 2026-05-10: re-render food if its tab is active. Without this,
+        // a fast mobile open (user switches to food before the pull completes) renders
+        // from stale local, then the merge silently updates local without refreshing
+        // the DOM — surfaced as "phantom wipe" of newer entries (reproduced w/ Ethan
+        // 2026-05-10 using an almond butter entry on desktop). Same shape as 5/5 habits.
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+      }
     }
     if (habitsRemote && habitsRemote.length) {
       const localHabits = getHabitsData();
       const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
-      if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) saveHabitsData(mergedHabits);
+      if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) {
+        saveHabitsData(mergedHabits);
+        // RENDER FIX 2026-05-10: habits is the DEFAULT tab. The setTimeout renderHabits
+        // ~100ms in (line ~3277) fires from stale local before this merge finishes.
+        // Without re-rendering here, toggles reflect pre-pull state until next nav.
+        if (document.getElementById('panel-habits')?.classList.contains('active')) renderHabits();
+      }
     }
     if (dexaRemote) {
       const localDexa = getDexaScans();
       const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
-      if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) saveDexaScans(mergedDexa);
+      if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) {
+        saveDexaScans(mergedDexa);
+        // RENDER FIX 2026-05-10: DEXA section lives on the weight tab. renderWeight is
+        // already called on the remote-weight branch above, but if only DEXA changed
+        // (weight didn't), the section stays stale until next nav.
+        if (typeof renderDexaSection === 'function') renderDexaSection();
+      }
     }
     if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
       FOOD_DB = libraryData.foods;
