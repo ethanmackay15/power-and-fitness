@@ -1366,19 +1366,19 @@
   <div class="targets-grid">
     <div>
       <label>Calories</label>
-      <input type="number" id="target-cal" value="2401" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-cal" value="2528" min="0" step="1" oninput="saveTargets()" />
     </div>
     <div>
       <label>Protein (g)</label>
-      <input type="number" id="target-protein" value="227" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-protein" value="233" min="0" step="1" oninput="saveTargets()" />
     </div>
     <div>
       <label>Carbs (g)</label>
-      <input type="number" id="target-carbs" value="267" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-carbs" value="301" min="0" step="1" oninput="saveTargets()" />
     </div>
     <div>
       <label>Fat (g)</label>
-      <input type="number" id="target-fat" value="77" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-fat" value="72" min="0" step="1" oninput="saveTargets()" />
     </div>
   </div>
 
@@ -1449,22 +1449,22 @@
     <div class="macro-top-bar food-macro-summary" id="macro-top-bar">
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#3b82f6"><span class="mtl-icon">🔥</span></div>
-        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span> <span class="mtv-target" id="mtv-cal-target">/ 2401</span></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span> <span class="mtv-target" id="mtv-cal-target">/ 2528</span></div>
         <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-cal" id="mtb-cal-fill" style="width:0%"></div></div>
       </div>
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#ef4444">P</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span> <span class="mtv-target" id="mtv-p-target">/ 227</span></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span> <span class="mtv-target" id="mtv-p-target">/ 233</span></div>
         <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-p" id="mtb-p-fill" style="width:0%"></div></div>
       </div>
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#f59e0b">F</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span> <span class="mtv-target" id="mtv-f-target">/ 77</span></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span> <span class="mtv-target" id="mtv-f-target">/ 72</span></div>
         <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-f" id="mtb-f-fill" style="width:0%"></div></div>
       </div>
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#10b981">C</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span> <span class="mtv-target" id="mtv-c-target">/ 267</span></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span> <span class="mtv-target" id="mtv-c-target">/ 301</span></div>
         <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-c" id="mtb-c-fill" style="width:0%"></div></div>
       </div>
     </div>
@@ -3407,7 +3407,7 @@ let FOOD_DB = [
   { id:'trident',        name:'Trident White',         category:'Snack',         serving:2,    unit:'pieces',  cal:5,   p:0.0, c:2.0,  f:0.0  },
 ];
 
-const FOOD_TARGET_DEFAULTS = { cal:2528, protein:254, carbs:273, fat:73 };
+const FOOD_TARGET_DEFAULTS = { cal:2528, protein:233, carbs:301, fat:72 };
 
 let foodCurrentDate = today();
 
@@ -3467,35 +3467,43 @@ function toggleSkipDay() {
 // ── Meal Plan Template ────────────────────────────────────────────────────────
 // Exact daily quantities from your Daily Meal Plan spreadsheet.
 // These are pre-populated on every new day automatically.
+// Last synced from spreadsheet: 2026-05-12. Mirrors what Apps Script `getMealPlan()` returns
+// from the "Daily Meal Plan" tab — keep this in sync so first-load (no cache) and offline
+// scenarios autopopulate the right plan. The Sheets fetch overwrites this on every load.
+// food_ids must match Sheets format: nameSlug-sectionSlug.
 let MEAL_PLAN_TEMPLATE = [
-  // Breakfast  (food_ids must match Sheets format: nameSlug-sectionSlug)
-  { food_id:'eggs-b',            food_name:'Eggs',                  meal:'Breakfast',     qty:2,      unit:'egg',    calories:140,   protein:13,    carbs:0,      fat:10    },
-  { food_id:'egg-whites-b',      food_name:'Egg Whites (TJ\'s)',    meal:'Breakfast',     qty:16,     unit:'tbsp',   calories:133.25,protein:26.65, carbs:0,      fat:0     },
-  { food_id:'broccoli-b',        food_name:'Broccoli',              meal:'Breakfast',     qty:150,    unit:'g',      calories:37.5,  protein:3.75,  carbs:7.5,    fat:0     },
-  { food_id:'salsa-b',           food_name:'Salsa',                 meal:'Breakfast',     qty:4,      unit:'tbsp',   calories:20,    protein:0,     carbs:4,      fat:0     },
-  { food_id:'red-lentils-b',     food_name:'Red Lentils',           meal:'Breakfast',     qty:0.25,   unit:'cups',   calories:180,   protein:12,    carbs:32,     fat:1     },
-  { food_id:'greek-yogurt--nonfat-tj-s--b', food_name:'Greek Yogurt (Nonfat TJ\'s)', meal:'Breakfast', qty:150, unit:'g', calories:90, protein:15, carbs:6, fat:0 },
-  { food_id:'cocoa-powder-b',    food_name:'Cocoa Powder',          meal:'Breakfast',     qty:1,      unit:'scoop',  calories:15,    protein:1,     carbs:3,      fat:0.5   },
-  { food_id:'fish-pills-b',      food_name:'Fish Pills',            meal:'Breakfast',     qty:1,      unit:'pill',   calories:15,    protein:0,     carbs:0,      fat:1.5   },
+  // Breakfast
+  { food_id:'eggs-b',                       food_name:'Eggs',                       meal:'Breakfast', qty:2,       unit:'eggs',   calories:140, protein:13,   carbs:0,    fat:10   },
+  { food_id:'egg-whites-tj-s-b',            food_name:'Egg Whites (TJ’s)',     meal:'Breakfast', qty:15.99,   unit:'tbsp',   calories:133, protein:26.6, carbs:0,    fat:0    },
+  { food_id:'broccoli-b',                   food_name:'Broccoli',                   meal:'Breakfast', qty:159.375, unit:'grams',  calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
+  { food_id:'salsa-b',                      food_name:'Salsa',                      meal:'Breakfast', qty:4,       unit:'tbsp',   calories:20,  protein:0,    carbs:4,    fat:0    },
+  { food_id:'red-lentils-b',                food_name:'Red Lentils',                meal:'Breakfast', qty:0.25,    unit:'cups',   calories:180, protein:12,   carbs:32,   fat:1    },
+  { food_id:'greek-yogurt-nonfat-tj-s-b',   food_name:'Greek Yogurt (Nonfat TJ’s)', meal:'Breakfast', qty:150, unit:'grams', calories:90,  protein:15,   carbs:6,    fat:0    },
+  { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',               meal:'Breakfast', qty:1,       unit:'scoop',  calories:15,  protein:1,    carbs:3,    fat:0.5  },
+  { food_id:'fish-pills-b',                 food_name:'Fish Pills',                 meal:'Breakfast', qty:1,       unit:'pill',   calories:15,  protein:0,    carbs:0,    fat:1.5  },
   // Lunch
-  { food_id:'chicken-breast---ribs-l', food_name:'Chicken Breast & Ribs', meal:'Lunch',   qty:224,    unit:'g',      calories:260,   protein:48,    carbs:0,      fat:6     },
-  { food_id:'brussell-sprouts-l', food_name:'Brussell Sprouts',      meal:'Lunch',         qty:141.95, unit:'g',      calories:58.45, protein:5.01,  carbs:13.36,  fat:0     },
-  { food_id:'pinto-beans-l',     food_name:'Pinto Beans',           meal:'Lunch',         qty:0.5,    unit:'cups',   calories:160,   protein:14,    carbs:42,     fat:2     },
-  { food_id:'avocado-l',         food_name:'Avocado',               meal:'Lunch',         qty:90,     unit:'g',      calories:144,   protein:1.8,   carbs:7.2,    fat:14.4  },
+  { food_id:'chicken-breast-and-ribs-l',    food_name:'Chicken Breast and Ribs',    meal:'Lunch',     qty:224,     unit:'grams',  calories:260, protein:48,   carbs:0,    fat:6    },
+  { food_id:'brussell-sprouts-l',           food_name:'Brussell Sprouts',           meal:'Lunch',     qty:141.95,  unit:'grams',  calories:58,  protein:5,    carbs:13.4, fat:0    },
+  { food_id:'pinto-beans-l',                food_name:'Pinto Beans',                meal:'Lunch',     qty:0.5,     unit:'cups',   calories:160, protein:14,   carbs:42,   fat:2    },
+  { food_id:'avocado-l',                    food_name:'Avocado',                    meal:'Lunch',     qty:90,      unit:'grams',  calories:144, protein:1.8,  carbs:7.2,  fat:14.4 },
   // Dinner
-  { food_id:'broccoli-d',        food_name:'Broccoli',              meal:'Dinner',        qty:212.5,  unit:'g',      calories:50,    protein:5,     carbs:10,     fat:0     },
-  { food_id:'black-beans-d',     food_name:'Black Beans',           meal:'Dinner',        qty:0.5,    unit:'cups',   calories:160,   protein:16,    carbs:44,     fat:2     },
-  { food_id:'beef-96-4-d',       food_name:'Beef 96/4',             meal:'Dinner',        qty:224,    unit:'g',      calories:280,   protein:48,    carbs:0,      fat:9     },
-  { food_id:'olive-oil-d',       food_name:'Olive Oil',             meal:'Dinner',        qty:1,      unit:'tbsp',   calories:120,   protein:0,     carbs:0,      fat:14    },
+  { food_id:'broccoli-d',                   food_name:'Broccoli',                   meal:'Dinner',    qty:212.5,   unit:'grams',  calories:50,  protein:5,    carbs:10,   fat:0    },
+  { food_id:'black-beans-d',                food_name:'Black Beans',                meal:'Dinner',    qty:0.5,     unit:'cups',   calories:160, protein:16,   carbs:44,   fat:2    },
+  { food_id:'beef-96-4-d',                  food_name:'Beef (96/4)',                meal:'Dinner',    qty:224,     unit:'grams',  calories:280, protein:48,   carbs:0,    fat:9    },
+  { food_id:'olive-oil-d',                  food_name:'Olive Oil',                  meal:'Dinner',    qty:1,       unit:'tbsp',   calories:120, protein:0,    carbs:0,    fat:14   },
   // Supper
-  { food_id:'spinach-es',        food_name:'Spinach',               meal:'Supper', qty:8,      unit:'cups',   calories:40,    protein:4,     carbs:6,      fat:0     },
-  { food_id:'carrots-es',        food_name:'Carrots',               meal:'Supper', qty:150,    unit:'g',      calories:52.8,  protein:0,     carbs:12.32,  fat:0     },
-  { food_id:'apple-gala-es',     food_name:'Apple (Gala)',          meal:'Supper', qty:250,    unit:'g',      calories:142.394,protein:0.625, carbs:34.146, fat:0.291 },
-  { food_id:'sardines-140cal-es', food_name:'Sardines (140cal)',    meal:'Supper', qty:1,      unit:'tin',    calories:140,   protein:18,    carbs:0,      fat:8     },
-  { food_id:'sauerkraut-es',     food_name:'Sauerkraut',            meal:'Supper', qty:0.5,    unit:'cups',   calories:10,    protein:0,     carbs:2,      fat:0     },
-  { food_id:'mustard-es',        food_name:'Mustard',               meal:'Supper', qty:3,      unit:'tbsp',   calories:15,    protein:0,     carbs:12,     fat:0     },
+  { food_id:'spinach-es',                   food_name:'Spinach',                    meal:'Supper',    qty:6,       unit:'cups',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
+  { food_id:'carrots-es',                   food_name:'Carrots',                    meal:'Supper',    qty:149.6,   unit:'grams',  calories:53,  protein:0,    carbs:12.3, fat:0    },
+  { food_id:'apple-gala-es',                food_name:'Apple (Gala)',               meal:'Supper',    qty:249.916, unit:'g',      calories:142, protein:0.6,  carbs:34.1, fat:0.3  },
+  { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',          meal:'Supper',    qty:1,       unit:'tin',    calories:170, protein:17,   carbs:0,    fat:11   },
+  { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                 meal:'Supper',    qty:0.5,     unit:'cups',   calories:10,  protein:0,    carbs:2,    fat:0    },
+  { food_id:'mustard-es',                   food_name:'Mustard',                    meal:'Supper',    qty:3,       unit:'tbsp',   calories:15,  protein:0,    carbs:12,   fat:0    },
   // Snack
-  { food_id:'trident-white-sn',  food_name:'Trident White',         meal:'Snack',         qty:8,      unit:'pieces', calories:20,    protein:0,     carbs:8,      fat:0     },
+  { food_id:'trident-white-sn',             food_name:'Trident White',              meal:'Snack',    qty:8,       unit:'pieces', calories:20,  protein:0,    carbs:8,    fat:0    },
+  { food_id:'spinach-sn',                   food_name:'Spinach',                    meal:'Snack',    qty:6,       unit:'cups',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
+  { food_id:'carrots-sn',                   food_name:'Carrots',                    meal:'Snack',    qty:149.6,   unit:'grams',  calories:53,  protein:0,    carbs:12.3, fat:0    },
+  { food_id:'apple-gala-sn',                food_name:'Apple (Gala)',               meal:'Snack',    qty:223.6,   unit:'g',      calories:127, protein:0.6,  carbs:30.6, fat:0.3  },
+  { food_id:'mustard-sn',                   food_name:'Mustard',                    meal:'Snack',    qty:3,       unit:'tbsp',   calories:15,  protein:0,    carbs:12,   fat:0    },
 ];
 
 // Foods explicitly removed from the meal plan — filter these out of Sheets-synced templates too
