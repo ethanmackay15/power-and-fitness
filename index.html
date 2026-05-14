@@ -4586,13 +4586,13 @@ function mergeFoodEntries(local, remote) {
 // ─── Habits ──────────────────────────────────────────────────────────────────
 const HABITS_KEY = 'habits_tracker_v1';
 const HABITS_LIST_KEY = 'habits_list_v1';
-const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch', 'vacuums', 'water'];
+const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch', 'vacuums'];
 let habitViewDate = today();
 const habitDirtyDates = new Set();
 
 // Countable-habit machinery (water as oz/bottles) was removed 2026-05-05.
-// Water is now a binary toggle like meditation. Historical entries with a
-// `duration` field are harmless — only `done` is read by streaks/rollups.
+// Water habit removed entirely from default tracking 2026-05-13. Historical
+// water entries remain in the Sheet for reference but no longer render in UI.
 
 function getHabitsList() {
   try { return JSON.parse(localStorage.getItem(HABITS_LIST_KEY)) || [...DEFAULT_HABITS]; }
@@ -4667,7 +4667,7 @@ function renderHabits() {
       const isDefault = DEFAULT_HABITS.includes(h);
       const isExercise = (h === 'exercise');
 
-      // Default binary habit UI (all habits, including water as of 2026-05-05).
+      // Default binary habit UI for all habits.
       return `
         <div class="habit-item">
           <button class="habit-toggle ${entry.done?'done':''}" onclick="toggleHabit('${esc(h)}')" title="${entry.done?'Mark not done':'Mark done'}">
@@ -4724,8 +4724,8 @@ function celebrateAllHabitsDone() {
   t.className = 'habit-celebration';
   t.innerHTML = `
     <div class="habit-celebration-emoji">🎉</div>
-    <div class="habit-celebration-title">All five habits done!</div>
-    <div class="habit-celebration-sub">Exercise. Meditation. Stretch. Vacuums. Water. A full stack day.</div>
+    <div class="habit-celebration-title">All four habits done!</div>
+    <div class="habit-celebration-sub">Exercise. Meditation. Stretch. Vacuums. A full stack day.</div>
   `;
   document.body.appendChild(t);
   // Animate in, then fade out
@@ -4799,7 +4799,6 @@ const HABIT_7D_GOALS = {
   'meditation': 4,
   'stretch': 2,
   'vacuums': 2,
-  'water': 5,
 };
 const DEFAULT_7D_GOAL = 3;
 
