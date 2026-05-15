@@ -3498,12 +3498,8 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',          meal:'Supper',    qty:1,       unit:'tin',    calories:170, protein:17,   carbs:0,    fat:11   },
   { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                 meal:'Supper',    qty:0.5,     unit:'cups',   calories:10,  protein:0,    carbs:2,    fat:0    },
   { food_id:'mustard-es',                   food_name:'Mustard',                    meal:'Supper',    qty:3,       unit:'tbsp',   calories:15,  protein:0,    carbs:12,   fat:0    },
-  // Snack
+  // Snack — only Trident gum; all other snack items intentionally omitted from autopopulation
   { food_id:'trident-white-sn',             food_name:'Trident White',              meal:'Snack',    qty:8,       unit:'pieces', calories:20,  protein:0,    carbs:8,    fat:0    },
-  { food_id:'spinach-sn',                   food_name:'Spinach',                    meal:'Snack',    qty:6,       unit:'cups',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
-  { food_id:'carrots-sn',                   food_name:'Carrots',                    meal:'Snack',    qty:149.6,   unit:'grams',  calories:53,  protein:0,    carbs:12.3, fat:0    },
-  { food_id:'apple-gala-sn',                food_name:'Apple (Gala)',               meal:'Snack',    qty:223.6,   unit:'g',      calories:127, protein:0.6,  carbs:30.6, fat:0.3  },
-  { food_id:'mustard-sn',                   food_name:'Mustard',                    meal:'Snack',    qty:3,       unit:'tbsp',   calories:15,  protein:0,    carbs:12,   fat:0    },
 ];
 
 // Foods explicitly removed from the meal plan — filter these out of Sheets-synced templates too
@@ -3549,9 +3545,16 @@ function normalizeEntryMeal(e) {
   return e;
 }
 
+// Snack autopopulation is intentionally minimal: only Trident gum is included.
+// Drop any other Snack-meal entries that come back from the Sheets template.
+function isExcludedSnack(item) {
+  return item && item.meal === 'Snack' && item.food_name !== 'Trident White';
+}
+
 function sanitizePlanTemplate(template) {
   return template
     .filter(item => !isRemovedPlanFood(item.food_name))
+    .filter(item => !isExcludedSnack(item))
     .map(item => {
       // Fix meal name: items with -es suffix belong to Supper, not Dinner
       if (SUPPER_FOOD_IDS.has(item.food_id) && item.meal !== 'Supper') {
@@ -3606,8 +3609,11 @@ function createPlanEntries(date) {
 // v10: BUGFIX — v9 was deleting MANUALLY logged rice cakes too because the filter checked food_name only.
 //      Template-removal migrations should only touch autopopulated plan entries, never user-logged data.
 //      Filter now requires e.plan === true OR id starts with 'plan-' before deleting.
+// v11: Snack autopopulation slimmed to Trident gum only — remove autopopulated Snack entries
+//      (Spinach, Carrots, Apple (Gala), Mustard) where meal === 'Snack' and food_name !== 'Trident White'.
+//      Still gated on isPlanEntry so manually logged snacks (e.g. an apple at 4pm logged under Snack) are preserved.
 (function migrateMealPlanSync() {
-  const MIG_KEY = 'migration_mealPlanSync_v10';
+  const MIG_KEY = 'migration_mealPlanSync_v11';
   if (localStorage.getItem(MIG_KEY)) return;
   try {
     const raw = localStorage.getItem(FOOD_ENTRIES_KEY);
@@ -3620,6 +3626,8 @@ function createPlanEntries(date) {
         // even if its food_name matches the removed list.
         const isPlanEntry = e.plan === true || (e.id && String(e.id).startsWith('plan-'));
         if (isPlanEntry && isRemovedPlanFood(e.food_name)) { changed = true; return false; }
+        // v11: drop autopopulated non-Trident Snack entries.
+        if (isPlanEntry && e.meal === 'Snack' && e.food_name !== 'Trident White') { changed = true; return false; }
         return true;
       }).map(e => {
         // Fix ALL supper items stored as Dinner or Evening Snack — by food name, not just plan IDs
