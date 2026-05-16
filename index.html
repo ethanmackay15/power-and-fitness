@@ -1362,23 +1362,23 @@
 
   <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
   <label style="margin-bottom:6px;display:block;font-weight:700">Daily Macro Targets</label>
-  <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px">Defaults from your meal plan. Edit any time.</p>
+  <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px">Calculated from your active meal plan. To change a target, edit the plan in the Sheet — these will follow automatically.</p>
   <div class="targets-grid">
     <div>
       <label>Calories</label>
-      <input type="number" id="target-cal" value="2528" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-cal" min="0" step="1" readonly tabindex="-1" />
     </div>
     <div>
       <label>Protein (g)</label>
-      <input type="number" id="target-protein" value="233" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-protein" min="0" step="1" readonly tabindex="-1" />
     </div>
     <div>
       <label>Carbs (g)</label>
-      <input type="number" id="target-carbs" value="301" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-carbs" min="0" step="1" readonly tabindex="-1" />
     </div>
     <div>
       <label>Fat (g)</label>
-      <input type="number" id="target-fat" value="72" min="0" step="1" oninput="saveTargets()" />
+      <input type="number" id="target-fat" min="0" step="1" readonly tabindex="-1" />
     </div>
   </div>
 
@@ -1449,7 +1449,7 @@
     <div class="macro-top-bar food-macro-summary" id="macro-top-bar">
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#3b82f6"><span class="mtl-icon">🔥</span></div>
-        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span> <span class="mtv-target" id="mtv-cal-target">/ 2528</span></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span> <span class="mtv-target" id="mtv-cal-target">/ 2408</span></div>
         <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-cal" id="mtb-cal-fill" style="width:0%"></div></div>
       </div>
       <div class="macro-top-item">
@@ -1459,7 +1459,7 @@
       </div>
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#f59e0b">F</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span> <span class="mtv-target" id="mtv-f-target">/ 72</span></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span> <span class="mtv-target" id="mtv-f-target">/ 58</span></div>
         <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-f" id="mtb-f-fill" style="width:0%"></div></div>
       </div>
       <div class="macro-top-item">
@@ -3165,6 +3165,9 @@ async function syncOnVisibility(forceEvenIfHidden) {
     if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
       FOOD_DB = libraryData.foods;
       if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) {
+        // Capture raw plan totals BEFORE sanitization so macro targets reflect
+        // exactly what's in the Sheet (incl. snack items the sanitizer dedups).
+        setRawPlanTotalsFromTemplate(libraryData.planTemplate);
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
       }
       try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch(e) {}
@@ -3178,6 +3181,9 @@ async function syncOnVisibility(forceEvenIfHidden) {
     if (document.getElementById('panel-habits') && document.getElementById('panel-habits').classList.contains('active')) renderHabits();
     if (document.getElementById('panel-trends') && document.getElementById('panel-trends').classList.contains('active')) renderTrends();
     if (document.getElementById('panel-run')    && document.getElementById('panel-run').classList.contains('active')    && typeof renderRunChallenge === 'function') renderRunChallenge();
+    // 2026-05-15: targets follow the active meal plan, so refresh the Settings
+    // input mirror after every sheet sync (plan totals may have changed).
+    if (typeof loadTargetFields === 'function') loadTargetFields();
   } catch(e) {
     updateSyncUI('red', 'Re-sync failed');
   }
@@ -3343,6 +3349,8 @@ function ensureTodayMealPlan() {
     if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
       FOOD_DB = libraryData.foods;
       if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) {
+        // Capture raw totals BEFORE sanitization (see other sync handler).
+        setRawPlanTotalsFromTemplate(libraryData.planTemplate);
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
       }
       // Update cache with fresh data from Sheets
@@ -3374,6 +3382,9 @@ const FOOD_ENTRIES_KEY    = 'foodEntries_v1';
 const CUSTOM_FOODS_KEY    = 'customFoods_v1';
 const FOOD_TARGETS_KEY    = 'foodTargets_v1';
 const FOOD_LIBRARY_CACHE_KEY = 'foodLibraryCache_v1';
+// 2026-05-15: cached raw (un-sanitized) plan totals so macro targets survive
+// reloads even before the next sheet sync completes.
+const RAW_PLAN_TOTALS_KEY = 'rawPlanTotals_v1';
 
 // Food DB — loaded from Google Sheets on init; falls back to this hardcoded list
 let FOOD_DB = [
@@ -3407,7 +3418,44 @@ let FOOD_DB = [
   { id:'trident',        name:'Trident White',         category:'Snack',         serving:2,    unit:'pieces',  cal:5,   p:0.0, c:2.0,  f:0.0  },
 ];
 
-const FOOD_TARGET_DEFAULTS = { cal:2528, protein:233, carbs:301, fat:72 };
+// All four targets (cal, protein, carbs, fat) derive from the raw Sheet plan
+// totals. These defaults are the fallback used only when the raw plan totals
+// haven't loaded yet — kept in sync with the current Sheet plan as a safety net.
+const FOOD_TARGET_DEFAULTS = { cal:2408, protein:234, carbs:301, fat:58 };
+
+// Pulled from the live (un-sanitized) mealplan endpoint and persisted so the
+// macro targets always match what's in the Sheet plan — including any items
+// the runtime sanitizer would otherwise dedup out of MEAL_PLAN_TEMPLATE.
+let RAW_PLAN_TOTALS = (function() {
+  try {
+    const v = JSON.parse(localStorage.getItem(RAW_PLAN_TOTALS_KEY));
+    if (v && Number.isFinite(v.protein) && Number.isFinite(v.carbs) && Number.isFinite(v.fat)) return v;
+  } catch(e) {}
+  return null;
+})();
+
+function computePlanTotalsFromArray(arr) {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  const t = arr.reduce((acc, e) => ({
+    cal:     acc.cal     + (Number(e.calories) || 0),
+    protein: acc.protein + (Number(e.protein)  || 0),
+    carbs:   acc.carbs   + (Number(e.carbs)    || 0),
+    fat:     acc.fat     + (Number(e.fat)      || 0),
+  }), { cal:0, protein:0, carbs:0, fat:0 });
+  return {
+    cal:     Math.round(t.cal),
+    protein: Math.round(t.protein),
+    carbs:   Math.round(t.carbs),
+    fat:     Math.round(t.fat),
+  };
+}
+
+function setRawPlanTotalsFromTemplate(rawTemplate) {
+  const totals = computePlanTotalsFromArray(rawTemplate);
+  if (!totals) return;
+  RAW_PLAN_TOTALS = totals;
+  try { safeSetItem(RAW_PLAN_TOTALS_KEY, JSON.stringify(totals)); } catch(e) {}
+}
 
 let foodCurrentDate = today();
 
@@ -3490,7 +3538,6 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'broccoli-d',                   food_name:'Broccoli',                   meal:'Dinner',    qty:212.5,   unit:'grams',  calories:50,  protein:5,    carbs:10,   fat:0    },
   { food_id:'black-beans-d',                food_name:'Black Beans',                meal:'Dinner',    qty:0.5,     unit:'cups',   calories:160, protein:16,   carbs:44,   fat:2    },
   { food_id:'beef-96-4-d',                  food_name:'Beef (96/4)',                meal:'Dinner',    qty:224,     unit:'grams',  calories:280, protein:48,   carbs:0,    fat:9    },
-  { food_id:'olive-oil-d',                  food_name:'Olive Oil',                  meal:'Dinner',    qty:1,       unit:'tbsp',   calories:120, protein:0,    carbs:0,    fat:14   },
   // Supper
   { food_id:'spinach-es',                   food_name:'Spinach',                    meal:'Supper',    qty:6,       unit:'cups',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
   { food_id:'carrots-es',                   food_name:'Carrots',                    meal:'Supper',    qty:149.6,   unit:'grams',  calories:53,  protein:0,    carbs:12.3, fat:0    },
@@ -3659,9 +3706,11 @@ function createPlanEntries(date) {
 })();
 
 // ── Storage helpers ──────────────────────────────────────────────────────────
+// 2026-05-15: ALL target values (cal, protein, carbs, fat) follow the raw
+// Sheet meal plan totals. Edit the plan in the Sheet → targets update on the
+// next sync. No per-device targets, no hardcoded numbers to maintain.
 function getFoodTargets() {
-  // Hardwired targets — consistent across all devices
-  return {...FOOD_TARGET_DEFAULTS};
+  return RAW_PLAN_TOTALS || {...FOOD_TARGET_DEFAULTS};
 }
 function saveFoodTargets(t) { safeSetItem(FOOD_TARGETS_KEY, JSON.stringify(t)); }
 
@@ -3707,16 +3756,11 @@ function getAllFoods() {
 }
 
 // ── Target settings ──────────────────────────────────────────────────────────
-function saveTargets() {
-  const t = {
-    cal:     parseFloat(document.getElementById('target-cal').value)     || FOOD_TARGET_DEFAULTS.cal,
-    protein: parseFloat(document.getElementById('target-protein').value) || FOOD_TARGET_DEFAULTS.protein,
-    carbs:   parseFloat(document.getElementById('target-carbs').value)   || FOOD_TARGET_DEFAULTS.carbs,
-    fat:     parseFloat(document.getElementById('target-fat').value)     || FOOD_TARGET_DEFAULTS.fat,
-  };
-  saveFoodTargets(t);
-  if (document.getElementById('panel-food').classList.contains('active')) renderFood();
-}
+// 2026-05-15: targets are now computed from MEAL_PLAN_TEMPLATE. saveTargets()
+// is intentionally a no-op so any leftover oninput handlers don't write stale
+// values to localStorage. loadTargetFields() just mirrors the computed totals
+// into the read-only Settings inputs.
+function saveTargets() { /* no-op: targets derive from the meal plan */ }
 
 function loadTargetFields() {
   const t = getFoodTargets();
@@ -5798,7 +5842,12 @@ function rcGetAllDays(startDate) {
 
 function rcCompletedCount(data) {
   if (!data.startDate) return 0;
-  return Object.values(data.entries).filter(e => e.done).length;
+  // 2026-05-15: only count runs inside the formal 30-day window so the
+  // "X / 30 days" badge stays consistent with what the calendar renders.
+  const formalSet = new Set(rcGetAllDays(data.startDate));
+  return Object.keys(data.entries)
+    .filter(d => formalSet.has(d) && data.entries[d] && data.entries[d].done)
+    .length;
 }
 
 function startRunChallenge() {
@@ -5930,33 +5979,12 @@ function renderRunChallenge() {
   const formalSet = new Set(formalDays);
   const formalEnd = formalDays[29];
 
-  // 2026-05-02: extend the calendar window to include any logged runs that
-  // sit OUTSIDE the formal 30-day window — without this, runs from before
-  // startDate (e.g. the user has historical sheet data preceding the formal
-  // challenge start) silently disappear from the grid even though they're
-  // counted in `completed`. Calendar now spans:
-  //   start = min(startDate, earliest done entry)
-  //   end   = max(formalEnd, latest done entry, today)
-  // Day numbering ("Day N") still only applies inside the formal window.
-  const doneDates = Object.keys(data.entries)
-    .filter(d => data.entries[d] && data.entries[d].done)
-    .sort();
-  const earliestDone = doneDates[0];
-  const latestDone   = doneDates[doneDates.length - 1];
-  const displayStart = (earliestDone && earliestDone < data.startDate) ? earliestDone : data.startDate;
-  let   displayEnd   = formalEnd;
-  if (latestDone && latestDone > displayEnd) displayEnd = latestDone;
-  if (td > displayEnd) displayEnd = td;
-
-  const allDays = [];
-  {
-    const cursor = new Date(displayStart + 'T12:00:00');
-    const stop   = new Date(displayEnd   + 'T12:00:00');
-    while (cursor <= stop) {
-      allDays.push(cursor.toISOString().slice(0,10));
-      cursor.setDate(cursor.getDate() + 1);
-    }
-  }
+  // 2026-05-15: calendar is intentionally scoped to the formal 30-day window.
+  // Earlier behavior extended the grid to cover pre-challenge runs and any
+  // days past formalEnd/today, which surfaced unrelated history and stretched
+  // the grid weeks past the challenge end. Runs logged outside the window
+  // still live in the sheet but don't render here.
+  const allDays = formalDays.slice();
 
   const endDate = allDays[allDays.length - 1];
   const completed = rcCompletedCount(data);
@@ -6090,8 +6118,12 @@ function renderRunChallenge() {
     }
   }
 
-  // Stats
-  const distances = Object.values(data.entries).filter(e => e.done).map(e => e.distance);
+  // Stats — scoped to the formal 30-day window so they line up with the
+  // calendar and the "X / 30 days" badge.
+  const distances = formalDays
+    .map(d => data.entries[d])
+    .filter(e => e && e.done)
+    .map(e => e.distance);
   const totalDist = distances.reduce((a,b) => a + b, 0);
   const avgDist = distances.length ? (totalDist / distances.length) : 0;
   html += `
