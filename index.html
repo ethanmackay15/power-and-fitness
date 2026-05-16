@@ -3586,10 +3586,11 @@ let MEAL_PLAN_TEMPLATE = [
 // Foods explicitly excluded from the autopopulated daily meal plan.
 // Exact names + name-prefixes for variant-heavy foods (e.g. all "Rice Cake (...)" variants).
 const REMOVED_PLAN_FOODS = new Set(['Apple (Envy)', 'Cottage Cheese (2%, Good Culture)']);
-// 2026-05-16: 'Olive Oil' added — removed from the daily plan on 2026-05-15
-// (post-DEXA, fat target rebalance). Historical autopopulated rows from prior
-// days lingered in the Sheet's Food tab and kept resurrecting via the merge.
-const REMOVED_PLAN_FOOD_PREFIXES = ['Rice Cake', 'Olive Oil'];   // matches "Rice Cake (...)" and "Olive Oil (...)"
+const REMOVED_PLAN_FOOD_PREFIXES = ['Rice Cake'];   // matches "Rice Cake", "Rice Cake (Chocolate)", "Rice Cake (Caramel)", etc.
+// 2026-05-16: Olive Oil intentionally NOT added here. Olive Oil removal needs
+// date-gating (historical consumption pre-2026-05-15 is real and must be
+// preserved). It's handled separately in `_isStaleRemotePlanEntry` with a
+// per-rule cutoff date, not via the un-gated isRemovedPlanFood predicate.
 function isRemovedPlanFood(name) {
   if (!name) return false;
   if (REMOVED_PLAN_FOODS.has(name)) return true;
@@ -4675,18 +4676,39 @@ function getPendingDeleteFoodIds() {
   } catch(e) { return new Set(); }
 }
 
-// 2026-05-16: predicate — should a remote PLAN entry be excluded entirely?
-// Centralizes the "this food was removed from the plan but old Sheet rows
-// linger" rule so both merge branches apply it consistently. Non-plan
-// (manually logged) entries are never filtered here — only autopopulated
-// plan rows from the Sheet that match a current removal rule.
+// 2026-05-16: predicate — should a remote PLAN entry be excluded as STALE?
+// "Stale" means: the plan no longer includes this food on this date, but a
+// legacy autopop row from before the plan changed still lingers in the Sheet.
+//
+// CRITICAL: removal rules are DATE-GATED. When a food is removed from the
+// plan, that takes effect going forward; historical entries from BEFORE the
+// removal date are real consumption history and must be preserved. Otherwise
+// the user's caloric history gets retroactively rewritten — TDEE windows,
+// trend charts, debriefs all become wrong.
+//
+// Rules currently encoded:
+//   - Olive Oil — removed from the plan 2026-05-15. Entries on/after that date
+//     are stale; before are real consumption.
+//   - Snack non-Trident (Apple Gala, Spinach, Carrots, Mustard at Snack) —
+//     autopop slimmed to Trident-only 2026-05-14. Same date-gate logic.
+//
+// Other historically-removed foods (Rice Cake, Apple Envy, Cottage Cheese)
+// are NOT included here — they were removed pre-2026-05-16 via v9-v11 without
+// date gating. Adding them now would change current behavior; preserving the
+// status quo until/unless the user flags missing historical data for them.
 function _isStaleRemotePlanEntry(e) {
   const isPlan = e && (e.plan === true || (e.id && String(e.id).startsWith('plan-')));
   if (!isPlan) return false;
-  // (a) Name-based removals (Olive Oil, Rice Cake, Apple Envy, Cottage Cheese).
-  if (isRemovedPlanFood(e.food_name)) return true;
-  // (b) Snack autopop is Trident-gum-only (per 2026-05-14 v11 migration).
-  if (e.meal === 'Snack' && e.food_name !== 'Trident White') return true;
+  const date = e && e.date;
+  if (!date) return false; // can't date-gate without a date; preserve as a safety default
+  // (a) Olive Oil — removed from the plan 2026-05-15.
+  if (e.food_name && /^Olive Oil\b/.test(e.food_name)) {
+    return date >= '2026-05-15';
+  }
+  // (b) Snack autopop trimmed to Trident-gum-only on 2026-05-14.
+  if (e.meal === 'Snack' && e.food_name !== 'Trident White') {
+    return date >= '2026-05-14';
+  }
   return false;
 }
 
