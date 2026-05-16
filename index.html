@@ -279,28 +279,8 @@
       letter-spacing: .08em; font-weight: 700; margin-top: 1px;
     }
 
-    /* ───── DEXA goal chip ─────
-       Small green pill in the DEXA card header, complementary to the dashed
-       target line on the chart. Visual nod to the 12% BF north-star. */
-    .dexa-goal-chip {
-      display: inline-flex; align-items: center;
-      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: #059669;
-      background: rgba(16,185,129,0.10);
-      border: 1px solid rgba(16,185,129,0.28);
-      padding: 3px 10px;
-      border-radius: 999px;
-      white-space: nowrap;
-    }
-    .dexa-goal-chip::before {
-      content: '';
-      display: inline-block;
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #10b981;
-      margin-right: 6px;
-      box-shadow: 0 0 0 2px rgba(16,185,129,0.18);
-    }
+    /* DEXA goal chip styles removed 2026-05-15 — chart simplified to data-only. */
+
 
     /* DEXA add/edit modal */
     .dexa-modal-overlay {
@@ -1650,12 +1630,10 @@
     </div>
 
     <!-- DEXA Body Composition (last 4 scans — post-collarbone window) -->
+    <!-- 2026-05-15: simplified — removed "Goal · 12% BF" chip and target line. -->
     <div class="card" style="margin-bottom:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <h2 style="margin-bottom:0">DEXA · Last 4 scans</h2>
-          <span class="dexa-goal-chip" id="dexa-goal-chip">Goal · 12% BF</span>
-        </div>
+        <h2 style="margin-bottom:0">DEXA · Last 4 scans</h2>
         <button class="btn-sm" onclick="openDexaForm()" style="background:var(--primary);color:#fff;border:none">+ Add scan</button>
       </div>
       <div class="chart-wrap"><canvas id="chart-dexa"></canvas></div>
@@ -5565,13 +5543,9 @@ function renderTrends() {
 
 function renderDexaSection() {
   const scans = getDexaScans();
-  // 2026-05-02: stat-card strip removed per Ethan; chart now carries lean +
-  // fat alongside BF%. Goal chip in the card header replaces the "Target" stat.
-  // 2026-05-01: chart shows only the last 4 scans (post-collarbone window).
+  // 2026-05-15: simplified — no goal chip / target line. Chart shows only
+  // the data (BF%, Lean, Fat) for the last 4 scans.
   drawDexaChart(scans.slice(-4));
-  // Update goal chip text from current CFG (in case bfTarget was edited).
-  const chip = document.getElementById('dexa-goal-chip');
-  if (chip) chip.textContent = 'Goal · ' + (CFG.bfTarget || 12) + '% BF';
 }
 
 // renderDexaStats / renderDexaHistory removed 2026-05-02 — the stat-card
@@ -5589,12 +5563,9 @@ function drawDexaChart(scans) {
   const bfData    = scans.map(s => s.bf);
   const leanData  = scans.map(s => s.lean);
   const fatData   = scans.map(s => s.fat);
-  const target    = CFG.bfTarget || 12;
 
-  // 2026-05-02 (restore): three-line view — BF % on the left axis, Lean & Fat
-  // mass on the right axis. Plus a dashed target line at the BF goal. Stat
-  // cards above the chart were removed; the chart itself now carries the
-  // numbers via its data points + tooltip + legend.
+  // 2026-05-15: three-line view — BF % on left axis, Lean & Fat mass on right.
+  // Target/goal line removed at Ethan's request — chart is data-only now.
   //
   // maintainAspectRatio:true (NOT false on a fixed-height wrapper) — see
   // 2026-05-01 note re: Chart.js resize feedback loop on `.chart-wrap canvas
@@ -5643,17 +5614,6 @@ function drawDexaChart(scans) {
           fill: false,
           order: 3,
         },
-        {
-          label: `BF Target (${target}%)`,
-          data: labels.map(() => target),
-          borderColor: 'rgba(16,185,129,.45)',
-          borderDash: [6, 4],
-          yAxisID: 'yBf',
-          pointRadius: 0,
-          borderWidth: 1.5,
-          fill: false,
-          order: 4,
-        },
       ]
     },
     options: {
@@ -5671,7 +5631,7 @@ function drawDexaChart(scans) {
             label: ctx => {
               const v = ctx.raw;
               const lbl = ctx.dataset.label || '';
-              if (lbl.startsWith('Body Fat') || lbl.startsWith('BF Target')) {
+              if (lbl.startsWith('Body Fat')) {
                 return ' ' + lbl + ': ' + Number(v).toFixed(1) + '%';
               }
               return ' ' + lbl + ': ' + Number(v).toFixed(1) + ' lbs';
@@ -5688,9 +5648,8 @@ function drawDexaChart(scans) {
           type: 'linear', position: 'left',
           grid: { color: '#f1f5f9' },
           ticks: { font: { size: 10 }, color: '#ef4444', callback: v => v + '%' },
-          // Pad so the line doesn't hug the edges and the target is visible
-          // even when actual BF is far above it.
-          suggestedMin: Math.min(target - 1, ...bfData) - 1,
+          // 2026-05-15: bounds now driven purely by data — target line removed.
+          suggestedMin: Math.min(...bfData) - 1,
           suggestedMax: Math.max(...bfData) + 1,
           title: { display: true, text: 'Body Fat %', font: { size: 10 }, color: '#ef4444' }
         },
