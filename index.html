@@ -1761,9 +1761,9 @@
       <div id="journal-history-list" class="journal-list" hidden></div>
     </div>
 
-    <!-- Today's habits -->
+    <!-- Habits — title is intentionally undated; the day-nav above is the source of truth. -->
     <div class="card">
-      <h2>Today's Habits</h2>
+      <h2>Habits</h2>
       <div id="habit-list"></div>
       <div class="habit-add-row">
         <input class="habit-add-input" id="habit-add-input" type="text" placeholder="Add custom habit…" onkeydown="if(event.key==='Enter')addCustomHabit()" />
@@ -1958,9 +1958,12 @@ function switchTab(tab) {
   if (tab === 'habits') { renderHabits(); }
   if (tab === 'trends') { renderTrends(); }
   // 2026-05-16: keep the global header date in sync with the current view.
-  // Food tab tracks foodCurrentDate (handled in renderFood). Other tabs are
-  // today-anchored, so reset the header to today when switching away from Food.
-  if (tab !== 'food' && typeof setHeaderDateLabel === 'function') setHeaderDateLabel(today());
+  // Food and Habits both have day-nav and set the header from their own render
+  // functions (foodCurrentDate / habitViewDate). Weight and Trends are
+  // today-anchored — reset to today when switching to those.
+  if ((tab === 'weight' || tab === 'trends') && typeof setHeaderDateLabel === 'function') {
+    setHeaderDateLabel(today());
+  }
 }
 
 // ─── Local Storage ─────────────────────────────────────────────────────────────
@@ -4852,6 +4855,10 @@ function habitNavDay(delta) {
 // ── Render habits ────────────────────────────────────────────────────────────
 function renderHabits() {
   const td = today();
+  // 2026-05-16: keep the global header date in sync with whichever day the
+  // user is viewing on the Habits tab (was previously frozen on today).
+  if (typeof setHeaderDateLabel === 'function') setHeaderDateLabel(habitViewDate);
+
   const label = document.getElementById('habit-nav-label');
   if (habitViewDate === td) label.textContent = 'Today';
   else label.textContent = fmtDate(habitViewDate);
