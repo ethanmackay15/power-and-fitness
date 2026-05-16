@@ -390,6 +390,20 @@
     .chart-wrap canvas { width: 100% !important; }
     /* Charts scale via Chart.js aspectRatio — no CSS min-height needed */
 
+    /* ───── DEXA small-multiples (2026-05-16) ─────
+       Three tight mini-charts (BF%, Fat, Lean) stacked vertically. Each has
+       its own y-axis padded around its data range so 1–2 lb shifts are
+       actually visible. Replaces the dual-axis 3-series chart whose right
+       axis spanned 20–160 lb to fit both lean (~145) and fat (~33) — that
+       range squashed real movement into single pixels. */
+    .dexa-mini { margin-top: 14px; }
+    .dexa-mini:first-of-type { margin-top: 4px; }
+    .dexa-mini-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; padding: 0 2px; }
+    .dexa-mini-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .dexa-delta { font-size: 0.72rem; font-weight: 600; color: var(--muted); }
+    .dexa-delta.pos { color: #10b981; }
+    .dexa-delta.neg { color: #ef4444; }
+
     /* ───── History table ───── */
     .history-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 520px; }
@@ -1631,12 +1645,34 @@
 
     <!-- DEXA Body Composition (last 4 scans — post-collarbone window) -->
     <!-- 2026-05-15: simplified — removed "Goal · 12% BF" chip and target line. -->
+    <!-- 2026-05-16: split into three small-multiples — each metric gets its own
+         tight-range chart so actual scan-to-scan movement is visible. -->
     <div class="card" style="margin-bottom:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
         <h2 style="margin-bottom:0">DEXA · Last 4 scans</h2>
         <button class="btn-sm" onclick="openDexaForm()" style="background:var(--primary);color:#fff;border:none">+ Add scan</button>
       </div>
-      <div class="chart-wrap"><canvas id="chart-dexa"></canvas></div>
+      <div class="dexa-mini">
+        <div class="dexa-mini-head">
+          <span class="dexa-mini-label" style="color:#ef4444">Body Fat %</span>
+          <span class="dexa-delta" id="dexa-delta-bf"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-dexa-bf"></canvas></div>
+      </div>
+      <div class="dexa-mini">
+        <div class="dexa-mini-head">
+          <span class="dexa-mini-label" style="color:#f59e0b">Fat Mass</span>
+          <span class="dexa-delta" id="dexa-delta-fat"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-dexa-fat"></canvas></div>
+      </div>
+      <div class="dexa-mini">
+        <div class="dexa-mini-head">
+          <span class="dexa-mini-label" style="color:#10b981">Lean Mass</span>
+          <span class="dexa-delta" id="dexa-delta-lean"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-dexa-lean"></canvas></div>
+      </div>
     </div>
 
     <!-- DEXA Scan History table removed 2026-05-01: redundant with the 4-scan chart.
@@ -1921,6 +1957,10 @@ function switchTab(tab) {
   if (tab === 'food')   { populateFoodSelect(); renderFood(); }
   if (tab === 'habits') { renderHabits(); }
   if (tab === 'trends') { renderTrends(); }
+  // 2026-05-16: keep the global header date in sync with the current view.
+  // Food tab tracks foodCurrentDate (handled in renderFood). Other tabs are
+  // today-anchored, so reset the header to today when switching away from Food.
+  if (tab !== 'food' && typeof setHeaderDateLabel === 'function') setHeaderDateLabel(today());
 }
 
 // ─── Local Storage ─────────────────────────────────────────────────────────────
@@ -2669,10 +2709,13 @@ function animateNumber(elId, from, to, formatter, duration) {
 
 // ─── Chart.js instances ──────────────────────────────────────────────────────
 // Hoisted above the IIFE init so renderWeight()'s synchronous call into
-// renderDexaSection → drawDexaChart doesn't hit a Temporal Dead Zone on
-// dexaChart. (Same reason weightChartInst lives here.)
+// renderDexaSection → drawDexaChart doesn't hit a Temporal Dead Zone on the
+// dexa chart instances. (Same reason weightChartInst lives here.)
+// 2026-05-16: dexaChart split into three small-multiples instances.
 let weightChartInst = null;
-let dexaChart = null;
+let dexaChartBf = null;
+let dexaChartFat = null;
+let dexaChartLean = null;
 
 // ─── Weight Chart (Chart.js) ─────────────────────────────────────────────────
 function drawWeightChart(data) {
@@ -3237,15 +3280,23 @@ function ensureTodayMealPlan() {
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+// Set the global header date label to the given YYYY-MM-DD (defaults to today
+// when called with no arg). Centralized so day-navigation in the Food tab
+// keeps the header in sync — prior to 2026-05-16 it was set once at init and
+// never updated when the user scrolled back to a prior day.
+function setHeaderDateLabel(yyyymmdd) {
+  const headerDateEl = document.getElementById('header-date-label');
+  if (!headerDateEl) return;
+  const d = yyyymmdd || today();
+  const dt = new Date(d + 'T12:00:00');
+  headerDateEl.textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
+}
+
 (async function init(){
   const td = today();
 
   // Set date label in header (MacroFactor style)
-  const headerDateEl = document.getElementById('header-date-label');
-  if (headerDateEl) {
-    const dt = new Date(td + 'T12:00:00');
-    headerDateEl.textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
-  }
+  setHeaderDateLabel(td);
 
   // Load food library from localStorage cache so the dropdown is ready instantly
   try {
@@ -3535,7 +3586,10 @@ let MEAL_PLAN_TEMPLATE = [
 // Foods explicitly excluded from the autopopulated daily meal plan.
 // Exact names + name-prefixes for variant-heavy foods (e.g. all "Rice Cake (...)" variants).
 const REMOVED_PLAN_FOODS = new Set(['Apple (Envy)', 'Cottage Cheese (2%, Good Culture)']);
-const REMOVED_PLAN_FOOD_PREFIXES = ['Rice Cake'];   // matches "Rice Cake", "Rice Cake (Chocolate)", "Rice Cake (Caramel)", etc.
+// 2026-05-16: 'Olive Oil' added — removed from the daily plan on 2026-05-15
+// (post-DEXA, fat target rebalance). Historical autopopulated rows from prior
+// days lingered in the Sheet's Food tab and kept resurrecting via the merge.
+const REMOVED_PLAN_FOOD_PREFIXES = ['Rice Cake', 'Olive Oil'];   // matches "Rice Cake (...)" and "Olive Oil (...)"
 function isRemovedPlanFood(name) {
   if (!name) return false;
   if (REMOVED_PLAN_FOODS.has(name)) return true;
@@ -3681,6 +3735,45 @@ function createPlanEntries(date) {
         safeSetItem(FOOD_ENTRIES_KEY, JSON.stringify(withoutTodayPlan));
         initDates.delete(td);
         safeSetItem(FOOD_INIT_DATES_KEY, JSON.stringify([...initDates]));
+      }
+    }
+  } catch(e) {}
+  safeSetItem(MIG_KEY, '1');
+})();
+
+// v12 (2026-05-16): Sheet-side cleanup for stale plan entries that prior
+// migrations only filtered locally. Two patterns drove the user-visible
+// "deleted-but-reappearing" reports:
+//   - Olive Oil — removed from the plan 5/15. Past-day autopop rows persisted
+//     in local AND in the Sheet's Food tab. No prior migration touched the
+//     Sheet, so every queue-idle sync overwrote local with still-dirty remote.
+//   - Apple (Gala) / Spinach / Carrots / Mustard at Snack — v11 (5/14) cleaned
+//     local but didn't enqueue Sheet deletes either, so same problem.
+// This migration finds any local plan entries matching current removal rules
+// (via `_isStaleRemotePlanEntry`), removes them locally, AND enqueues a
+// deleteFood for each so the Sheet's Food tab gets cleaned. Tombstone logic
+// in the merge protects the cleanup from being reverted by an interleaving
+// sync. Belt-and-suspenders with the merge-time filter (which prevents any
+// future remote re-introduction even if the Sheet stays dirty).
+(function migrateMealPlanSync_v12() {
+  const MIG_KEY = 'migration_mealPlanSync_v12';
+  if (localStorage.getItem(MIG_KEY)) return;
+  try {
+    const raw = localStorage.getItem(FOOD_ENTRIES_KEY);
+    if (raw) {
+      const entries = JSON.parse(raw);
+      const toDelete = [];
+      const kept = entries.filter(e => {
+        if (_isStaleRemotePlanEntry(e)) {
+          if (e.id) toDelete.push(e.id);
+          return false;
+        }
+        return true;
+      });
+      if (toDelete.length > 0) {
+        safeSetItem(FOOD_ENTRIES_KEY, JSON.stringify(kept));
+        // Enqueue Sheet-side deletes so the merge can't resurrect on next sync.
+        toDelete.forEach(id => enqueueWrite('deleteFood', { id }));
       }
     }
   } catch(e) {}
@@ -4004,6 +4097,10 @@ function saveFoodTime(id) {
 
 // ── Render ───────────────────────────────────────────────────────────────────
 function renderFood() {
+  // 2026-05-16: keep the global header date in sync with whichever day the
+  // user is viewing in the Food tab (was previously frozen on today's date).
+  if (typeof setHeaderDateLabel === 'function') setHeaderDateLabel(foodCurrentDate);
+
   // Auto-initialize day from meal plan the FIRST time this date is viewed (local only)
   // Does NOT mark the date as dirty — only explicit edits (add/delete/edit) trigger sync
   // ARCHITECTURAL FIX (2026-04-29 evening): only autopopulate for TODAY.
@@ -4559,6 +4656,40 @@ async function pullFoodLibraryFromSheets() {
 // Normalize food name for dedup: lowercase, & → and, strip punctuation, collapse whitespace
 function normFoodName(n) { return (n||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
 
+// Returns the set of food entry ids that have a pending deleteFood op in the
+// write queue. Used by mergeFoodEntries as a tombstone — prevents remote
+// entries the user just queued for deletion from being re-added by a sync
+// that runs before the delete propagates to the Sheet.
+// 2026-05-16: added to fix "I deleted the olive oil entry but it keeps
+// coming back" — symptom of the queue-pending race against fresh remote pull.
+function getPendingDeleteFoodIds() {
+  try {
+    const q = (typeof _readQueue === 'function') ? _readQueue() : [];
+    const ids = new Set();
+    for (const it of q) {
+      if (it && it.op === 'deleteFood' && it.payload && it.payload.id) {
+        ids.add(it.payload.id);
+      }
+    }
+    return ids;
+  } catch(e) { return new Set(); }
+}
+
+// 2026-05-16: predicate — should a remote PLAN entry be excluded entirely?
+// Centralizes the "this food was removed from the plan but old Sheet rows
+// linger" rule so both merge branches apply it consistently. Non-plan
+// (manually logged) entries are never filtered here — only autopopulated
+// plan rows from the Sheet that match a current removal rule.
+function _isStaleRemotePlanEntry(e) {
+  const isPlan = e && (e.plan === true || (e.id && String(e.id).startsWith('plan-')));
+  if (!isPlan) return false;
+  // (a) Name-based removals (Olive Oil, Rice Cake, Apple Envy, Cottage Cheese).
+  if (isRemovedPlanFood(e.food_name)) return true;
+  // (b) Snack autopop is Trident-gum-only (per 2026-05-14 v11 migration).
+  if (e.meal === 'Snack' && e.food_name !== 'Trident White') return true;
+  return false;
+}
+
 function mergeFoodEntries(local, remote) {
   // ARCHITECTURAL FIX (2026-04-29 evening): when the pending-writes queue is
   // idle, the sheet IS the source of truth — overwrite local entirely. The
@@ -4568,10 +4699,16 @@ function mergeFoodEntries(local, remote) {
   // We only fall back to merge when the queue is NOT idle, i.e. there are
   // pending local writes that haven't reached the sheet yet — those need to
   // be preserved until the queue flushes.
+  // 2026-05-16: even on the source-of-truth path, filter out stale remote
+  // plan entries (food was removed from the plan but old Sheet rows persist).
+  // Otherwise every sync re-introduces Apple (Gala) Snack / Olive Oil / etc.
   if (typeof getQueueStatus === 'function' && getQueueStatus() === 'idle' && Array.isArray(remote)) {
-    return remote.slice();
+    return remote.filter(e => !_isStaleRemotePlanEntry(e));
   }
   if (!Array.isArray(remote)) remote = [];
+  // 2026-05-16: tombstone set — ids the user has queued for deletion. Don't
+  // resurrect these from remote until the queue flushes the delete through.
+  const pendingDeletes = getPendingDeleteFoodIds();
   // BUGFIX (2026-04-29): the original dedupe-by-name logic discarded legitimate
   // multiple-quantity entries (e.g., logging two Rx Bars on the same day).
   // Dedupe-by-name is now ONLY applied when one side is a plan entry — that's
@@ -4595,6 +4732,14 @@ function mergeFoodEntries(local, remote) {
   remote.forEach(e => {
     const ne = normalizeEntryMeal(e);
     if (map[ne.id]) return; // already in local under same id
+    // 2026-05-16: tombstone — if a deleteFood for this id is queued, the user
+    // just deleted it locally and the write hasn't reached the Sheet yet.
+    // Don't resurrect from remote.
+    if (pendingDeletes.has(ne.id)) return;
+    // 2026-05-16: filter remote plan entries that match a current removal rule
+    // (Olive Oil, Apple (Gala) Snack, etc.). The Sheet's Food tab may still
+    // have legacy rows; we just don't surface them to the app.
+    if (_isStaleRemotePlanEntry(ne)) return;
     const isPlan = ne.plan === true || (ne.id && String(ne.id).startsWith('plan-'));
     const foodKey = ne.food_id || normFoodName(ne.food_name);
     const key = ne.date + '|' + ne.meal + '|' + foodKey;
@@ -5539,11 +5684,11 @@ function renderTrends() {
 }
 
 // ─── DEXA Body Composition ───────────────────────────────────────────────────
-// dexaChart instance is hoisted to the top of the file (alongside
+// dexaChartBf/Fat/Lean instances are hoisted to the top of the file (alongside
 // weightChartInst) — the IIFE init runs synchronously and reaches drawDexaChart
 // (via renderWeight → renderDexaSection) before this section of the script is
-// evaluated, so declaring `let dexaChart` here would put it in the Temporal
-// Dead Zone and throw ReferenceError. Hoisted declaration is the fix.
+// evaluated, so declaring `let` here would put them in the Temporal Dead Zone
+// and throw ReferenceError. Hoisted declaration is the fix.
 
 function renderDexaSection() {
   const scans = getDexaScans();
@@ -5557,124 +5702,146 @@ function renderDexaSection() {
 // carries lean + fat + BF % directly. Delete + edit are reachable via
 // "+ Add scan" → enter existing date → modal.
 
+// 2026-05-16: replaced the single dual-axis 3-series chart with small
+// multiples — three stacked mini-charts (BF%, Fat, Lean), each on its own
+// data-tight y-axis. Why: the prior right axis spanned 20–160 lb to fit
+// both lean (~145) and fat (~33) on one scale, which collapsed real 1–2 lb
+// scan-to-scan movement into single pixels. Tight per-series axes make
+// the actual recomposition movement visible.
+//
+// maintainAspectRatio:true (NOT false) per 2026-05-01 — Chart.js resize
+// feedback loop with `.chart-wrap canvas { width:100% !important }`.
+// Aspect ratio is wide-and-short so the three minis stack cleanly.
 function drawDexaChart(scans) {
-  const canvas = document.getElementById('chart-dexa');
-  if (!canvas) return;
-  if (dexaChart) { dexaChart.destroy(); dexaChart = null; }
+  if (dexaChartBf)   { dexaChartBf.destroy();   dexaChartBf = null; }
+  if (dexaChartFat)  { dexaChartFat.destroy();  dexaChartFat = null; }
+  if (dexaChartLean) { dexaChartLean.destroy(); dexaChartLean = null; }
   if (!scans.length) return;
 
   const labels = scans.map(s => fmtDateShort(s.date));
-  const bfData    = scans.map(s => s.bf);
-  const leanData  = scans.map(s => s.lean);
-  const fatData   = scans.map(s => s.fat);
 
-  // 2026-05-15: three-line view — BF % on left axis, Lean & Fat mass on right.
-  // Target/goal line removed at Ethan's request — chart is data-only now.
-  //
-  // maintainAspectRatio:true (NOT false on a fixed-height wrapper) — see
-  // 2026-05-01 note re: Chart.js resize feedback loop on `.chart-wrap canvas
-  // { width:100% !important }`. Don't reintroduce the bug.
-  dexaChart = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Body Fat %',
-          data: bfData,
-          borderColor: '#ef4444',
-          backgroundColor: 'rgba(239,68,68,.10)',
-          yAxisID: 'yBf',
-          tension: .3,
+  // Per-series config.
+  //   goodDir   — +1 if increasing is good (lean), -1 if decreasing is good
+  //               (fat, bf%). Drives the green/red color on the Δ pill.
+  //   niceStep  — quantum the y-axis bounds get rounded outward to, so ticks
+  //               stay clean while still hugging the data.
+  //   padPct    — fraction of data range added to each side before rounding.
+  const series = [
+    { key:'bf',   canvasId:'chart-dexa-bf',   deltaId:'dexa-delta-bf',
+      color:'#ef4444', unit:'%',  precision:1, padPct:0.10, niceStep:0.5,
+      data: scans.map(s => s.bf),   goodDir:-1, label:'Body Fat' },
+    { key:'fat',  canvasId:'chart-dexa-fat',  deltaId:'dexa-delta-fat',
+      color:'#f59e0b', unit:' lb', precision:1, padPct:0.10, niceStep:1.0,
+      data: scans.map(s => s.fat),  goodDir:-1, label:'Fat Mass' },
+    { key:'lean', canvasId:'chart-dexa-lean', deltaId:'dexa-delta-lean',
+      color:'#10b981', unit:' lb', precision:1, padPct:0.10, niceStep:1.0,
+      data: scans.map(s => s.lean), goodDir:+1, label:'Lean Mass' }
+  ];
+
+  const aspect = window.innerWidth < 600 ? 4.0
+               : window.innerWidth < 1024 ? 5.0
+               : 6.0;
+
+  const instances = {};
+  for (const cfg of series) {
+    const canvas = document.getElementById(cfg.canvasId);
+    if (!canvas) continue;
+    const vals = cfg.data;
+    const dataMin = Math.min(...vals);
+    const dataMax = Math.max(...vals);
+    // 2026-05-16 v2: tighter zoom — hard min/max (not suggested*) rounded
+    // outward to niceStep so the axis hugs the data while ticks stay clean.
+    // The prior suggestedMin/Max + maxTicksLimit:4 combo let Chart.js
+    // expand the axis to "nice" round tick values (e.g. BF% 15→25 for
+    // 16–19% data), leaving 60–70% of the chart as empty space.
+    const range = dataMax - dataMin;
+    const pad = range * cfg.padPct;
+    let yMin = Math.floor((dataMin - pad) / cfg.niceStep) * cfg.niceStep;
+    let yMax = Math.ceil((dataMax + pad) / cfg.niceStep) * cfg.niceStep;
+    if (yMax - yMin < cfg.niceStep) yMax = yMin + cfg.niceStep; // floor for flat data
+
+    instances[cfg.key] = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: cfg.label,
+          data: vals,
+          borderColor: cfg.color,
+          backgroundColor: cfg.color + '20',
+          pointBackgroundColor: cfg.color,
           pointRadius: 4, pointHoverRadius: 6,
-          pointBackgroundColor: '#ef4444',
           borderWidth: 2.5,
-          fill: false,
-          order: 1,
-        },
-        {
-          label: 'Lean Mass',
-          data: leanData,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16,185,129,.10)',
-          yAxisID: 'yLbs',
-          tension: .3,
-          pointRadius: 3, pointHoverRadius: 5,
-          pointBackgroundColor: '#10b981',
-          borderWidth: 2,
-          fill: false,
-          order: 2,
-        },
-        {
-          label: 'Fat Mass',
-          data: fatData,
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245,158,11,.10)',
-          yAxisID: 'yLbs',
-          tension: .3,
-          pointRadius: 3, pointHoverRadius: 5,
-          pointBackgroundColor: '#f59e0b',
-          borderWidth: 2,
-          fill: false,
-          order: 3,
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: window.innerWidth < 600 ? 1.4 : window.innerWidth < 1024 ? 2.0 : 2.4,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: true, position: 'top',
-          labels: { boxWidth: 10, font: { size: 11 }, padding: 12, usePointStyle: true }
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const v = ctx.raw;
-              const lbl = ctx.dataset.label || '';
-              if (lbl.startsWith('Body Fat')) {
-                return ' ' + lbl + ': ' + Number(v).toFixed(1) + '%';
+          tension: 0.3,
+          fill: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: aspect,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ' ' + cfg.label + ': ' + Number(ctx.raw).toFixed(cfg.precision) + cfg.unit,
+              // 2026-05-15: surface per-scan notes (protocol, prep, anomalies)
+              // in the tooltip footer so the context travels with the data.
+              footer: items => {
+                if (!items || !items.length) return '';
+                const i = items[0].dataIndex;
+                const s = scans[i];
+                return (s && s.notes) ? s.notes : '';
               }
-              return ' ' + lbl + ': ' + Number(v).toFixed(1) + ' lbs';
-            },
-            // 2026-05-15: surface per-scan notes (protocol, prep, anomalies)
-            // in the tooltip footer so the context travels with the data.
-            footer: items => {
-              if (!items || !items.length) return '';
-              const i = items[0].dataIndex;
-              const s = scans[i];
-              if (s && s.notes) return s.notes;
-              return '';
             }
           }
-        }
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { font: { size: 11 }, color: '#94a3b8' }
         },
-        yBf: {
-          type: 'linear', position: 'left',
-          grid: { color: '#f1f5f9' },
-          ticks: { font: { size: 10 }, color: '#ef4444', callback: v => v + '%' },
-          // 2026-05-15: bounds now driven purely by data — target line removed.
-          suggestedMin: Math.min(...bfData) - 1,
-          suggestedMax: Math.max(...bfData) + 1,
-          title: { display: true, text: 'Body Fat %', font: { size: 10 }, color: '#ef4444' }
-        },
-        yLbs: {
-          type: 'linear', position: 'right',
-          grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#10b981', callback: v => v + ' lbs' },
-          title: { display: true, text: 'Lean / Fat Mass', font: { size: 10 }, color: '#10b981' }
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10 }, color: '#94a3b8' }
+          },
+          y: {
+            grid: { color: '#f1f5f9' },
+            ticks: {
+              font: { size: 10 },
+              color: cfg.color,
+              maxTicksLimit: 6,
+              callback: v => Number(v).toFixed(cfg.precision) + cfg.unit
+            },
+            min: yMin,
+            max: yMax
+          }
         }
       }
+    });
+
+    // Δ pill — change vs prior scan, color-coded by whether the move is
+    // "good" for this metric (lean up = green, fat/bf down = green).
+    const deltaEl = document.getElementById(cfg.deltaId);
+    if (deltaEl) {
+      deltaEl.classList.remove('pos','neg');
+      if (vals.length >= 2) {
+        const last = vals[vals.length - 1];
+        const prev = vals[vals.length - 2];
+        const delta = last - prev;
+        const epsilon = cfg.unit === '%' ? 0.05 : 0.1;
+        const sign = delta > 0 ? '+' : (delta < 0 ? '−' : '');
+        const abs = Math.abs(delta).toFixed(cfg.precision);
+        deltaEl.textContent = sign + abs + cfg.unit + ' vs prior';
+        if (Math.abs(delta) >= epsilon) {
+          if (Math.sign(delta) === cfg.goodDir) deltaEl.classList.add('pos');
+          else deltaEl.classList.add('neg');
+        }
+      } else {
+        deltaEl.textContent = '';
+      }
     }
-  });
+  }
+  dexaChartBf   = instances.bf   || null;
+  dexaChartFat  = instances.fat  || null;
+  dexaChartLean = instances.lean || null;
 }
 
 // ── Add/edit modal ──
