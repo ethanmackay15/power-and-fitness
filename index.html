@@ -1655,6 +1655,10 @@
           <div><label>Total Mass (lbs)</label><input type="number" id="dexa-f-total" step="0.1" min="0" max="500" /></div>
           <div><label>BMC (lbs, optional)</label><input type="number" id="dexa-f-bmc" step="0.1" min="0" max="30" /></div>
         </div>
+        <div style="margin-top:10px">
+          <label for="dexa-f-notes" style="display:block;font-size:0.78rem;color:var(--muted);margin-bottom:4px">Notes (protocol, prep, anything worth knowing)</label>
+          <textarea id="dexa-f-notes" rows="2" placeholder="e.g. fasted; standardized protocol — or — ate 5th meal night before, likely glycogen-loaded" style="width:100%;font-size:0.85rem;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;resize:vertical"></textarea>
+        </div>
         <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px">
           <button class="btn-sm" id="dexa-delete-btn" style="display:none;background:#fee2e2;color:#b91c1c;border:none" onclick="deleteEditingDexa()">Delete scan</button>
           <div style="display:flex;gap:8px;margin-left:auto">
@@ -5635,6 +5639,15 @@ function drawDexaChart(scans) {
                 return ' ' + lbl + ': ' + Number(v).toFixed(1) + '%';
               }
               return ' ' + lbl + ': ' + Number(v).toFixed(1) + ' lbs';
+            },
+            // 2026-05-15: surface per-scan notes (protocol, prep, anomalies)
+            // in the tooltip footer so the context travels with the data.
+            footer: items => {
+              if (!items || !items.length) return '';
+              const i = items[0].dataIndex;
+              const s = scans[i];
+              if (s && s.notes) return s.notes;
+              return '';
             }
           }
         }
@@ -5679,7 +5692,7 @@ function _setDexaModalEditState(isEditing) {
 function openDexaForm(date) {
   dexaEditingDate = date || null;
   const overlay = document.getElementById('dexa-modal-overlay');
-  const fields = ['date','bf','fat','lean','total','bmc'];
+  const fields = ['date','bf','fat','lean','total','bmc','notes'];
   fields.forEach(f => { const el = document.getElementById('dexa-f-' + f); if (el) el.value = ''; });
   if (date) {
     const s = getDexaScans().find(x => x.date === date);
@@ -5690,6 +5703,7 @@ function openDexaForm(date) {
       document.getElementById('dexa-f-lean').value  = s.lean;
       document.getElementById('dexa-f-total').value = s.total;
       document.getElementById('dexa-f-bmc').value   = s.bmc || '';
+      document.getElementById('dexa-f-notes').value = s.notes || '';
       _setDexaModalEditState(true);
     } else {
       _setDexaModalEditState(false);
@@ -5724,6 +5738,7 @@ function _onDexaDateChange() {
     document.getElementById('dexa-f-lean').value  = s.lean;
     document.getElementById('dexa-f-total').value = s.total;
     document.getElementById('dexa-f-bmc').value   = s.bmc || '';
+    document.getElementById('dexa-f-notes').value = s.notes || '';
     _setDexaModalEditState(true);
   } else {
     dexaEditingDate = null;
@@ -5753,9 +5768,10 @@ function saveDexaForm() {
   const total = parseFloat(document.getElementById('dexa-f-total').value);
   const bmcV  = document.getElementById('dexa-f-bmc').value;
   const bmc   = bmcV ? parseFloat(bmcV) : null;
+  const notes = (document.getElementById('dexa-f-notes').value || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert('Date must be YYYY-MM-DD'); return; }
   if (isNaN(bf) || isNaN(fat) || isNaN(lean) || isNaN(total)) { alert('Please fill BF%, fat, lean, and total.'); return; }
-  const scan = { date, bf, fat, lean, total };
+  const scan = { date, bf, fat, lean, total, notes };
   if (bmc !== null && !isNaN(bmc)) scan.bmc = bmc;
   // If editing and date changed, remove old entry
   if (dexaEditingDate && dexaEditingDate !== date) deleteDexaScan(dexaEditingDate);
