@@ -2149,6 +2149,7 @@ function _opToPayload(op, payload) {
     case 'addJournal':               return { action: 'addJournal',                entry: payload };
     case 'updateJournal':            return { action: 'updateJournal',             entry: payload };
     case 'deleteJournal':            return { action: 'deleteJournal',             timestamp: payload.timestamp };
+    case 'setSkipDay':               return { action: 'setSkipDay',                entry: payload };
     default: throw new Error('Unknown queue op: ' + op);
   }
 }
@@ -3173,8 +3174,8 @@ async function syncOnVisibility(forceEvenIfHidden) {
     // which meant a manual refresh (or PWA resume) never picked up new foods
     // added to the sheet. 2026-05-02: added pullFoodLibraryFromSheets so the
     // sync badge actually refreshes it.
-    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullRCFromSheets(), pullDexaFromSheets()
+    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote, skipDatesRemote] = await Promise.all([
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullRCFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets()
     ]);
     if (remote) {
       const local = load();
@@ -3197,6 +3198,15 @@ async function syncOnVisibility(forceEvenIfHidden) {
       const localDexa = getDexaScans();
       const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
       if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) saveDexaScans(mergedDexa);
+    }
+    if (skipDatesRemote) {
+      const mergedSkip = mergeSkipDates(skipDatesRemote);
+      const localArr  = [...getSkipDates()].sort();
+      const mergedArr = [...mergedSkip].sort();
+      if (JSON.stringify(mergedArr) !== JSON.stringify(localArr)) {
+        saveSkipDates(mergedSkip);
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+      }
     }
     if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
       FOOD_DB = libraryData.foods;
@@ -3353,9 +3363,9 @@ function setHeaderDateLabel(yyyymmdd) {
   if (sheetsUrl) {
     updateSyncUI('yellow','Connecting to Google Sheets...');
     // Pull weight, food entries, food library, habits, run challenge, and DEXA in parallel
-    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote] = await Promise.all([
+    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote, skipDatesRemote] = await Promise.all([
       pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(),
-      pullRCFromSheets(), pullDexaFromSheets()
+      pullRCFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets()
     ]);
     if (remote) {
       const local = load();
@@ -3395,6 +3405,15 @@ function setHeaderDateLabel(yyyymmdd) {
         // already called on the remote-weight branch above, but if only DEXA changed
         // (weight didn't), the section stays stale until next nav.
         if (typeof renderDexaSection === 'function') renderDexaSection();
+      }
+    }
+    if (skipDatesRemote) {
+      const mergedSkip = mergeSkipDates(skipDatesRemote);
+      const localArr   = [...getSkipDates()].sort();
+      const mergedArr  = [...mergedSkip].sort();
+      if (JSON.stringify(mergedArr) !== JSON.stringify(localArr)) {
+        saveSkipDates(mergedSkip);
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
       }
     }
     if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
@@ -3543,6 +3562,10 @@ function hhmmToDisplay(hhmm) {
 }
 
 // ── Skip Day ────────────────────────────────────────────────────────────────
+// 2026-05-17: cross-device sync added. Skips now write through to the Sheet via
+// the pending-writes queue (setSkipDay op) and are pulled back on init / visibility
+// refresh so toggling on one device shows up on the other. localStorage is still
+// the source of truth for instant UI, but the Sheet is authoritative across devices.
 const SKIP_DATES_KEY = 'skipDates_v1';
 function getSkipDates() {
   try { return new Set(JSON.parse(localStorage.getItem(SKIP_DATES_KEY)) || []); }
@@ -3554,13 +3577,54 @@ function saveSkipDates(dates) {
 function isSkippedDay(date) { return getSkipDates().has(date); }
 function toggleSkipDay() {
   const dates = getSkipDates();
-  if (dates.has(foodCurrentDate)) {
-    dates.delete(foodCurrentDate);
-  } else {
-    dates.add(foodCurrentDate);
-  }
+  const wasSkipped = dates.has(foodCurrentDate);
+  if (wasSkipped) dates.delete(foodCurrentDate);
+  else            dates.add(foodCurrentDate);
   saveSkipDates(dates);
+  // Push to the Sheet via the queue so this propagates to other devices.
+  if (typeof enqueueWrite === 'function') {
+    enqueueWrite('setSkipDay', { date: foodCurrentDate, skipped: !wasSkipped });
+  }
   renderFood();
+}
+
+// Pull all currently-skipped dates from the Sheet.
+async function pullSkipDatesFromSheets() {
+  const url = getSheetsUrl(); if (!url) return null;
+  try {
+    const res  = await fetch(url + '?type=skipDates');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.dates)) return null;
+    return data.dates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  } catch(e) { return null; }
+}
+
+// Pending-writes overlay for skip dates — mirrors the food deleteFood tombstone
+// pattern. If the user toggled while offline and we then pull from the Sheet,
+// the in-flight queue ops still represent the user's intent and should win over
+// the remote snapshot until they flush.
+function _getPendingSkipOverlay() {
+  try {
+    const q = (typeof _readQueue === 'function') ? _readQueue() : [];
+    const overlay = {};
+    for (const it of q) {
+      if (it && it.op === 'setSkipDay' && it.payload && it.payload.date) {
+        overlay[it.payload.date] = !!it.payload.skipped;
+      }
+    }
+    return overlay;
+  } catch(e) { return {}; }
+}
+
+// Build the authoritative skip-date set: Sheet snapshot + queue overlay.
+function mergeSkipDates(remoteDates) {
+  const out = new Set(remoteDates || []);
+  const overlay = _getPendingSkipOverlay();
+  for (const date in overlay) {
+    if (overlay[date]) out.add(date);
+    else out.delete(date);
+  }
+  return out;
 }
 
 // ── Meal Plan Template ────────────────────────────────────────────────────────
