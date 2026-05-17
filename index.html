@@ -252,33 +252,6 @@
     .stat-hero-spark path.area { fill:url(#sparkGrad); opacity:0.18; }
     .stat-hero-spark circle { fill:var(--primary); }
 
-    /* ───── Journey chip ───── */
-    .journey-chip {
-      display: flex; align-items: center; justify-content: space-between;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 14px; padding: 14px 20px;
-      margin-bottom: 14px;
-    }
-    .journey-left { display: flex; align-items: baseline; gap: 8px; }
-    .journey-week {
-      font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em;
-      color: var(--text);
-    }
-    .journey-since {
-      font-size: 0.72rem; color: var(--muted); font-weight: 500;
-    }
-    .journey-right {
-      text-align: right;
-    }
-    .journey-target {
-      font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em;
-      color: #6366f1;
-    }
-    .journey-target-lbl {
-      font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
-      letter-spacing: .08em; font-weight: 700; margin-top: 1px;
-    }
-
     /* DEXA goal chip styles removed 2026-05-15 — chart simplified to data-only. */
 
 
@@ -1353,62 +1326,6 @@
   <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="forcePull()">Pull from Sheets</button>
   <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="forcePush()">Push all to Sheets</button>
   <button class="btn-outline" style="width:100%;color:var(--red)" onclick="disconnectSheets()">Disconnect</button>
-
-  <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
-  <label style="margin-bottom:6px;display:block;font-weight:700">Daily Macro Targets</label>
-  <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px">Calculated from your active meal plan. To change a target, edit the plan in the Sheet — these will follow automatically.</p>
-  <div class="targets-grid">
-    <div>
-      <label>Calories</label>
-      <input type="number" id="target-cal" min="0" step="1" readonly tabindex="-1" />
-    </div>
-    <div>
-      <label>Protein (g)</label>
-      <input type="number" id="target-protein" min="0" step="1" readonly tabindex="-1" />
-    </div>
-    <div>
-      <label>Carbs (g)</label>
-      <input type="number" id="target-carbs" min="0" step="1" readonly tabindex="-1" />
-    </div>
-    <div>
-      <label>Fat (g)</label>
-      <input type="number" id="target-fat" min="0" step="1" readonly tabindex="-1" />
-    </div>
-  </div>
-
-  <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
-  <label style="margin-bottom:6px;display:block;font-weight:700">Body Comp Target</label>
-  <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px">The north star is a DEXA body-fat target; goal weight is the day-to-day proxy. No end date — just direction.</p>
-  <div class="targets-grid">
-    <div>
-      <label>Start Date</label>
-      <input type="text" id="cfg-start-date" placeholder="YYYY-MM-DD" oninput="saveCfg()" />
-    </div>
-    <div>
-      <label>Start Weight (lbs)</label>
-      <input type="number" id="cfg-start-weight" min="80" max="400" step="0.1" oninput="saveCfg()" />
-    </div>
-    <div>
-      <label>Goal Weight (lbs)</label>
-      <input type="number" id="cfg-goal-weight" min="80" max="400" step="0.1" oninput="saveCfg()" />
-    </div>
-    <div>
-      <label>Goal Rate (lbs/week)</label>
-      <input type="number" id="cfg-goal-rate" min="0.1" max="3" step="0.125" oninput="saveCfg()" />
-    </div>
-    <div>
-      <label>DEXA Body-Fat Target (%)</label>
-      <input type="number" id="cfg-bf-target" min="5" max="40" step="0.5" oninput="saveCfg()" />
-    </div>
-    <div>
-      <label>Last DEXA Date</label>
-      <input type="text" id="cfg-last-dexa" placeholder="YYYY-MM-DD" oninput="saveCfg()" />
-    </div>
-    <div>
-      <label>Next DEXA Date</label>
-      <input type="text" id="cfg-next-dexa" placeholder="YYYY-MM-DD" oninput="saveCfg()" />
-    </div>
-  </div>
 </div>
 
 <div class="wrap">
@@ -1812,8 +1729,12 @@
 
 <script>
 // ─── Weight Tracker Config ────────────────────────────────────────────────────
-const CFG_KEY = 'cut_tracker_cfg';
-const CFG_DEFAULTS = {
+// 2026-05-17: Hard-coded. Previously this was editable via Settings → Body Comp
+// Target (with localStorage persistence). Removed the UI + persistence layer
+// since these values change rarely enough that editing in code is fine.
+// To update: change values here, redeploy. Old localStorage key was
+// 'cut_tracker_cfg' — safe to ignore; nothing reads it anymore.
+const CFG = {
   startDate:    '2026-03-15',
   startWeight:  190.8,
   goalWeight:   174,
@@ -1822,21 +1743,6 @@ const CFG_DEFAULTS = {
   lastDexaDate: '2026-03-21',
   nextDexaDate: '2026-05-15'
 };
-// Mutable CFG — loaded from localStorage, falls back to defaults
-const CFG = (() => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
-    return {
-      startDate:    stored.startDate    || CFG_DEFAULTS.startDate,
-      startWeight:  stored.startWeight  != null ? Number(stored.startWeight)  : CFG_DEFAULTS.startWeight,
-      goalWeight:   stored.goalWeight   != null ? Number(stored.goalWeight)   : CFG_DEFAULTS.goalWeight,
-      goalRate:     stored.goalRate     != null ? Number(stored.goalRate)     : CFG_DEFAULTS.goalRate,
-      bfTarget:     stored.bfTarget     != null ? Number(stored.bfTarget)     : CFG_DEFAULTS.bfTarget,
-      lastDexaDate: stored.lastDexaDate || CFG_DEFAULTS.lastDexaDate,
-      nextDexaDate: stored.nextDexaDate || CFG_DEFAULTS.nextDexaDate
-    };
-  } catch { return { ...CFG_DEFAULTS }; }
-})();
 // Helper: weeks to reach goalWeight at goalRate (used for drawing goal pace line only)
 function projectedGoalDate() {
   const lbsToLose = Math.max(0, CFG.startWeight - CFG.goalWeight);
@@ -1948,20 +1854,34 @@ function normalizeDate(d) {
 }
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
+// 2026-05-17 audit fix: null-safe. Trends/Run tabs were removed from the
+// markup but stale call sites (and legacy bookmarks/queued ops) can still
+// pass their names — previously this crashed on `.classList.add` of null.
+// Now: log a warning and return early if either the tab button or the
+// panel for the requested name doesn't exist in the DOM.
 function switchTab(tab) {
+  const tabEl   = document.getElementById('tab-'   + tab);
+  const panelEl = document.getElementById('panel-' + tab);
+  if (!tabEl || !panelEl) {
+    console.warn('switchTab: unknown tab', tab);
+    return;
+  }
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('tab-active');
-  document.getElementById('panel-'+tab).classList.add('active');
+  tabEl.classList.add('tab-active');
+  panelEl.classList.add('active');
   if (tab === 'weight') { setTimeout(()=>{ const d=load(); drawWeightChart(d); }, 50); }
   if (tab === 'food')   { populateFoodSelect(); renderFood(); }
   if (tab === 'habits') { renderHabits(); }
-  if (tab === 'trends') { renderTrends(); }
+  // 'trends' branch removed — panel was deleted on 2026-05-01 and the
+  // function-existence guard above already short-circuits this case.
+  // Keep the helper definitions in place (some panel-trends?.contains('active')
+  // call sites still reference them defensively).
   // 2026-05-16: keep the global header date in sync with the current view.
   // Food and Habits both have day-nav and set the header from their own render
-  // functions (foodCurrentDate / habitViewDate). Weight and Trends are
-  // today-anchored — reset to today when switching to those.
-  if ((tab === 'weight' || tab === 'trends') && typeof setHeaderDateLabel === 'function') {
+  // functions (foodCurrentDate / habitViewDate). Weight is today-anchored —
+  // reset to today when switching to it.
+  if (tab === 'weight' && typeof setHeaderDateLabel === 'function') {
     setHeaderDateLabel(today());
   }
 }
@@ -2014,16 +1934,6 @@ async function pushToSheets(entries) {
   } catch(err) { updateSyncUI('red','Sync failed — check your connection'); }
 }
 
-async function pushDeleteToSheets(date) {
-  const url = getSheetsUrl(); if (!url) return;
-  try { await sheetsPost(url, {action:'delete',date}); } catch(e){}
-}
-
-async function pushDateChangeToSheets(oldDate, newDate) {
-  const url = getSheetsUrl(); if (!url) return;
-  try { await sheetsPost(url, {action:'update_date',oldDate,newDate}); } catch(e){}
-}
-
 async function pullFromSheets() {
   const url = getSheetsUrl(); if (!url) return null;
   updateSyncUI('yellow','Pulling from Google Sheets...');
@@ -2073,18 +1983,6 @@ async function sheetsGetJson(url, params) {
   const json = await res.json();
   if (!json || json.ok !== true) throw new Error((json && json.error) || 'Server returned ok:false');
   return json;
-}
-
-// Cheap freshness probe — returns { weight, food, habits, runChallenge, dexa }
-// each as ISO timestamp or null. Use to decide whether a tab needs refetch.
-async function fetchLastModified() {
-  const url = getSheetsUrl(); if (!url) return null;
-  try {
-    const json = await sheetsGetJson(url, { type: 'lastModified' });
-    return json.lastModified || null;
-  } catch (e) {
-    return null;
-  }
 }
 
 // ─── Queue state ─────────────────────────────────────────────────────────────
@@ -2380,12 +2278,6 @@ function updateWeightSyncUI() {
   }
 }
 
-// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
-// Function kept so any DOM onclick handler in hidden #weight-sync-bar still resolves.
-async function manualPushWeight() {
-  showToast('All weight changes sync automatically');
-}
-
 async function refreshWeightFromSheets() {
   const url = getSheetsUrl();
   if (!url) { showToast('No Sheets URL configured'); return; }
@@ -2421,61 +2313,16 @@ function mergeEntries(local, remote) {
 }
 
 // ─── Settings UI ──────────────────────────────────────────────────────────────
-function loadCfgFields() {
-  const sd = document.getElementById('cfg-start-date');
-  const sw = document.getElementById('cfg-start-weight');
-  const gw = document.getElementById('cfg-goal-weight');
-  const gr = document.getElementById('cfg-goal-rate');
-  const bf = document.getElementById('cfg-bf-target');
-  const ld = document.getElementById('cfg-last-dexa');
-  const nd = document.getElementById('cfg-next-dexa');
-  if (sd) sd.value = CFG.startDate;
-  if (sw) sw.value = CFG.startWeight;
-  if (gw) gw.value = CFG.goalWeight;
-  if (gr) gr.value = CFG.goalRate;
-  if (bf) bf.value = CFG.bfTarget;
-  if (ld) ld.value = CFG.lastDexaDate || '';
-  if (nd) nd.value = CFG.nextDexaDate || '';
-}
-
-// 2026-05-16 audit fix: the 7 Settings → Body Comp Target inputs each call
-// saveCfg() on every keystroke (oninput). Each call mutates CFG, writes to
-// localStorage, AND redraws the weight chart + trends — typing a 10-char date
-// rebuilt the chart ten times. Now: state + persistence still happen
-// immediately (so closing the panel mid-edit doesn't lose data), but the
-// render storm is debounced to ~250ms so the heavy work only runs once the
-// user stops typing.
-let _saveCfgRenderT = null;
-function saveCfg() {
-  const sd = document.getElementById('cfg-start-date');
-  const sw = document.getElementById('cfg-start-weight');
-  const gw = document.getElementById('cfg-goal-weight');
-  const gr = document.getElementById('cfg-goal-rate');
-  const bf = document.getElementById('cfg-bf-target');
-  const ld = document.getElementById('cfg-last-dexa');
-  const nd = document.getElementById('cfg-next-dexa');
-  if (sd && sd.value) CFG.startDate    = sd.value.trim();
-  if (sw && sw.value) CFG.startWeight  = parseFloat(sw.value);
-  if (gw && gw.value) CFG.goalWeight   = parseFloat(gw.value);
-  if (gr && gr.value) CFG.goalRate     = parseFloat(gr.value);
-  if (bf && bf.value) CFG.bfTarget     = parseFloat(bf.value);
-  if (ld) CFG.lastDexaDate = ld.value.trim();
-  if (nd) CFG.nextDexaDate = nd.value.trim();
-  safeSetItem(CFG_KEY, JSON.stringify({
-    startDate: CFG.startDate, startWeight: CFG.startWeight,
-    goalWeight: CFG.goalWeight, goalRate: CFG.goalRate, bfTarget: CFG.bfTarget,
-    lastDexaDate: CFG.lastDexaDate, nextDexaDate: CFG.nextDexaDate
-  }));
-  if (_saveCfgRenderT) clearTimeout(_saveCfgRenderT);
-  _saveCfgRenderT = setTimeout(() => { renderWeight(); renderTrends(); }, 250);
-}
+// 2026-05-17: Body Comp Target editor removed from Settings — CFG is now hard-
+// coded at the top of the script. loadCfgFields() / saveCfg() deleted along
+// with their inputs. Daily Macro Targets preview also removed (still computed
+// from the active meal plan; preview was a redundant display).
 
 function toggleSettings() {
   document.getElementById('settings-panel').classList.toggle('open');
   document.getElementById('settings-overlay').classList.toggle('open');
   if (document.getElementById('settings-panel').classList.contains('open')) {
     document.getElementById('sheets-url').value = getSheetsUrl();
-    loadCfgFields();
   }
 }
 
@@ -3227,9 +3074,6 @@ async function syncOnVisibility(forceEvenIfHidden) {
     if (document.getElementById('panel-habits') && document.getElementById('panel-habits').classList.contains('active')) renderHabits();
     if (document.getElementById('panel-trends') && document.getElementById('panel-trends').classList.contains('active')) renderTrends();
     if (document.getElementById('panel-run')    && document.getElementById('panel-run').classList.contains('active')    && typeof renderRunChallenge === 'function') renderRunChallenge();
-    // 2026-05-15: targets follow the active meal plan, so refresh the Settings
-    // input mirror after every sheet sync (plan totals may have changed).
-    if (typeof loadTargetFields === 'function') loadTargetFields();
   } catch(e) {
     updateSyncUI('red', 'Re-sync failed');
   }
@@ -3313,136 +3157,17 @@ function setHeaderDateLabel(yyyymmdd) {
   headerDateEl.textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
 }
 
-(async function init(){
-  const td = today();
-
-  // Set date label in header (MacroFactor style)
-  setHeaderDateLabel(td);
-
-  // Load food library from localStorage cache so the dropdown is ready instantly
-  try {
-    const cached = JSON.parse(localStorage.getItem(FOOD_LIBRARY_CACHE_KEY));
-    if (cached && Array.isArray(cached.foods) && cached.foods.length) {
-      FOOD_DB = cached.foods;
-      if (Array.isArray(cached.planTemplate) && cached.planTemplate.length) {
-        MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(cached.planTemplate);
-      }
-    }
-  } catch(e) {}
-
-  renderWeight();
-  // 2026-05-16 audit fix: resize was firing a full destroy+rebuild of the weight
-  // chart on every pixel of drag while dragging a desktop window edge or rotating
-  // a phone. Debounced to ~150ms so we only rebuild once the resize settles.
-  let _resizeChartT = null;
-  window.addEventListener('resize', () => {
-    if (_resizeChartT) clearTimeout(_resizeChartT);
-    _resizeChartT = setTimeout(() => { const d = load(); drawWeightChart(d); }, 150);
-  });
-
-  // Habits is the default tab — render it on load
-  setTimeout(()=>{ renderHabits(); }, 100);
-
-  // Load saved macro targets into settings fields (deferred so constants below are initialized first)
-  setTimeout(loadTargetFields, 0);
-
-  // Auto-populate today's meal plan on boot (regardless of which tab is active)
-  // Deferred slightly so FOOD_DB / MEAL_PLAN_TEMPLATE from cache are ready
-  setTimeout(ensureTodayMealPlan, 50);
-
-  // Show backup status
-  setTimeout(updateBackupStatus, 100);
-
-  // Re-sync when user returns to the tab (handles multi-device usage)
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) syncOnVisibility();
-  });
-
-  // Try Sheets sync
-  const sheetsUrl = getSheetsUrl();
-  if (sheetsUrl) {
-    updateSyncUI('yellow','Connecting to Google Sheets...');
-    // Pull weight, food entries, food library, habits, run challenge, and DEXA in parallel
-    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote, skipDatesRemote] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(),
-      pullRCFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets()
-    ]);
-    if (remote) {
-      const local = load();
-      const merged = mergeEntries(local.entries, remote);
-      if (JSON.stringify(merged) !== JSON.stringify(local.entries)) { local.entries=merged; save(local); renderWeight(); }
-    }
-    if (foodRemote) {
-      const localFood  = getFoodEntries();
-      const mergedFood = mergeFoodEntries(localFood, foodRemote);
-      if (JSON.stringify(mergedFood) !== JSON.stringify(localFood)) {
-        saveFoodEntriesDB(mergedFood);
-        // RENDER FIX 2026-05-10: re-render food if its tab is active. Without this,
-        // a fast mobile open (user switches to food before the pull completes) renders
-        // from stale local, then the merge silently updates local without refreshing
-        // the DOM — surfaced as "phantom wipe" of newer entries (reproduced w/ Ethan
-        // 2026-05-10 using an almond butter entry on desktop). Same shape as 5/5 habits.
-        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
-      }
-    }
-    if (habitsRemote && habitsRemote.length) {
-      const localHabits = getHabitsData();
-      const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
-      if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) {
-        saveHabitsData(mergedHabits);
-        // RENDER FIX 2026-05-10: habits is the DEFAULT tab. The setTimeout renderHabits
-        // ~100ms in (line ~3277) fires from stale local before this merge finishes.
-        // Without re-rendering here, toggles reflect pre-pull state until next nav.
-        if (document.getElementById('panel-habits')?.classList.contains('active')) renderHabits();
-      }
-    }
-    if (dexaRemote) {
-      const localDexa = getDexaScans();
-      const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
-      if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) {
-        saveDexaScans(mergedDexa);
-        // RENDER FIX 2026-05-10: DEXA section lives on the weight tab. renderWeight is
-        // already called on the remote-weight branch above, but if only DEXA changed
-        // (weight didn't), the section stays stale until next nav.
-        if (typeof renderDexaSection === 'function') renderDexaSection();
-      }
-    }
-    if (skipDatesRemote) {
-      const mergedSkip = mergeSkipDates(skipDatesRemote);
-      const localArr   = [...getSkipDates()].sort();
-      const mergedArr  = [...mergedSkip].sort();
-      if (JSON.stringify(mergedArr) !== JSON.stringify(localArr)) {
-        saveSkipDates(mergedSkip);
-        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
-      }
-    }
-    if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
-      FOOD_DB = libraryData.foods;
-      if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) {
-        // Capture raw totals BEFORE sanitization (see other sync handler).
-        setRawPlanTotalsFromTemplate(libraryData.planTemplate);
-        MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
-      }
-      // Update cache with fresh data from Sheets
-      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch(e) {}
-      // Refresh the food dropdown if the food tab is visible
-      if (document.getElementById('panel-food').classList.contains('active')) populateFoodSelect();
-    }
-    // After Sheets pull, update backup status (meal plan was already ensured above)
-    updateBackupStatus();
-    // Trends tab removed 2026-05-01; null-safe in case panel ever returns.
-    if (document.getElementById('panel-trends')?.classList.contains('active')) renderTrends();
-
-    // Phase 3 backfill — push any local-only entries to the sheet (one-time, idempotent).
-    // Runs AFTER pull-merge so we have remote sets to diff against. Don't await:
-    // the queue handles this in the background and we don't want to block init.
-    runBackfillMigration({
-      weightRemote: remote, foodRemote, habitsRemote
-    }).catch(() => {});
-  }
-  // Initialize food sync button state
-  updateFoodSyncUI();
-})();
+// ──────────────────────────────────────────────────────────────────────────
+// init() IIFE — relocated to the BOTTOM of this <script> block on
+// 2026-05-17. It used to live here, but it touches several `let`-declared
+// globals further down the file (FOOD_DB, MEAL_PLAN_TEMPLATE, etc.). Those
+// have a temporal dead zone, so init()'s cache-prewarm threw a swallowed
+// ReferenceError on every cold start and the cached food library never
+// loaded before the network fetch finished. The original ChatGPT review
+// caught one TDZ reference (the cache key const) but not the others on the
+// same code path. Moving the IIFE to the end so every dep is declared
+// first is the simplest durable fix and removes a footgun for future edits.
+// ──────────────────────────────────────────────────────────────────────────
 
 // ══════════════════════════════════════════════════════════════════════════
 // FOOD LOG
@@ -3630,20 +3355,21 @@ function mergeSkipDates(remoteDates) {
 // ── Meal Plan Template ────────────────────────────────────────────────────────
 // Exact daily quantities from your Daily Meal Plan spreadsheet.
 // These are pre-populated on every new day automatically.
-// Last synced from spreadsheet: 2026-05-12. Mirrors what Apps Script `getMealPlan()` returns
-// from the "Daily Meal Plan" tab — keep this in sync so first-load (no cache) and offline
-// scenarios autopopulate the right plan. The Sheets fetch overwrites this on every load.
+// Last synced from spreadsheet: 2026-05-17 (Breakfast revision — Egg Whites +
+// Greek Yogurt removed, Cottage Cheese (1.5%, TJ's) added, Eggs bumped 2→3).
+// Mirrors what Apps Script `getMealPlan()` returns from the "Daily Meal Plan"
+// tab — keep this in sync so first-load (no cache) and offline scenarios
+// autopopulate the right plan. The Sheets fetch overwrites this on every load.
 // food_ids must match Sheets format: nameSlug-sectionSlug.
 let MEAL_PLAN_TEMPLATE = [
   // Breakfast
-  { food_id:'eggs-b',                       food_name:'Eggs',                       meal:'Breakfast', qty:2,       unit:'eggs',   calories:140, protein:13,   carbs:0,    fat:10   },
-  { food_id:'egg-whites-tj-s-b',            food_name:'Egg Whites (TJ’s)',     meal:'Breakfast', qty:15.99,   unit:'tbsp',   calories:133, protein:26.6, carbs:0,    fat:0    },
+  { food_id:'eggs-b',                       food_name:'Eggs',                       meal:'Breakfast', qty:3,       unit:'eggs',   calories:210, protein:19.5, carbs:0,    fat:15   },
   { food_id:'broccoli-b',                   food_name:'Broccoli',                   meal:'Breakfast', qty:159.375, unit:'grams',  calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
   { food_id:'salsa-b',                      food_name:'Salsa',                      meal:'Breakfast', qty:4,       unit:'tbsp',   calories:20,  protein:0,    carbs:4,    fat:0    },
   { food_id:'red-lentils-b',                food_name:'Red Lentils',                meal:'Breakfast', qty:0.25,    unit:'cups',   calories:180, protein:12,   carbs:32,   fat:1    },
-  { food_id:'greek-yogurt-nonfat-tj-s-b',   food_name:'Greek Yogurt (Nonfat TJ’s)', meal:'Breakfast', qty:150, unit:'grams', calories:90,  protein:15,   carbs:6,    fat:0    },
-  { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',               meal:'Breakfast', qty:1,       unit:'scoop',  calories:15,  protein:1,    carbs:3,    fat:0.5  },
+  { food_id:'cottage-cheese-1-5-tj-s-b',    food_name:"Cottage Cheese (1.5%, TJ's)",meal:'Breakfast', qty:185.32,  unit:'grams',  calories:148, protein:21.3, carbs:8.2,  fat:3.3  },
   { food_id:'fish-pills-b',                 food_name:'Fish Pills',                 meal:'Breakfast', qty:1,       unit:'pill',   calories:15,  protein:0,    carbs:0,    fat:1.5  },
+  { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',               meal:'Breakfast', qty:1,       unit:'scoop',  calories:15,  protein:1,    carbs:3,    fat:0.5  },
   // Lunch
   { food_id:'chicken-breast-and-ribs-l',    food_name:'Chicken Breast and Ribs',    meal:'Lunch',     qty:224,     unit:'grams',  calories:260, protein:48,   carbs:0,    fat:6    },
   { food_id:'brussell-sprouts-l',           food_name:'Brussell Sprouts',           meal:'Lunch',     qty:141.95,  unit:'grams',  calories:58,  protein:5,    carbs:13.4, fat:0    },
@@ -3660,24 +3386,40 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',          meal:'Supper',    qty:1,       unit:'tin',    calories:170, protein:17,   carbs:0,    fat:11   },
   { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                 meal:'Supper',    qty:0.5,     unit:'cups',   calories:10,  protein:0,    carbs:2,    fat:0    },
   { food_id:'mustard-es',                   food_name:'Mustard',                    meal:'Supper',    qty:3,       unit:'tbsp',   calories:15,  protein:0,    carbs:12,   fat:0    },
-  // Snack — only Trident gum; all other snack items intentionally omitted from autopopulation
-  { food_id:'trident-white-sn',             food_name:'Trident White',              meal:'Snack',    qty:8,       unit:'pieces', calories:20,  protein:0,    carbs:8,    fat:0    },
+  // Snack — full set. Re-opened 2026-05-17 from Trident-only back to the full
+  // five-item snack rotation (Trident + Spinach + Carrots + Apple (Gala) +
+  // Mustard) per Ethan's request: "auto-populate the whole plan every day
+  // moving forward starting tomorrow." Values mirror the live Sheet's
+  // mealplan endpoint (?type=mealplan, planTemplate field) as of 2026-05-17.
+  // The Sheets fetch overwrites this on every load — keeping the fallback in
+  // sync is a nice-to-have, not a correctness requirement.
+  { food_id:'trident-white-sn',             food_name:'Trident White',              meal:'Snack',     qty:8,       unit:'pieces', calories:20,  protein:0,    carbs:8,    fat:0    },
+  { food_id:'spinach-sn',                   food_name:'Spinach',                    meal:'Snack',     qty:6,       unit:'cups',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
+  { food_id:'carrots-sn',                   food_name:'Carrots',                    meal:'Snack',     qty:149.6,   unit:'grams',  calories:53,  protein:0,    carbs:12.3, fat:0    },
+  { food_id:'apple-gala-sn',                food_name:'Apple (Gala)',               meal:'Snack',     qty:223.6,   unit:'g',      calories:127, protein:0.6,  carbs:30.6, fat:0.3  },
+  { food_id:'mustard-sn',                   food_name:'Mustard',                    meal:'Snack',     qty:3,       unit:'tbsp',   calories:15,  protein:0,    carbs:12,   fat:0    },
 ];
 
-// Foods explicitly removed from the meal plan — filter these out of Sheets-synced templates too
-// Foods explicitly excluded from the autopopulated daily meal plan.
-// Exact names + name-prefixes for variant-heavy foods (e.g. all "Rice Cake (...)" variants).
-const REMOVED_PLAN_FOODS = new Set(['Apple (Envy)', 'Cottage Cheese (2%, Good Culture)']);
-const REMOVED_PLAN_FOOD_PREFIXES = ['Rice Cake'];   // matches "Rice Cake", "Rice Cake (Chocolate)", "Rice Cake (Caramel)", etc.
-// 2026-05-16: Olive Oil intentionally NOT added here. Olive Oil removal needs
-// date-gating (historical consumption pre-2026-05-15 is real and must be
-// preserved). It's handled separately in `_isStaleRemotePlanEntry` with a
-// per-rule cutoff date, not via the un-gated isRemovedPlanFood predicate.
-function isRemovedPlanFood(name) {
-  if (!name) return false;
-  if (REMOVED_PLAN_FOODS.has(name)) return true;
-  return REMOVED_PLAN_FOOD_PREFIXES.some(p => name === p || name.startsWith(p + ' ') || name.startsWith(p + '('));
-}
+// 2026-05-17: removed `REMOVED_PLAN_FOODS` Set, `REMOVED_PLAN_FOOD_PREFIXES`
+// array, and `isRemovedPlanFood` predicate. They were a holdover from when
+// specific SKUs (Apple Envy, Cottage Cheese 2% Good Culture, all Rice Cake
+// variants) had been removed from the daily meal plan template. Per Ethan's
+// "streamline this" — the Sheet's planTemplate IS the source of truth, so
+// silently stripping items from it on the client side was a footgun: any
+// future re-add to the Sheet would be invisible.
+//
+// What the removal does NOT change:
+//   • Food tab entries (manual logs AND past autopop rows) were never filtered
+//     by this predicate — they flow through `mergeFoodEntries` with the
+//     date-gated `_isStaleRemotePlanEntry` rules instead. Historical Rice Cake
+//     / Apple Envy / Cottage Cheese 2% logs continue to display unchanged.
+//   • Date-gated removals (currently only Olive Oil from 2026-05-15+) still
+//     work — they live in `_isStaleRemotePlanEntry` and were never coupled
+//     to this filter.
+//
+// Manual cleanup needed: NONE. The 1 surviving plan row in the Sheet's Food
+// tab (`plan-cottage-cheese-2-good-cu-sn-2026-04-15`) was already visible in
+// the app pre-change — the filter only acted on the autopop TEMPLATE path.
 
 // Meal name corrections for Sheets-synced templates (Supper items sometimes come back as Dinner/Evening Snack).
 // Includes BOTH the actual single-dash IDs the Apps Script generates (e.g. 'apple-gala-es') AND the
@@ -3711,16 +3453,13 @@ function normalizeEntryMeal(e) {
   return e;
 }
 
-// Snack autopopulation is intentionally minimal: only Trident gum is included.
-// Drop any other Snack-meal entries that come back from the Sheets template.
-function isExcludedSnack(item) {
-  return item && item.meal === 'Snack' && item.food_name !== 'Trident White';
-}
+// 2026-05-17: removed `isExcludedSnack` helper (snack autopop re-opened to the
+// full rotation) AND `isRemovedPlanFood` filter (footgun cleanup — see comment
+// block above). `sanitizePlanTemplate` now only normalizes meal names; it no
+// longer filters items out. The Sheet's planTemplate is the source of truth.
 
 function sanitizePlanTemplate(template) {
   return template
-    .filter(item => !isRemovedPlanFood(item.food_name))
-    .filter(item => !isExcludedSnack(item))
     .map(item => {
       // Fix meal name: items with -es suffix belong to Supper, not Dinner
       if (SUPPER_FOOD_IDS.has(item.food_id) && item.meal !== 'Supper') {
@@ -3787,12 +3526,15 @@ function createPlanEntries(date) {
       const entries = JSON.parse(raw);
       let changed = false;
       const filtered = entries.filter(e => {
-        // Remove explicitly excluded foods (Rice Cake, Apple (Envy), Cottage Cheese)
-        // BUT only from autopopulated plan entries — never delete a manually logged entry,
-        // even if its food_name matches the removed list.
+        // 2026-05-17: the prior `isRemovedPlanFood`-based step was dropped
+        // alongside the filter itself (see top of file). v11's Rice Cake /
+        // Apple Envy / Cottage Cheese 2% local-cleanup no longer runs on
+        // fresh devices; the idle-merge path picks up the slack against the
+        // Sheet's current planTemplate. The Snack non-Trident clause below
+        // stays for any device that hasn't run v11 yet — it's still a
+        // legitimate one-time cleanup (snacks ran in Trident-only mode from
+        // 2026-05-14 to 2026-05-17).
         const isPlanEntry = e.plan === true || (e.id && String(e.id).startsWith('plan-'));
-        if (isPlanEntry && isRemovedPlanFood(e.food_name)) { changed = true; return false; }
-        // v11: drop autopopulated non-Trident Snack entries.
         if (isPlanEntry && e.meal === 'Snack' && e.food_name !== 'Trident White') { changed = true; return false; }
         return true;
       }).map(e => {
@@ -3914,20 +3656,10 @@ function getAllFoods() {
 }
 
 // ── Target settings ──────────────────────────────────────────────────────────
-// 2026-05-15: targets are now computed from MEAL_PLAN_TEMPLATE. saveTargets()
-// is intentionally a no-op so any leftover oninput handlers don't write stale
-// values to localStorage. loadTargetFields() just mirrors the computed totals
-// into the read-only Settings inputs.
-function saveTargets() { /* no-op: targets derive from the meal plan */ }
-
-function loadTargetFields() {
-  const t = getFoodTargets();
-  const setVal = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
-  setVal('target-cal', t.cal);
-  setVal('target-protein', t.protein);
-  setVal('target-carbs', t.carbs);
-  setVal('target-fat', t.fat);
-}
+// 2026-05-17: loadTargetFields() / saveTargets() removed. They mirrored
+// meal-plan totals into a read-only preview in Settings that has been deleted.
+// Targets still flow from getFoodTargets() (computed off MEAL_PLAN_TEMPLATE)
+// wherever they're actually used in the UI (food tab, "/ X" target labels).
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 function foodNavDay(dir) {
@@ -4711,22 +4443,6 @@ async function refreshFoodFromSheets() {
   }
 }
 
-async function syncFoodEntriesToSheets(entries) {
-  const url = getSheetsUrl();
-  if (!url || !entries.length) return;
-  try {
-    await sheetsPost(url, { action:'syncFood', entries });
-  } catch(e) { console.warn('Food sync failed:', e); }
-}
-
-async function deleteFoodEntryFromSheets(id) {
-  const url = getSheetsUrl();
-  if (!url) return;
-  try {
-    await sheetsPost(url, { action:'deleteFood', id });
-  } catch(e) { console.warn('Food delete failed:', e); }
-}
-
 async function pullFoodFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
@@ -4786,8 +4502,13 @@ function getPendingDeleteFoodIds() {
 // Rules currently encoded:
 //   - Olive Oil — removed from the plan 2026-05-15. Entries on/after that date
 //     are stale; before are real consumption.
-//   - Snack non-Trident (Apple Gala, Spinach, Carrots, Mustard at Snack) —
-//     autopop slimmed to Trident-only 2026-05-14. Same date-gate logic.
+//
+// 2026-05-17: the prior "Snack non-Trident" rule (which treated non-Trident
+// snack rows from 2026-05-14+ as stale) was removed because Ethan re-opened
+// snack autopop to the full plan. The Sheet's Food tab may still contain
+// non-Trident snack rows for 2026-05-14 → 2026-05-17 from earlier autopop
+// attempts — those will now surface in the app. If that's noise, the
+// cleanup is manual (delete those rows from the Food tab in Sheets).
 //
 // Other historically-removed foods (Rice Cake, Apple Envy, Cottage Cheese)
 // are NOT included here — they were removed pre-2026-05-16 via v9-v11 without
@@ -4801,10 +4522,6 @@ function _isStaleRemotePlanEntry(e) {
   // (a) Olive Oil — removed from the plan 2026-05-15.
   if (e.food_name && /^Olive Oil\b/.test(e.food_name)) {
     return date >= '2026-05-15';
-  }
-  // (b) Snack autopop trimmed to Trident-gum-only on 2026-05-14.
-  if (e.meal === 'Snack' && e.food_name !== 'Trident White') {
-    return date >= '2026-05-14';
   }
   return false;
 }
@@ -5440,10 +5157,9 @@ async function pullHabitsFromSheets() {
   } catch(e) { return null; }
 }
 
-// Steps tracking removed 2026-05-02 — no clean Apple Health import path. The
-// dead `renderTrends` body (further down) still references step data; it
-// already gates everything on a non-existent `panel-trends` element so the
-// orphan refs are unreachable. If Trends ever comes back, scrub steps then.
+// Steps tracking removed 2026-05-02 — no clean Apple Health import path.
+// The old renderTrends body that referenced step data was deleted on
+// 2026-05-17; only the thin DEXA-delegate stub remains.
 
 function mergeHabitsData(local, remoteEntries) {
   // ARCHITECTURAL FIX (2026-04-29 evening): when queue is idle, sheet is truth.
@@ -5504,306 +5220,13 @@ function mergeHabitsData(local, remoteEntries) {
 }
 
 // ─── Trends ──────────────────────────────────────────────────────────────────
-let trendsRange = 0; // 0 = all, 7/30/90 = last N days
-let trendsChart = null;
-
-// Trends tab removed 2026-05-01. setTrendsRange is now a no-op (button is gone).
-function setTrendsRange(_n) { /* removed */ }
-
+// Trends panel was removed 2026-05-01. DEXA is now rendered from renderWeight().
+// renderTrends is kept as a thin delegate because external call sites still
+// invoke it (e.g. tab switching). 2026-05-17 streamline: dropped the
+// unreachable original body (290 lines) and the trendsRange/trendsChart
+// globals + setTrendsRange no-op, which were only referenced inside it.
 function renderTrends() {
-  // Trends panel was removed 2026-05-01. DEXA is now rendered from renderWeight().
-  // Returning early keeps the rest of the (now-dead) trends code from crashing on
-  // missing DOM elements (tr-avg-cal, chart-trends, trends-weekly-body, etc.).
   if (typeof renderDexaSection === 'function') renderDexaSection();
-  return;
-  // Original renderTrends body kept below as unreachable dead code in case
-  // Trends ever needs to come back. The early `return` above prevents execution.
-  // DEXA section is independent of daily data — render up front
-  renderDexaSection();
-
-  // ── Gather data ──
-  const foodEntries = getFoodEntries();
-  const weightData  = load();
-
-  // Aggregate food calories/macros by date (excluding skipped days)
-  const skippedDates = getSkipDates();
-  const foodByDate = {};
-  foodEntries.forEach(e => {
-    if (skippedDates.has(e.date)) return; // skip this day entirely
-    if (!foodByDate[e.date]) foodByDate[e.date] = { cal:0, protein:0, carbs:0, fat:0 };
-    foodByDate[e.date].cal     += Number(e.calories) || 0;
-    foodByDate[e.date].protein += Number(e.protein)  || 0;
-    foodByDate[e.date].carbs   += Number(e.carbs)    || 0;
-    foodByDate[e.date].fat     += Number(e.fat)      || 0;
-  });
-
-  // Weight by date
-  const weightByDate = {};
-  weightData.entries.forEach(e => { weightByDate[e.date] = parseFloat(e.weight); });
-
-  // Steps by date
-  const stepsByDate = getStepsData();
-
-  // All dates in range from any source
-  const allDates = [...new Set([
-    ...Object.keys(foodByDate),
-    ...Object.keys(weightByDate),
-    ...Object.keys(stepsByDate)
-  ])].sort();
-
-  let dates = allDates;
-  if (trendsRange > 0) {
-    const cutoff = addDays(today(), -trendsRange);
-    dates = allDates.filter(d => d >= cutoff);
-  }
-
-  // ── Summary stats ──
-  const foodDates   = dates.filter(d => foodByDate[d]);
-  const weightDates = dates.filter(d => weightByDate[d]);
-
-  const allWt   = weightData.entries.slice().sort((a,b) => a.date.localeCompare(b.date));
-
-  // All stats are framed as 7-day rolling (last 7 completed days, excluding today since today's totals aren't final)
-  const todayStr  = today();
-  const last7days = Array.from({length: 7}, (_, i) => addDays(todayStr, -(i + 1)));
-  const last7food = last7days.filter(d => foodByDate[d]);
-  const avgCal    = last7food.length ? Math.round(last7food.reduce((s,d) => s + foodByDate[d].cal, 0) / last7food.length) : null;
-
-  const wtNow     = rollingAvg(allWt, todayStr, 7);
-  const avgWt     = wtNow !== null ? parseFloat(wtNow.toFixed(1)) : null;
-  const wt7ago    = rollingAvg(allWt, addDays(todayStr, -7), 7);
-  const weeklyRate = (wtNow !== null && wt7ago !== null) ? parseFloat((wtNow - wt7ago).toFixed(2)) : null;
-
-  // 14-day rolling rate (lbs/week) — smoother, less noisy than 7d
-  const wt14ago = rollingAvg(allWt, addDays(todayStr, -14), 7);
-  const rate14  = (wtNow !== null && wt14ago !== null) ? parseFloat(((wtNow - wt14ago) / 2).toFixed(2)) : null;
-
-  // vs goal pace
-  const goalRate = CFG.goalRate || 0.625; // lbs/week loss target
-  const paceSubEl = document.getElementById('tr-pace-sub');
-  if (paceSubEl) paceSubEl.textContent = `14d pace · target −${goalRate}`;
-
-  const last7steps = last7days.filter(d => stepsByDate[d]);
-  const avgSteps   = last7steps.length ? Math.round(last7steps.reduce((s,d) => s + Number(stepsByDate[d]), 0) / last7steps.length) : null;
-
-  document.getElementById('tr-avg-cal').textContent    = avgCal !== null ? avgCal.toLocaleString() + ' kcal' : '—';
-  const avgWtEl = document.getElementById('tr-avg-weight');
-  if (avgWtEl) avgWtEl.textContent = avgWt !== null ? avgWt + ' lbs' : '—';
-  const avgStepsEl = document.getElementById('tr-avg-steps');
-  if (avgStepsEl) avgStepsEl.textContent = avgSteps !== null ? avgSteps.toLocaleString() : '—';
-
-  const paceEl = document.getElementById('tr-vs-pace');
-  if (rate14 !== null) {
-    // Display the actual rate. Negative = losing, positive = gaining.
-    const sign = rate14 > 0 ? '+' : (rate14 < 0 ? '−' : '');
-    paceEl.textContent = sign + Math.abs(rate14).toFixed(2) + ' lbs/wk';
-    // Gentle color: green if at-or-faster than target, muted within 0.3 buffer, amber beyond
-    const diff = rate14 - (-goalRate); // negative = faster/better than target
-    if (diff <= 0) {
-      paceEl.className = 'stat-val clr-green';
-    } else if (diff < 0.3) {
-      paceEl.className = 'stat-val';
-    } else {
-      paceEl.className = 'stat-val clr-orange';
-    }
-  } else {
-    paceEl.textContent = '—';
-    paceEl.className = 'stat-val';
-  }
-
-  // Insight sentence
-  const insightEl = document.getElementById('tr-insight');
-  if (weeklyRate !== null && insightEl) {
-    const wtDir   = weeklyRate < -0.15 ? 'down' : weeklyRate > 0.15 ? 'up' : 'holding steady';
-    const calPart = avgCal !== null ? ` at an avg of ${avgCal.toLocaleString()} cal/day` : '';
-    const paceAdj = Math.abs(weeklyRate - (-goalRate)) < 0.05 ? 'right on your goal pace'
-                  : weeklyRate < -goalRate ? `a bit faster than your ${goalRate} lbs/week goal`
-                  : `a bit slower than your ${goalRate} lbs/week goal`;
-    insightEl.textContent = `Your weight is trending ${wtDir} about ${Math.abs(weeklyRate).toFixed(1)} lbs/week${calPart} — ${paceAdj}.`;
-    insightEl.style.display = 'block';
-  } else if (insightEl) {
-    insightEl.style.display = 'none';
-  }
-
-  if (!dates.length) {
-    document.getElementById('trends-weekly-body').innerHTML =
-      '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No data yet — log food and weight entries to see trends.</td></tr>';
-    return;
-  }
-
-  // ── Main chart ──
-  const calData    = dates.map(d => foodByDate[d] ? Math.round(foodByDate[d].cal) : null);
-  const wtAvgData  = dates.map(d => { const a = rollingAvg(allWt, d, 7); return a ? parseFloat(a.toFixed(1)) : null; });
-  const stepsData  = dates.map(d => stepsByDate[d] ? Number(stepsByDate[d]) : null);
-
-  // Set calorie y-axis min: dynamic floor based on lowest day, but never above 2000
-  const calValues = calData.filter(v => v !== null);
-  const dynamicMin = calValues.length ? Math.floor((Math.min(...calValues) - 200) / 100) * 100 : 0;
-  const calMin = Math.min(dynamicMin, 2000);
-
-  if (trendsChart) { trendsChart.destroy(); trendsChart = null; }
-  const ctx = document.getElementById('chart-trends');
-  if (!ctx) return;
-
-  trendsChart = new Chart(ctx, {
-    data: {
-      labels: dates,
-      datasets: [
-        {
-          type: 'bar',
-          label: 'Calories',
-          data: calData,
-          backgroundColor: 'rgba(99,102,241,0.22)',
-          borderColor: 'rgba(99,102,241,0.55)',
-          borderWidth: 1,
-          borderRadius: 4,
-          yAxisID: 'yCal',
-          order: 3,
-        },
-        {
-          type: 'line',
-          label: 'Weight (7d avg)',
-          data: wtAvgData,
-          borderColor: '#f97316',
-          backgroundColor: '#f97316',
-          borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          pointBackgroundColor: '#f97316',
-          tension: 0,
-          fill: false,
-          spanGaps: true,
-          yAxisID: 'yWt',
-          order: 1,
-        },
-        {
-          type: 'line',
-          label: 'Steps',
-          data: stepsData,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16,185,129,0.1)',
-          borderWidth: 2,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-          pointBackgroundColor: '#10b981',
-          tension: 0.3,
-          fill: true,
-          spanGaps: true,
-          yAxisID: 'ySteps',
-          order: 2,
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: window.innerWidth < 600 ? 1.3 : window.innerWidth < 1024 ? 1.8 : 1.6,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: true, position: 'top',
-          labels: { boxWidth: 12, font: { size: 11 } }
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              if (ctx.dataset.label === 'Calories')
-                return ' ' + (ctx.raw !== null ? ctx.raw.toLocaleString() + ' kcal' : '—');
-              if (ctx.dataset.label === 'Steps')
-                return ' ' + (ctx.raw !== null ? ctx.raw.toLocaleString() + ' steps' : '—');
-              return ' ' + (ctx.raw !== null ? ctx.raw + ' lbs' : '—');
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: dates.length > 60 ? 'month' : dates.length > 14 ? 'week' : 'day',
-            tooltipFormat: 'MMM d',
-            displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' }
-          },
-          grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#94a3b8', maxRotation: 30 },
-        },
-        yCal: {
-          type: 'linear',
-          position: 'left',
-          min: calMin,
-          grid: { color: '#f1f5f9' },
-          ticks: { font: { size: 10 }, color: '#94a3b8', callback: v => v >= 1000 ? (v/1000).toFixed(1)+'k' : v },
-          title: { display: true, text: 'Calories', font: { size: 10 }, color: '#94a3b8' },
-        },
-        yWt: {
-          type: 'linear',
-          position: 'left',
-          grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#f97316', callback: v => v + '' },
-          title: { display: true, text: 'Weight (lbs)', font: { size: 10 }, color: '#f97316' },
-        },
-        ySteps: {
-          type: 'linear',
-          position: 'right',
-          display: true,
-          min: 0,
-          grid: { display: false },
-          ticks: { font: { size: 10 }, color: '#10b981', callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v },
-          title: { display: true, text: 'Steps', font: { size: 10 }, color: '#10b981' },
-        },
-      }
-    }
-  });
-
-  // ── Weekly averages table ──
-  const weekMap = {};
-  dates.forEach(d => {
-    const dt  = new Date(d + 'T12:00:00');
-    const day = dt.getDay();
-    const diff = (day === 0) ? -6 : 1 - day;
-    const mon  = new Date(dt);
-    mon.setDate(dt.getDate() + diff);
-    const wk = mon.toISOString().slice(0, 10);
-    if (!weekMap[wk]) weekMap[wk] = { cal:[], protein:[], carbs:[], fat:[], weight:[], steps:[] };
-    if (foodByDate[d]) {
-      weekMap[wk].cal.push(foodByDate[d].cal);
-      weekMap[wk].protein.push(foodByDate[d].protein);
-      weekMap[wk].carbs.push(foodByDate[d].carbs);
-      weekMap[wk].fat.push(foodByDate[d].fat);
-    }
-    if (weightByDate[d]) weekMap[wk].weight.push(weightByDate[d]);
-    if (stepsByDate[d]) weekMap[wk].steps.push(Number(stepsByDate[d]));
-  });
-
-  const weeks = Object.keys(weekMap).sort().reverse();
-  const avg   = arr => arr.length ? arr.reduce((s,v) => s+v, 0) / arr.length : null;
-  const fmtWk = d => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
-
-  const weekAvgWts = weeks.map(wk => { const w = avg(weekMap[wk].weight); return w ? parseFloat(w.toFixed(1)) : null; });
-
-  const tbody = document.getElementById('trends-weekly-body');
-  if (!weeks.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">No data</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = weeks.map((wk, i) => {
-    const w        = weekMap[wk];
-    const avgCalWk = avg(w.cal);
-    const avgStWk  = avg(w.steps);
-    const avgWtWk  = weekAvgWts[i];
-    const prevWt   = weekAvgWts[i+1];
-    const delta    = (avgWtWk !== null && prevWt !== null) ? avgWtWk - prevWt : null;
-    const dStr     = delta !== null ? (delta > 0 ? '+' : '') + delta.toFixed(1) + ' lbs' : '—';
-    const dColor   = delta === null ? '' : (delta < -0.1 ? 'color:var(--green)' : delta > 0.1 ? 'color:var(--red)' : '');
-    return `<tr>
-      <td><strong>${fmtWk(wk)}</strong></td>
-      <td style="text-align:right">${avgCalWk !== null ? Math.round(avgCalWk).toLocaleString() : '—'}</td>
-      <td style="text-align:right;color:#10b981">${avgStWk !== null ? Math.round(avgStWk).toLocaleString() : '—'}</td>
-      <td style="text-align:right">${avgWtWk  !== null ? avgWtWk : '—'}</td>
-      <td style="text-align:right;font-weight:700;${dColor}">${dStr}</td>
-    </tr>`;
-  }).join('');
 }
 
 // ─── DEXA Body Composition ───────────────────────────────────────────────────
@@ -6681,6 +6104,141 @@ if (typeof syncOnVisibility === 'function') {
     } catch(e) { /* swallow — non-critical */ }
   };
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// init() — runs last so every `let`-declared global it touches (FOOD_DB,
+// MEAL_PLAN_TEMPLATE, FOOD_LIBRARY_CACHE_KEY, etc.) is fully initialized
+// before this code executes. See the relocation note higher in the file
+// (~where this IIFE used to live, just below `setHeaderDateLabel`).
+// 2026-05-17 audit fix.
+// ══════════════════════════════════════════════════════════════════════════
+(async function init(){
+  const td = today();
+
+  // Set date label in header (MacroFactor style)
+  setHeaderDateLabel(td);
+
+  // Load food library from localStorage cache so the dropdown is ready instantly
+  try {
+    const cached = JSON.parse(localStorage.getItem(FOOD_LIBRARY_CACHE_KEY));
+    if (cached && Array.isArray(cached.foods) && cached.foods.length) {
+      FOOD_DB = cached.foods;
+      if (Array.isArray(cached.planTemplate) && cached.planTemplate.length) {
+        MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(cached.planTemplate);
+      }
+    }
+  } catch(e) {}
+
+  renderWeight();
+  // 2026-05-16 audit fix: resize was firing a full destroy+rebuild of the weight
+  // chart on every pixel of drag while dragging a desktop window edge or rotating
+  // a phone. Debounced to ~150ms so we only rebuild once the resize settles.
+  let _resizeChartT = null;
+  window.addEventListener('resize', () => {
+    if (_resizeChartT) clearTimeout(_resizeChartT);
+    _resizeChartT = setTimeout(() => { const d = load(); drawWeightChart(d); }, 150);
+  });
+
+  // Habits is the default tab — render it on load
+  setTimeout(()=>{ renderHabits(); }, 100);
+
+  // Auto-populate today's meal plan on boot (regardless of which tab is active)
+  // Deferred slightly so FOOD_DB / MEAL_PLAN_TEMPLATE from cache are ready
+  setTimeout(ensureTodayMealPlan, 50);
+
+  // Show backup status
+  setTimeout(updateBackupStatus, 100);
+
+  // Re-sync when user returns to the tab (handles multi-device usage)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) syncOnVisibility();
+  });
+
+  // Try Sheets sync
+  const sheetsUrl = getSheetsUrl();
+  if (sheetsUrl) {
+    updateSyncUI('yellow','Connecting to Google Sheets...');
+    // Pull weight, food entries, food library, habits, run challenge, and DEXA in parallel
+    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote, skipDatesRemote] = await Promise.all([
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(),
+      pullRCFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets()
+    ]);
+    if (remote) {
+      const local = load();
+      const merged = mergeEntries(local.entries, remote);
+      if (JSON.stringify(merged) !== JSON.stringify(local.entries)) { local.entries=merged; save(local); renderWeight(); }
+    }
+    if (foodRemote) {
+      const localFood  = getFoodEntries();
+      const mergedFood = mergeFoodEntries(localFood, foodRemote);
+      if (JSON.stringify(mergedFood) !== JSON.stringify(localFood)) {
+        saveFoodEntriesDB(mergedFood);
+        // RENDER FIX 2026-05-10: re-render food if its tab is active. Without this,
+        // a fast mobile open (user switches to food before the pull completes) renders
+        // from stale local, then the merge silently updates local without refreshing
+        // the DOM — surfaced as "phantom wipe" of newer entries (reproduced w/ Ethan
+        // 2026-05-10 using an almond butter entry on desktop). Same shape as 5/5 habits.
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+      }
+    }
+    if (habitsRemote && habitsRemote.length) {
+      const localHabits = getHabitsData();
+      const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
+      if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) {
+        saveHabitsData(mergedHabits);
+        // RENDER FIX 2026-05-10: habits is the DEFAULT tab. The setTimeout renderHabits
+        // ~100ms in (line ~3277) fires from stale local before this merge finishes.
+        // Without re-rendering here, toggles reflect pre-pull state until next nav.
+        if (document.getElementById('panel-habits')?.classList.contains('active')) renderHabits();
+      }
+    }
+    if (dexaRemote) {
+      const localDexa = getDexaScans();
+      const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
+      if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) {
+        saveDexaScans(mergedDexa);
+        // RENDER FIX 2026-05-10: DEXA section lives on the weight tab. renderWeight is
+        // already called on the remote-weight branch above, but if only DEXA changed
+        // (weight didn't), the section stays stale until next nav.
+        if (typeof renderDexaSection === 'function') renderDexaSection();
+      }
+    }
+    if (skipDatesRemote) {
+      const mergedSkip = mergeSkipDates(skipDatesRemote);
+      const localArr   = [...getSkipDates()].sort();
+      const mergedArr  = [...mergedSkip].sort();
+      if (JSON.stringify(mergedArr) !== JSON.stringify(localArr)) {
+        saveSkipDates(mergedSkip);
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+      }
+    }
+    if (libraryData && Array.isArray(libraryData.foods) && libraryData.foods.length) {
+      FOOD_DB = libraryData.foods;
+      if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) {
+        // Capture raw totals BEFORE sanitization (see other sync handler).
+        setRawPlanTotalsFromTemplate(libraryData.planTemplate);
+        MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
+      }
+      // Update cache with fresh data from Sheets
+      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch(e) {}
+      // Refresh the food dropdown if the food tab is visible
+      if (document.getElementById('panel-food').classList.contains('active')) populateFoodSelect();
+    }
+    // After Sheets pull, update backup status (meal plan was already ensured above)
+    updateBackupStatus();
+    // Trends tab removed 2026-05-01; null-safe in case panel ever returns.
+    if (document.getElementById('panel-trends')?.classList.contains('active')) renderTrends();
+
+    // Phase 3 backfill — push any local-only entries to the sheet (one-time, idempotent).
+    // Runs AFTER pull-merge so we have remote sets to diff against. Don't await:
+    // the queue handles this in the background and we don't want to block init.
+    runBackfillMigration({
+      weightRemote: remote, foodRemote, habitsRemote
+    }).catch(() => {});
+  }
+  // Initialize food sync button state
+  updateFoodSyncUI();
+})();
 </script>
 </body>
 </html>
