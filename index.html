@@ -2437,6 +2437,14 @@ function loadCfgFields() {
   if (nd) nd.value = CFG.nextDexaDate || '';
 }
 
+// 2026-05-16 audit fix: the 7 Settings → Body Comp Target inputs each call
+// saveCfg() on every keystroke (oninput). Each call mutates CFG, writes to
+// localStorage, AND redraws the weight chart + trends — typing a 10-char date
+// rebuilt the chart ten times. Now: state + persistence still happen
+// immediately (so closing the panel mid-edit doesn't lose data), but the
+// render storm is debounced to ~250ms so the heavy work only runs once the
+// user stops typing.
+let _saveCfgRenderT = null;
 function saveCfg() {
   const sd = document.getElementById('cfg-start-date');
   const sw = document.getElementById('cfg-start-weight');
@@ -2457,8 +2465,8 @@ function saveCfg() {
     goalWeight: CFG.goalWeight, goalRate: CFG.goalRate, bfTarget: CFG.bfTarget,
     lastDexaDate: CFG.lastDexaDate, nextDexaDate: CFG.nextDexaDate
   }));
-  renderWeight();
-  renderTrends();
+  if (_saveCfgRenderT) clearTimeout(_saveCfgRenderT);
+  _saveCfgRenderT = setTimeout(() => { renderWeight(); renderTrends(); }, 250);
 }
 
 function toggleSettings() {
@@ -3313,7 +3321,14 @@ function setHeaderDateLabel(yyyymmdd) {
   } catch(e) {}
 
   renderWeight();
-  window.addEventListener('resize', ()=>{ const d=load(); drawWeightChart(d); });
+  // 2026-05-16 audit fix: resize was firing a full destroy+rebuild of the weight
+  // chart on every pixel of drag while dragging a desktop window edge or rotating
+  // a phone. Debounced to ~150ms so we only rebuild once the resize settles.
+  let _resizeChartT = null;
+  window.addEventListener('resize', () => {
+    if (_resizeChartT) clearTimeout(_resizeChartT);
+    _resizeChartT = setTimeout(() => { const d = load(); drawWeightChart(d); }, 150);
+  });
 
   // Habits is the default tab — render it on load
   setTimeout(()=>{ renderHabits(); }, 100);
@@ -4325,6 +4340,21 @@ function closeCustomFoodModal() {
     const el = document.getElementById(id); if(el) el.value = '';
   });
 }
+
+// 2026-05-16 audit fix: previously the DEXA modal, custom food modal, and
+// settings drawer could only be dismissed by outside-click or the Cancel button.
+// Escape now closes whichever overlay is currently open (in stacking order:
+// top-most first). The existing per-input Escape handlers on inline weight-row
+// editors are attached to individual inputs and still fire there.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const dexa     = document.getElementById('dexa-modal-overlay');
+  const customFd = document.getElementById('custom-food-modal');
+  const settings = document.getElementById('settings-panel');
+  if (dexa && dexa.classList.contains('open'))           { closeDexaForm(); return; }
+  if (customFd && customFd.classList.contains('open'))   { closeCustomFoodModal(); return; }
+  if (settings && settings.classList.contains('open'))   { toggleSettings(); return; }
+});
 async function saveCustomFood() {
   const name    = document.getElementById('cf-name').value.trim();
   const serving = parseFloat(document.getElementById('cf-serving').value) || 1;
