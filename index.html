@@ -473,34 +473,7 @@
     }
     @keyframes fadeup { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
 
-    /* ───── Phase 2 cleanup: per-tab sync bars hidden ─────
-       The pending-writes queue (Phase 1+2) handles all sheet writes automatically,
-       and the global header sync badge shows queue status. Per-tab "Sync to Sheets"
-       buttons are dead (operate on always-empty dirty sets). The DOM is preserved
-       so any handlers that reference these IDs still resolve, but nothing is shown.
-       Manual force-refresh is now via the global sync badge (clickable). */
-    .tab-sync-bar { display: none !important; }
-
-    /* Make the global sync badge clickable as the single manual-refresh entry point */
-    .sync-badge { cursor: pointer; user-select: none; }
-    .sync-badge:hover { opacity: 0.85; }
-    .sync-badge:active { transform: scale(0.97); }
-
-    /* ───── Sync indicator ───── */
-    .sync-bar {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--card); border-radius: var(--radius);
-      padding: 10px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.07);
-      margin-bottom: 18px; font-size: 0.82rem; color: var(--muted);
-    }
-    .sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-    .sync-dot.green { background: #10b981; }
-    .sync-dot.yellow { background: #f59e0b; animation: pulse-dot 1.2s infinite; }
-    .sync-dot.red { background: #ef4444; }
-    .sync-dot.gray { background: #94a3b8; }
     @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .sync-bar .sync-msg { flex: 1; }
-    .sync-bar .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
 
     /* ───── Settings panel ───── */
     .settings-toggle {
@@ -552,18 +525,6 @@
     }
     .inspo-text { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 0.85rem; font-weight: 600; color: var(--muted); letter-spacing: 0.3px; z-index: 1; }
 
-    /* ───── Sync status badge ───── */
-    .sync-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 0.78rem; color: var(--muted); padding: 4px 10px;
-      background: var(--bg); border-radius: 8px; margin-left: auto;
-      white-space: nowrap;
-    }
-    .sync-badge .sync-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .sync-badge .sync-dot.green { background: #10b981; }
-    .sync-badge .sync-dot.yellow { background: #f59e0b; animation: pulse-dot 1.2s infinite; }
-    .sync-badge .sync-dot.red { background: #ef4444; }
-    .sync-badge .sync-dot.gray { background: #94a3b8; }
     .backup-nudge {
       background: #fef9c3; border: 1.5px solid #fde68a; border-radius: 10px;
       padding: 10px 16px; margin-bottom: 14px; font-size: 0.84rem; color: #92400e;
@@ -842,23 +803,6 @@
       background: #f59e0b; color: #fff;
     }
     .btn-skip-on:hover { background: #d97706; }
-    /* ── Food sync button ── */
-    .food-sync-bar {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      padding: 10px 16px; border-radius: var(--radius); background: var(--card);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 14px;
-    }
-    .food-sync-bar .sync-label { flex: 1 1 100%; font-size: 0.84rem; color: var(--muted); min-width: 0; }
-    @media(min-width:520px){ .food-sync-bar .sync-label { flex: 1 1 auto; } }
-    .food-sync-bar .sync-label.dirty { color: var(--orange); font-weight: 600; }
-    .btn-sync-food {
-      padding: 8px 14px; border-radius: 10px; font-size: 0.84rem; font-weight: 700;
-      cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; flex: 0 1 auto;
-    }
-    .btn-sync-food.clean { background: var(--border); color: var(--muted); }
-    .btn-sync-food.dirty { background: var(--primary); color: #fff; }
-    .btn-sync-food.dirty:hover { background: var(--primary-2); }
-    .btn-sync-food.syncing { background: var(--yellow); color: #fff; cursor: wait; }
     .food-skipped-overlay {
       text-align: center; padding: 40px 20px; color: #92400e;
       font-size: 0.95rem; line-height: 1.6;
@@ -1179,61 +1123,6 @@
     .ibm-month { font-size:0.82rem; font-weight:800; color:var(--primary); }
     .ibm-detail { font-size:0.68rem; color:var(--muted); }
 
-    /* Habit sync bar */
-    /* Shared sync bar styles for Weight, Habits, Food.
-       Slim treatment when "All synced": tiny dot + label. Expands when there's work to do. */
-    .tab-sync-bar {
-      display:flex; align-items:center; gap:8px; padding:7px 12px; flex-wrap:wrap;
-      border-radius:10px; background:var(--card);
-      box-shadow:0 1px 2px rgba(0,0,0,0.04); margin-bottom:12px;
-      min-height:36px;
-    }
-    .tab-sync-bar .sync-label {
-      flex:1 1 auto; font-size:0.78rem; color:var(--muted); min-width:0;
-      display:flex; align-items:center; gap:7px;
-    }
-    .tab-sync-bar .sync-label::before {
-      content:''; display:inline-block; width:7px; height:7px; border-radius:50%;
-      background:var(--green); flex-shrink:0;
-    }
-    .tab-sync-bar .sync-label.dirty { color:var(--orange); font-weight:600; }
-    .tab-sync-bar .sync-label.dirty::before { background:var(--orange); }
-    .btn-sync {
-      padding:5px 12px; border-radius:7px; font-size:0.74rem; font-weight:700;
-      cursor:pointer; border:none; transition:all 0.15s; white-space:nowrap;
-      letter-spacing:0.2px;
-    }
-    .btn-sync.clean { background:transparent; color:var(--muted); padding:5px 8px; }
-    .btn-sync.clean:hover { background:var(--bg); color:var(--text); }
-    .btn-sync.dirty { background:var(--primary); color:#fff; padding:6px 14px; }
-    .btn-sync.dirty:hover { background:var(--primary-2); }
-    .btn-sync.syncing { background:var(--yellow); color:#fff; cursor:wait; }
-    .btn-sync.refresh { background:transparent; color:var(--accent); padding:5px 8px; }
-    .btn-sync.refresh:hover { background:#eef2ff; }
-    /* On narrow viewports the label + 2 buttons can't fit on one line — stack the label on top
-       and put the buttons on a clean right-aligned second row instead of wrapping mid-row. */
-    @media(max-width:480px){
-      .tab-sync-bar { flex-wrap:wrap; row-gap:4px; padding:7px 10px; }
-      .tab-sync-bar .sync-label { flex:1 1 100%; }
-      .tab-sync-bar .btn-sync:first-of-type { margin-left:auto; }
-    }
-    /* Legacy aliases */
-    .habit-sync-bar {
-      display:flex; align-items:center; gap:10px; padding:10px 16px;
-      border-radius:var(--radius); background:var(--card);
-      box-shadow:0 1px 3px rgba(0,0,0,0.06); margin-bottom:14px;
-    }
-    .habit-sync-bar .sync-label { flex:1; font-size:0.84rem; color:var(--muted); }
-    .habit-sync-bar .sync-label.dirty { color:var(--orange); font-weight:600; }
-    .btn-sync-habits {
-      padding:8px 18px; border-radius:10px; font-size:0.84rem; font-weight:700;
-      cursor:pointer; border:none; transition:all 0.15s; white-space:nowrap;
-    }
-    .btn-sync-habits.clean { background:var(--border); color:var(--muted); }
-    .btn-sync-habits.dirty { background:var(--primary); color:#fff; }
-    .btn-sync-habits.dirty:hover { background:var(--primary-2); }
-    .btn-sync-habits.syncing { background:var(--yellow); color:#fff; cursor:wait; }
-
     @media(max-width:580px){
       .streak-grid { grid-template-columns:1fr 1fr; }
       .habit-nav-btn { width:48px; height:48px; font-size:1.6rem; }
@@ -1310,7 +1199,7 @@
 </head>
 <body>
 <canvas id="confetti"></canvas>
-<button class="settings-toggle" onclick="toggleSettings()" title="Google Sheets settings">⚙</button>
+<button class="settings-toggle" onclick="toggleSettings()" aria-label="Open Google Sheets settings" title="Google Sheets settings">⚙</button>
 <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
 <div class="settings-panel" id="settings-panel">
   <h3>Google Sheets Sync</h3>
@@ -1351,9 +1240,9 @@
 
     <!-- Day navigator -->
     <div class="food-nav">
-      <button class="food-nav-btn" onclick="foodNavDay(-1)">‹</button>
+      <button class="food-nav-btn" onclick="foodNavDay(-1)" aria-label="Previous day">‹</button>
       <span class="food-nav-date" id="food-nav-label">Today</span>
-      <button class="food-nav-btn" onclick="foodNavDay(1)">›</button>
+      <button class="food-nav-btn" onclick="foodNavDay(1)" aria-label="Next day">›</button>
     </div>
 
     <!-- MacroFactor-style macro top bar -->
@@ -1383,13 +1272,6 @@
     <div style="display:none">
       <span id="food-cal-day-label"></span>
       <span id="rem-protein"></span><span id="rem-carbs"></span><span id="rem-fat"></span>
-    </div>
-
-    <!-- Sync to Sheets button -->
-    <div class="tab-sync-bar" id="food-sync-bar">
-      <span class="sync-label" id="food-sync-label">In sync with Google Sheets</span>
-      <button class="btn-sync clean" id="food-sync-btn" onclick="pushFoodToSheets()">Sync to Sheets</button>
-      <button class="btn-sync refresh" id="food-refresh-btn" onclick="refreshFoodFromSheets()">Refresh from Sheets</button>
     </div>
 
     <!-- Log food form -->
@@ -1449,7 +1331,7 @@
   <!-- ════ Custom Food Modal ════ -->
   <div class="modal-bg" id="custom-food-modal" onclick="if(event.target===this)closeCustomFoodModal()">
     <div class="modal-box">
-      <h3>Add Custom Food <button class="modal-close-btn" onclick="closeCustomFoodModal()">×</button></h3>
+      <h3>Add Custom Food <button class="modal-close-btn" onclick="closeCustomFoodModal()" aria-label="Close dialog">×</button></h3>
 
       <!-- Scan Barcode button + camera panel -->
       <button class="btn" id="cf-scan-btn" type="button" onclick="startBarcodeScan()" style="width:100%;margin-bottom:12px;background:#e0e7ff;color:#4338ca;font-weight:600">📷 Scan Barcode</button>
@@ -1510,12 +1392,6 @@
         <div class="journey-target" id="journey-target">12% BF</div>
         <div class="journey-target-lbl">the vision</div>
       </div>
-    </div>
-
-    <!-- Weight sync bar -->
-    <div class="tab-sync-bar" id="weight-sync-bar">
-      <span class="sync-label" id="weight-sync-label">In sync with Google Sheets</span>
-      <button class="btn-sync refresh" id="weight-refresh-btn" onclick="refreshWeightFromSheets()">Refresh from Sheets</button>
     </div>
 
     <!-- Watchface stats (v2 2026-04-30): just today + 7-day avg, big and breathing. -->
@@ -1651,16 +1527,9 @@
 
     <!-- Day navigator -->
     <div class="habit-nav">
-      <button class="habit-nav-btn" onclick="habitNavDay(-1)">‹</button>
+      <button class="habit-nav-btn" onclick="habitNavDay(-1)" aria-label="Previous day">‹</button>
       <span class="habit-nav-date" id="habit-nav-label">Today</span>
-      <button class="habit-nav-btn" onclick="habitNavDay(1)">›</button>
-    </div>
-
-    <!-- Sync bar -->
-    <div class="tab-sync-bar">
-      <span class="sync-label" id="habit-sync-label">All synced</span>
-      <button class="btn-sync clean" id="habit-sync-btn" onclick="pushHabitsToSheets()">Sync to Sheets</button>
-      <button class="btn-sync refresh" id="habit-refresh-btn" onclick="refreshHabitsFromSheets()">Refresh from Sheets</button>
+      <button class="habit-nav-btn" onclick="habitNavDay(1)" aria-label="Next day">›</button>
     </div>
 
     <!-- Journal — free-form notes timestamped to-the-minute, cross-referenced
@@ -1740,8 +1609,8 @@ const CFG = {
   goalWeight:   174,
   goalRate:     0.65,
   bfTarget:     12,
-  lastDexaDate: '2026-03-21',
-  nextDexaDate: '2026-05-15'
+  lastDexaDate: '2026-05-15',
+  nextDexaDate: '2026-05-31'
 };
 // Helper: weeks to reach goalWeight at goalRate (used for drawing goal pace line only)
 function projectedGoalDate() {
@@ -1797,7 +1666,7 @@ async function pullDexaFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    const res = await fetch(url + '?type=dexa');
+    const res = await noCacheFetch(url + '?type=dexa');
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.entries)) return null;
     return data.entries;
@@ -1844,6 +1713,30 @@ const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDat
 const fmtDateShort = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}); };
 const fmtMonYear = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',year:'numeric'}); };
 const esc = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+// Escape a string for safe embedding inside a single-quoted HTML attribute value
+// (e.g. onclick="fn('${attrEsc(name)}')"). HTML-escape covers <,>,&,"; we also
+// escape ' so the attribute can't be broken out of by names containing apostrophes.
+const attrEsc = s => esc(String(s == null ? '' : s)).replace(/'/g, '&#39;');
+// Cross-device-unique ID. crypto.randomUUID is supported in all modern browsers
+// (Safari 15.4+, Chrome 92+); falls back to a device-prefixed random ID for older
+// engines. Device prefix prevents the rare same-ms cross-device collision in the
+// fallback path. Used for food entries (synced to Sheets, collated cross-device).
+const DEVICE_ID_KEY = 'cut_tracker_device_id';
+function getDeviceId() {
+  let id = '';
+  try { id = localStorage.getItem(DEVICE_ID_KEY) || ''; } catch(e) {}
+  if (!id) {
+    id = 'd' + Math.random().toString(36).slice(2, 8);
+    try { safeSetItem(DEVICE_ID_KEY, id); } catch(e) {}
+  }
+  return id;
+}
+function makeEntryId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return getDeviceId() + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
 // Normalize any date string to YYYY-MM-DD (handles full Date.toString() from Sheets)
 function normalizeDate(d) {
   if (!d) return '';
@@ -1899,15 +1792,10 @@ function setSheetsUrl(url) { safeSetItem(SHEETS_URL_KEY, url); }
 
 function updateSyncUI(status, msg) {
   const cls = 'sync-dot ' + (status === 'green' ? 'green' : status === 'yellow' ? 'yellow' : status === 'red' ? 'red' : 'gray');
-  // Update both the in-tab backup-bar badge AND the always-visible header badge.
-  ['sync-badge-dot', 'header-sync-dot'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.className = cls;
-  });
-  ['sync-badge-msg', 'header-sync-msg'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = msg;
-  });
+  const dot = document.getElementById('header-sync-dot');
+  const msgEl = document.getElementById('header-sync-msg');
+  if (dot) dot.className = cls;
+  if (msgEl) msgEl.textContent = msg;
   if (status === 'green') { try { safeSetItem(LAST_SYNC_KEY, new Date().toISOString()); } catch(e){} }
   if (status === 'red') showToast('⚠ ' + msg);
 }
@@ -1930,7 +1818,7 @@ async function pushToSheets(entries) {
   try {
     await sheetsPost(url, {action:'sync',entries});
     updateSyncUI('green', 'Synced to Google Sheets');
-    setTimeout(()=>{ const d=document.getElementById('sync-badge-dot'); if(d&&d.classList.contains('green')) updateSyncUI('green','Connected to Google Sheets'); }, 3000);
+    setTimeout(()=>{ const d=document.getElementById('header-sync-dot'); if(d&&d.classList.contains('green')) updateSyncUI('green','Connected to Google Sheets'); }, 3000);
   } catch(err) { updateSyncUI('red','Sync failed — check your connection'); }
 }
 
@@ -1938,7 +1826,7 @@ async function pullFromSheets() {
   const url = getSheetsUrl(); if (!url) return null;
   updateSyncUI('yellow','Pulling from Google Sheets...');
   try {
-    const res = await fetch(url); const json = await res.json();
+    const res = await noCacheFetch(url); const json = await res.json();
     if (!json.ok || !Array.isArray(json.entries)) { updateSyncUI('red','Pull failed — invalid response'); return null; }
     updateSyncUI('green','Connected to Google Sheets'); return json.entries;
   } catch(err) { updateSyncUI('red','Could not reach Google Sheets'); return null; }
@@ -1975,10 +1863,22 @@ async function sheetsPostJson(url, payload) {
   return json;
 }
 
+// All GET pulls go through this wrapper so the browser can't serve a stale
+// cached response. Apps Script doesn't set cache headers, and iOS Safari in
+// PWA mode is particularly aggressive about caching identical URLs — without
+// busting, desktop / second-device pulls can silently return yesterday's data.
+// Belt-and-suspenders: cache:'no-store' + a per-request timestamp so any
+// intermediate cache (browser, CDN, future SW) treats each pull as unique.
+function noCacheFetch(url, opts) {
+  const sep = url.includes('?') ? '&' : '?';
+  const bustedUrl = url + sep + '_=' + Date.now();
+  return fetch(bustedUrl, Object.assign({ cache: 'no-store' }, opts || {}));
+}
+
 // GET-side strict pull. Used by lastModified probe and future per-tab reads.
 async function sheetsGetJson(url, params) {
   const qs = params ? ('?' + Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&')) : '';
-  const res = await fetch(url + qs);
+  const res = await noCacheFetch(url + qs);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const json = await res.json();
   if (!json || json.ok !== true) throw new Error((json && json.error) || 'Server returned ok:false');
@@ -1989,6 +1889,15 @@ async function sheetsGetJson(url, params) {
 const PENDING_WRITES_KEY = 'pending_writes_v1';
 const QUEUE_MAX_ATTEMPTS = 10;
 const QUEUE_FLUSH_DEBOUNCE_MS = 5000;
+const QUEUE_MAX_BACKOFF_MS = 30000;
+// UI timing
+const TOAST_DURATION_MS = 3500;
+const CHART_RESIZE_DEBOUNCE_MS = 150;
+// Background polling — while the tab is visible, re-sync from Sheets every minute
+// so edits made on another device show up without requiring a manual refresh.
+// The interval is harmless when the tab is hidden because syncOnVisibility
+// short-circuits on document.hidden.
+const BACKGROUND_POLL_INTERVAL_MS = 60000;
 
 let _queueFlushTimer = null;
 let _queueFlushing   = false;
@@ -2006,8 +1915,60 @@ function getQueueStatus() {
   return 'pending';
 }
 
+// Per-domain pending count, used so a refresh on one domain (e.g. weight)
+// isn't blocked just because another domain (e.g. food) has stuck writes.
+// Returns { weight: n, food: n, habit: n, rc: n, dexa: n, journal: n, skip: n }.
+function _pendingByDomain() {
+  const out = { weight: 0, food: 0, habit: 0, rc: 0, dexa: 0, journal: 0, skip: 0 };
+  _readQueue().forEach(it => {
+    const k = _coalesceKey(it.op, it.payload);
+    if (!k) return;
+    const domain = k.split(':')[0];
+    if (domain in out) out[domain]++;
+  });
+  return out;
+}
+
+// Background poll lifecycle. Captured handle so disconnect can stop the
+// interval and reconnect can restart it without a page reload.
+let _pollIntervalId = null;
+function startBackgroundPoll() {
+  if (_pollIntervalId) return;
+  if (!getSheetsUrl()) return;
+  _pollIntervalId = setInterval(() => { syncOnVisibility(); }, BACKGROUND_POLL_INTERVAL_MS);
+}
+function stopBackgroundPoll() {
+  if (_pollIntervalId) { clearInterval(_pollIntervalId); _pollIntervalId = null; }
+}
+
+// Per-resource key used to coalesce queue items: two writes that target the
+// same row collapse to just the latest one. Sheet operations are last-writer-
+// wins per row, so dropping the older write is always safe and matches what
+// the user would observe on the Sheet anyway.
+function _coalesceKey(op, payload) {
+  if (!payload) return null;
+  switch (op) {
+    case 'addFood':
+    case 'updateFood':
+    case 'deleteFood':                  return 'food:' + payload.id;
+    case 'setWeight':
+    case 'deleteWeight':                return 'weight:' + payload.date;
+    case 'setHabit':                    return 'habit:' + payload.date + '|' + payload.habit;
+    case 'setRunChallengeForDate':
+    case 'deleteRunChallengeForDate':   return 'rc:' + payload.date;
+    case 'setDexa':
+    case 'deleteDexa':                  return 'dexa:' + payload.date;
+    case 'addJournal':
+    case 'updateJournal':
+    case 'deleteJournal':               return 'journal:' + payload.timestamp;
+    case 'setSkipDay':                  return 'skip:' + payload.date;
+    default:                            return null;
+  }
+}
+
 // Enqueue a write. Caller is responsible for already having applied the
-// optimistic UI change. Returns the queue item id.
+// optimistic UI change. Returns the queue item id. If an unprocessed write
+// already targets the same row, it's removed in favor of this newer one.
 function enqueueWrite(op, payload) {
   const item = {
     id:      'w_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
@@ -2015,7 +1976,14 @@ function enqueueWrite(op, payload) {
     attempt: 0,
     ts:      new Date().toISOString(),
   };
-  const q = _readQueue();
+  const key = _coalesceKey(op, payload);
+  let q = _readQueue();
+  if (key) {
+    // Drop earlier pending items targeting the same row. If one is mid-flight
+    // it has already been sent to the network; that's fine — last-write-wins on
+    // the Sheet means our new write supersedes it on completion either way.
+    q = q.filter(it => _coalesceKey(it.op, it.payload) !== key);
+  }
   q.push(item);
   _writeQueue(q);
   _updateQueueStatusUI();
@@ -2095,7 +2063,7 @@ async function flushQueue() {
     const retryable = remaining.filter(it => (it.attempt || 0) < QUEUE_MAX_ATTEMPTS);
     if (retryable.length > 0) {
       const maxAttempt = Math.max.apply(null, retryable.map(it => it.attempt || 0));
-      const backoffMs  = Math.min(30000, 1000 * Math.pow(2, maxAttempt)) + Math.random() * 500;
+      const backoffMs  = Math.min(QUEUE_MAX_BACKOFF_MS, 1000 * Math.pow(2, maxAttempt)) + Math.random() * 500;
       setTimeout(() => flushQueue(), backoffMs);
     }
   }
@@ -2142,7 +2110,19 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online',  () => flushQueue());
   window.addEventListener('focus',   () => flushQueue());
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') flushQueue();
+    // Becoming visible: flush so writes made while suspended get sent now.
+    // Becoming hidden: also flush so writes made just before backgrounding
+    // (e.g. on mobile, logging a weight then locking the phone) get one last
+    // chance to send before iOS/Android suspend the JS context. The queue
+    // persists to localStorage either way, so worst case the write rides on
+    // the next visibility change — but this catches most cases promptly.
+    if (_readQueue().length > 0) flushQueue();
+  });
+  // pagehide is the most reliable "tab going away" signal in PWAs. Browsers
+  // often skip beforeunload/unload there but always fire pagehide. Best-effort
+  // flush: if the request gets killed mid-flight, the queue retries next load.
+  window.addEventListener('pagehide', () => {
+    if (_readQueue().length > 0) flushQueue();
   });
   // Debug accessor — handy for poking at the queue from devtools.
   window.__queue = {
@@ -2255,50 +2235,6 @@ async function runBackfillMigration({ weightRemote, foodRemote, habitsRemote }) 
   return enqueued;
 }
 
-// ─── Weight manual sync (matches Food/Habits pattern) ─────────────────────
-const weightDirtyDates = new Set();
-
-function markWeightDirty(date) {
-  if (date) weightDirtyDates.add(date);
-  updateWeightSyncUI();
-}
-
-function updateWeightSyncUI() {
-  const label = document.getElementById('weight-sync-label');
-  const btn = document.getElementById('weight-sync-btn');
-  if (!label || !btn) return;
-  if (weightDirtyDates.size > 0) {
-    label.textContent = weightDirtyDates.size + ' unsaved change' + (weightDirtyDates.size > 1 ? 's' : '');
-    label.className = 'sync-label dirty';
-    btn.className = 'btn-sync dirty';
-  } else {
-    label.textContent = 'In sync with Google Sheets';
-    label.className = 'sync-label';
-    btn.className = 'btn-sync clean';
-  }
-}
-
-async function refreshWeightFromSheets() {
-  const url = getSheetsUrl();
-  if (!url) { showToast('No Sheets URL configured'); return; }
-  // Phase 3 cleanup: dropped dirty-set check (queue keeps sheet authoritative).
-  const btn = document.getElementById('weight-refresh-btn');
-  if (btn) { btn.textContent = 'Refreshing…'; btn.disabled = true; }
-  try {
-    const remote = await pullFromSheets();
-    if (!remote) throw new Error('Pull failed');
-    const local = load();
-    local.entries = mergeEntries(local.entries, remote);
-    save(local);
-    renderWeight();
-    showToast('✓ Weight refreshed from Google Sheets');
-  } catch(e) {
-    showToast('Refresh failed — your local data was not changed');
-  } finally {
-    if (btn) { btn.textContent = 'Refresh from Sheets'; btn.disabled = false; }
-  }
-}
-
 function mergeEntries(local, remote) {
   // ARCHITECTURAL FIX (2026-04-29 evening): see mergeFoodEntries comment.
   // When queue is idle, sheet is source of truth — overwrite local entirely so
@@ -2326,9 +2262,11 @@ function toggleSettings() {
   }
 }
 
+const SHEETS_URL_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/;
+
 async function saveSettings() {
   const url = document.getElementById('sheets-url').value.trim();
-  if (url && !url.startsWith('https://script.google.com/')) { alert('Please enter a valid Google Apps Script URL'); return; }
+  if (url && !SHEETS_URL_RE.test(url)) { alert('Please enter a valid Google Apps Script Web App URL (https://script.google.com/macros/s/.../exec)'); return; }
   setSheetsUrl(url); toggleSettings();
   if (url) {
     const remote = await pullFromSheets();
@@ -2353,19 +2291,36 @@ async function saveSettings() {
     }
     // Trends tab removed 2026-05-01; line kept null-safe in case anything still references it.
     if (document.getElementById('panel-trends')?.classList.contains('active')) renderTrends();
-    updateFoodSyncUI();
-    updateHabitSyncUI();
+    // Newly configured — kick off the cross-device background poll.
+    startBackgroundPoll();
   }
 }
 
+// Settings → "Refresh from Sheets" uses the same safe path as the header
+// sync badge: drain queue first, then pull-merge across all domains.
 async function forcePull() {
-  const [remote, habitsRemote] = await Promise.all([pullFromSheets(), pullHabitsFromSheets()]);
-  if (remote) { const local=load(); local.entries=mergeEntries(local.entries,remote); save(local); renderWeight(); if (document.getElementById('panel-trends')?.classList.contains('active')) renderTrends(); }
-  if (habitsRemote && habitsRemote.length) { const lh=getHabitsData(); saveHabitsData(mergeHabitsData(lh,habitsRemote)); if(document.getElementById('panel-habits').classList.contains('active')) renderHabits(); }
-  showToast('✓ Pulled & merged from Google Sheets');
+  toggleSettings();
+  await manualForceRefresh();
 }
-async function forcePush() { const data=load(); updateSyncUI('yellow','Pushing all data...'); await pushToSheets(data.entries); showToast('✓ Pushed all entries'); }
-function disconnectSheets() { setSheetsUrl(''); updateSyncUI('gray','Disconnected'); toggleSettings(); showToast('Disconnected — local data preserved'); }
+// Settings → "Push all to Sheets". Drains the queue (in case writes are pending),
+// then enqueues every local weight entry so the bulk push goes through the same
+// retry-safe queue path as normal writes (no risk of clobbering in-flight ops).
+async function forcePush() {
+  if (typeof getQueueStatus === 'function' && getQueueStatus() !== 'idle') {
+    updateSyncUI('yellow', 'Finishing pending writes…');
+    try { await flushQueue(); } catch (e) {}
+  }
+  const data = load();
+  data.entries.forEach(e => { if (e && e.date && e.weight) enqueueWrite('setWeight', e); });
+  showToast('✓ Queued ' + data.entries.length + ' weight entries for push');
+}
+function disconnectSheets() {
+  setSheetsUrl('');
+  stopBackgroundPoll();
+  updateSyncUI('gray','Disconnected');
+  toggleSettings();
+  showToast('Disconnected — local data preserved');
+}
 
 // ─── Weight Calculations ──────────────────────────────────────────────────────
 function rollingAvg(entries, date, n=7) {
@@ -2769,8 +2724,9 @@ function editNote(date) {
   const data=load(), entry=data.entries.find(e=>e.date===date);
   const cell=document.getElementById('note-'+date);
   const current=entry?(entry.notes||''):'';
-  cell.innerHTML=`<input class="note-input" id="note-input-${date}" type="text" value="${current.replace(/"/g,'&quot;')}" /><button class="btn-save" onclick="saveNote('${date}')" title="Save">✓</button>`;
+  cell.innerHTML=`<input class="note-input" id="note-input-${date}" type="text" /><button class="btn-save" onclick="saveNote('${date}')" title="Save" aria-label="Save note">✓</button>`;
   const input=document.getElementById('note-input-'+date);
+  input.value=current;
   input.focus();
   input.addEventListener('keydown',e=>{if(e.key==='Enter')saveNote(date);if(e.key==='Escape')renderWeight();});
 }
@@ -2785,8 +2741,8 @@ function saveNote(date) {
   }
   renderWeight();
 }
-function deleteEntry(date) {
-  if (!confirm(`Delete weight entry for ${fmtDate(date)}?`)) return;
+async function deleteEntry(date) {
+  if (!(await confirmAsync(`Delete weight entry for ${fmtDate(date)}?`))) return;
   const data=load();
   data.entries=data.entries.filter(e=>e.date!==date);
   save(data);
@@ -2830,9 +2786,9 @@ function renderHistory(data) {
       <td>${avg?avg.toFixed(1)+' lbs':'—'}</td>
       <td class="note-cell" id="note-${e.date}">${e.notes?esc(e.notes):''}</td>
       <td style="white-space:nowrap">
-        <button class="btn-edit" onclick="editDate('${e.date}')" title="Edit date">📅</button>
-        <button class="btn-edit" onclick="editNote('${e.date}')" title="Edit note">✎</button>
-        <button class="btn-delete" onclick="deleteEntry('${e.date}')" title="Delete">✕</button>
+        <button class="btn-edit" onclick="editDate('${e.date}')" aria-label="Edit date for ${fmtDate(e.date)}" title="Edit date">📅</button>
+        <button class="btn-edit" onclick="editNote('${e.date}')" aria-label="Edit note for ${fmtDate(e.date)}" title="Edit note">✎</button>
+        <button class="btn-delete" onclick="deleteEntry('${e.date}')" aria-label="Delete entry for ${fmtDate(e.date)}" title="Delete">✕</button>
       </td></tr>`;
   });
   html += '</tbody></table>';
@@ -2920,8 +2876,54 @@ function importData(e) {
 function showToast(msg) {
   const el=document.getElementById('import-toast');
   el.textContent=msg; el.style.display='block';
-  setTimeout(()=>{el.style.display='none';},3500);
+  setTimeout(()=>{el.style.display='none';}, TOAST_DURATION_MS);
 }
+
+// In-app modal helpers — promise-based replacements for the native window.confirm
+// and window.prompt. Native dialogs block the page on mobile and don't match the
+// rest of the UI. These reuse the existing .modal-bg / .modal-box styling.
+//
+// Returns:
+//   confirmAsync(msg)        → Promise<boolean>
+//   promptAsync(msg, def)    → Promise<string|null>  (null on cancel)
+function _appModal({ title, message, defaultValue, isPrompt }) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-bg open';
+    overlay.style.zIndex = '1000';
+    const inputHtml = isPrompt
+      ? `<input type="text" id="app-modal-input" style="width:100%;margin-top:12px;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.95rem;font-family:inherit;background:var(--bg);color:var(--text);outline:none">`
+      : '';
+    overlay.innerHTML = `
+      <div class="modal-box" style="max-width:420px">
+        ${title ? `<h3 style="margin-bottom:8px">${esc(title)}</h3>` : ''}
+        <div style="font-size:0.92rem;color:var(--text);line-height:1.4">${esc(message)}</div>
+        ${inputHtml}
+        <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
+          <button class="btn-outline" id="app-modal-cancel" style="width:auto;padding:8px 16px">Cancel</button>
+          <button class="btn" id="app-modal-ok" style="width:auto;padding:8px 16px">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#app-modal-input');
+    const okBtn = overlay.querySelector('#app-modal-ok');
+    if (input) { input.value = defaultValue == null ? '' : defaultValue; input.focus(); input.select(); }
+    else { okBtn.focus(); }
+    const finish = (result) => { overlay.remove(); resolve(result); };
+    const cancelVal = isPrompt ? null : false;
+    const confirmVal = () => isPrompt ? (input ? input.value : '') : true;
+    overlay.addEventListener('click', e => { if (e.target === overlay) finish(cancelVal); });
+    overlay.querySelector('#app-modal-cancel').onclick = () => finish(cancelVal);
+    okBtn.onclick = () => finish(confirmVal());
+    overlay.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); finish(cancelVal); }
+      else if (e.key === 'Enter' && (!input || document.activeElement === input)) { e.preventDefault(); finish(confirmVal()); }
+    });
+  });
+}
+function confirmAsync(message, title) { return _appModal({ title, message, isPrompt: false }); }
+function promptAsync(message, defaultValue, title) { return _appModal({ title, message, defaultValue, isPrompt: true }); }
 
 // Wrapper around localStorage.setItem that catches QuotaExceededError and other write
 // failures so they don't silently corrupt local state. Returns true on success, false on failure.
@@ -3003,19 +3005,25 @@ async function manualForceRefresh() {
   await syncOnVisibility(/* forceEvenIfHidden */ true);
 }
 
+// Reentrancy guard — when the 60s background poll, a manual refresh, and a
+// visibility-change handler all fire close together, they share the same
+// in-flight promise rather than running duplicate Promise.all + merge work.
+let _syncInFlight = null;
+
 async function syncOnVisibility(forceEvenIfHidden) {
   const sheetsUrl = getSheetsUrl();
   if (!sheetsUrl) return;
   if (!forceEvenIfHidden && document.hidden) return;
-  // Phase 2: don't refresh while the queue is mid-flight — that would risk
-  // overwriting optimistic-UI state with a stale sheet read. Wait for queue
-  // to drain (it auto-flushes on focus, so usually clears within a beat).
-  // manualForceRefresh drains the queue first, so it bypasses this guard.
-  if (typeof getQueueStatus === 'function' && getQueueStatus() !== 'idle') {
-    return;
-  }
+  if (_syncInFlight) return _syncInFlight;
+  // Per-domain pending check: pull every domain, but only APPLY the merge for
+  // a given domain if there are no pending writes for that domain. Prevents
+  // stuck writes in one area (e.g. a flaky food upload) from blocking pulls
+  // in unrelated areas (weight, habits, etc.).
+  // Manual force-refresh drains the queue first, so it can skip this guard.
+  const pending = forceEvenIfHidden ? { weight:0, food:0, habit:0, rc:0, dexa:0, journal:0, skip:0 } : _pendingByDomain();
   updateSyncUI('yellow', 'Re-syncing...');
-  try {
+  _syncInFlight = (async () => {
+    try {
     // Pull all 6 domains so everything stays in sync across devices.
     // (Was 7 — steps removed 2026-05-02.) Library was previously init-only,
     // which meant a manual refresh (or PWA resume) never picked up new foods
@@ -3024,29 +3032,29 @@ async function syncOnVisibility(forceEvenIfHidden) {
     const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote, skipDatesRemote] = await Promise.all([
       pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullRCFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets()
     ]);
-    if (remote) {
+    if (remote && pending.weight === 0) {
       const local = load();
       const merged = mergeEntries(local.entries, remote);
       if (JSON.stringify(merged) !== JSON.stringify(local.entries)) {
         local.entries = merged; save(local); renderWeight();
       }
     }
-    if (foodRemote) {
+    if (foodRemote && pending.food === 0) {
       const localFood = getFoodEntries();
       const mergedFood = mergeFoodEntries(localFood, foodRemote);
       if (JSON.stringify(mergedFood) !== JSON.stringify(localFood)) saveFoodEntriesDB(mergedFood);
     }
-    if (habitsRemote && habitsRemote.length) {
+    if (habitsRemote && habitsRemote.length && pending.habit === 0) {
       const localHabits = getHabitsData();
       const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
       if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) saveHabitsData(mergedHabits);
     }
-    if (dexaRemote) {
+    if (dexaRemote && pending.dexa === 0) {
       const localDexa = getDexaScans();
       const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
       if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) saveDexaScans(mergedDexa);
     }
-    if (skipDatesRemote) {
+    if (skipDatesRemote && pending.skip === 0) {
       const mergedSkip = mergeSkipDates(skipDatesRemote);
       const localArr  = [...getSkipDates()].sort();
       const mergedArr = [...mergedSkip].sort();
@@ -3074,9 +3082,29 @@ async function syncOnVisibility(forceEvenIfHidden) {
     if (document.getElementById('panel-habits') && document.getElementById('panel-habits').classList.contains('active')) renderHabits();
     if (document.getElementById('panel-trends') && document.getElementById('panel-trends').classList.contains('active')) renderTrends();
     if (document.getElementById('panel-run')    && document.getElementById('panel-run').classList.contains('active')    && typeof renderRunChallenge === 'function') renderRunChallenge();
-  } catch(e) {
-    updateSyncUI('red', 'Re-sync failed');
-  }
+
+    // Journal pull is non-critical — keep it isolated so a journal failure
+    // doesn't trip the outer catch and flag the whole re-sync as failed.
+    try {
+      if (typeof pullJournalFromSheets === 'function' && pending.journal === 0) {
+        const journalRemote = await pullJournalFromSheets();
+        if (journalRemote) {
+          const localJ = getJournalDataLocal();
+          const mergedJ = mergeJournalEntries(localJ, journalRemote);
+          if (JSON.stringify(mergedJ) !== JSON.stringify(localJ)) {
+            saveJournalDataLocal(mergedJ);
+            renderJournal();
+          }
+        }
+      }
+    } catch(_) { /* journal sync is best-effort */ }
+    } catch(e) {
+      updateSyncUI('red', 'Re-sync failed');
+    } finally {
+      _syncInFlight = null;
+    }
+  })();
+  return _syncInFlight;
 }
 
 // ─── One-time migration: remove rice cake & cottage cheese from stored entries ──
@@ -3317,7 +3345,7 @@ function toggleSkipDay() {
 async function pullSkipDatesFromSheets() {
   const url = getSheetsUrl(); if (!url) return null;
   try {
-    const res  = await fetch(url + '?type=skipDates');
+    const res  = await noCacheFetch(url + '?type=skipDates');
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.dates)) return null;
     return data.dates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
@@ -3798,7 +3826,7 @@ function logFood() {
     logTime = mealTimeToHHMM(MEAL_TIMES[meal] || '12:00 PM');
   }
   const entry = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    id: makeEntryId(),
     date: foodCurrentDate,
     meal,
     time: logTime,
@@ -3890,8 +3918,8 @@ function editFoodTime(id) {
   editEl.innerHTML = `<input type="time" id="et-${id}" value="${currentTime}"
     style="padding:4px 8px;border:1.5px solid var(--primary);border-radius:6px;font-size:0.82rem;font-family:inherit;background:var(--bg);color:var(--text)"
     onkeydown="if(event.key==='Enter')saveFoodTime('${id}')">
-    <button class="btn-save" onclick="saveFoodTime('${id}')" title="Save">✓</button>
-    <button class="btn-save" onclick="renderFood()" title="Cancel" style="color:var(--muted)">✕</button>`;
+    <button class="btn-save" onclick="saveFoodTime('${id}')" aria-label="Save time" title="Save">✓</button>
+    <button class="btn-save" onclick="renderFood()" aria-label="Cancel" title="Cancel" style="color:var(--muted)">✕</button>`;
   editEl.style.cssText = 'display:flex;align-items:center;gap:4px;margin-top:4px';
   row.querySelector('.food-entry-info').appendChild(editEl);
   document.getElementById('et-'+id).focus();
@@ -3987,7 +4015,6 @@ function renderFood() {
     if (macroSummary) macroSummary.style.display = 'none';
     if (foodForm) foodForm.style.display = 'none';
     if (foodEntries) foodEntries.innerHTML = '<div class="card food-skipped-overlay"><div class="skip-big-icon">⏭</div><strong>Day skipped</strong><br>Calorie data for this day won\'t affect your trends or averages.<br>Hit "Resume tracking" below if you change your mind.</div>';
-    updateFoodSyncUI();
     return;
   } else {
     if (macroSummary) macroSummary.style.display = '';
@@ -4073,7 +4100,6 @@ function renderFood() {
   if (!container) return;
   if (groups.length === 0) {
     container.innerHTML = '<div class="food-empty" style="text-align:center;color:var(--muted);padding:32px 0;font-size:0.88rem">No food logged for this day yet.</div>';
-    updateFoodSyncUI();
     return;
   }
   container.innerHTML = '<div class="food-timeline">' + groups.map(g => {
@@ -4097,9 +4123,9 @@ function renderFood() {
           </div>
         </div>
         <div class="food-entry-actions">
-          <button class="food-delete-btn" onclick="editFoodTime('${e.id}')" title="Change time">🕐</button>
-          <button class="food-delete-btn" onclick="editFoodEntry('${e.id}')" title="Edit qty">✎</button>
-          <button class="food-delete-btn" onclick="deleteFoodEntry('${e.id}')" title="Delete">✕</button>
+          <button class="food-delete-btn" onclick="editFoodTime('${e.id}')" aria-label="Change time for ${esc(e.food_name)}" title="Change time">🕐</button>
+          <button class="food-delete-btn" onclick="editFoodEntry('${e.id}')" aria-label="Edit quantity of ${esc(e.food_name)}" title="Edit qty">✎</button>
+          <button class="food-delete-btn" onclick="deleteFoodEntry('${e.id}')" aria-label="Delete ${esc(e.food_name)}" title="Delete">✕</button>
         </div>
       </div>`).join('');
     return `<div class="food-meal-card">
@@ -4119,9 +4145,6 @@ function renderFood() {
       <div class="food-entries-list">${rows}</div>
     </div>`;
   }).join('') + '</div>';
-
-  // Always refresh sync bar visibility
-  updateFoodSyncUI();
 }
 
 // ── Custom Food ──────────────────────────────────────────────────────────────
@@ -4386,68 +4409,15 @@ function _prefillCustomFoodForm(p) {
   set('cf-fat',     p.fat);
 }
 
-// ── Google Sheets — Calorie Counting sync ────────────────────────────────────
-// Food sync is now MANUAL — user presses the "Sync to Sheets" button.
-// Only dates with explicit edits get pushed.
-
-const foodDirtyDates = new Set(); // dates with unsaved local changes
-
-function markFoodDirty() {
-  foodDirtyDates.add(foodCurrentDate);
-  updateFoodSyncUI();
-}
-
-function updateFoodSyncUI() {
-  const bar   = document.getElementById('food-sync-bar');
-  const label = document.getElementById('food-sync-label');
-  const btn   = document.getElementById('food-sync-btn');
-  if (!bar || !label || !btn) return;
-  bar.style.display = getSheetsUrl() ? 'flex' : 'none';
-  const dirty = foodDirtyDates.size > 0;
-  if (dirty) {
-    const n = foodDirtyDates.size;
-    label.textContent = n === 1 ? 'Unsaved changes for 1 day' : `Unsaved changes for ${n} days`;
-    label.className   = 'sync-label dirty';
-    btn.textContent   = 'Sync to Sheets';
-    btn.className     = 'btn-sync dirty';
-  } else {
-    label.textContent = 'In sync with Google Sheets';
-    label.className   = 'sync-label';
-    btn.textContent   = 'Sync to Sheets';
-    btn.className     = 'btn-sync clean';
-  }
-}
-
-// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
-async function pushFoodToSheets() {
-  showToast('All food log changes sync automatically');
-}
-
-async function refreshFoodFromSheets() {
-  const url = getSheetsUrl();
-  if (!url) { showToast('No Sheets URL configured'); return; }
-  // Phase 3 cleanup: dropped dirty-set check (queue keeps sheet authoritative).
-  const btn = document.getElementById('food-refresh-btn');
-  if (btn) { btn.textContent = 'Refreshing…'; btn.disabled = true; }
-  try {
-    const remote = await pullFoodFromSheets();
-    if (!remote) throw new Error('Pull failed');
-    saveFoodEntriesDB(remote);
-    localStorage.removeItem(FOOD_INIT_DATES_KEY);
-    renderFood();
-    showToast('✓ Food log refreshed from Google Sheets (' + remote.length + ' entries)');
-  } catch(e) {
-    showToast('Refresh failed — your local data was not changed');
-  } finally {
-    if (btn) { btn.textContent = 'Refresh from Sheets'; btn.disabled = false; }
-  }
-}
+// ── Google Sheets — Food log sync ────────────────────────────────────────────
+// All writes go through the pending-writes queue (see enqueueWrite). The header
+// sync badge is the single manual-refresh entry point.
 
 async function pullFoodFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    const res  = await fetch(url + '?type=food');
+    const res  = await noCacheFetch(url + '?type=food');
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.entries)) return null;
     // Normalize dates — Sheets may return full Date strings instead of YYYY-MM-DD
@@ -4461,7 +4431,7 @@ async function pullFoodLibraryFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    const res  = await fetch(url + '?type=mealplan');
+    const res  = await noCacheFetch(url + '?type=mealplan');
     const data = await res.json();
     return data.ok ? data : null;
   } catch(e) { return null; }
@@ -4603,7 +4573,6 @@ const HABITS_KEY = 'habits_tracker_v1';
 const HABITS_LIST_KEY = 'habits_list_v1';
 const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch', 'vacuums'];
 let habitViewDate = today();
-const habitDirtyDates = new Set();
 
 // Countable-habit machinery (water as oz/bottles) was removed 2026-05-05.
 // Water habit removed entirely from default tracking 2026-05-13. Historical
@@ -4635,8 +4604,6 @@ function setHabitForDate(date, habit, fields) {
   // Stamp local edit time so mergeHabitsData can do newer-wins on conflict with Sheets
   data[date][habit].updated = new Date().toISOString();
   saveHabitsData(data);
-  habitDirtyDates.add(date);
-  updateHabitSyncUI();
   // Phase 2: enqueue the granular setHabit write (single-row upsert).
   // Note: previously, only done=TRUE rows were pushed to the sheet (absent = not done).
   // We now push explicit FALSE rows on toggle-off so the sheet is the source of truth.
@@ -4687,9 +4654,10 @@ function renderHabits() {
       const isExercise = (h === 'exercise');
 
       // Default binary habit UI for all habits.
+      const hAttr = attrEsc(h);
       return `
         <div class="habit-item">
-          <button class="habit-toggle ${entry.done?'done':''}" onclick="toggleHabit('${esc(h)}')" title="${entry.done?'Mark not done':'Mark done'}">
+          <button class="habit-toggle ${entry.done?'done':''}" onclick="toggleHabit('${hAttr}')" aria-label="${entry.done?'Mark '+esc(h)+' not done':'Mark '+esc(h)+' done'}" title="${entry.done?'Mark not done':'Mark done'}">
             ${entry.done ? '✓' : ''}
           </button>
           <div class="habit-info">
@@ -4699,10 +4667,10 @@ function renderHabits() {
                 ${entry.notes ? 'Edit notes' : 'Add notes'}
               </button>`}
               <textarea class="habit-notes" style="display:${(isExercise || entry.notes)?'block':'none'}" placeholder="${isExercise ? 'What did you do?' : 'How did it go?'}"
-                onchange="setHabitForDate('${habitViewDate}','${esc(h)}',{notes:this.value})">${esc(entry.notes||'')}</textarea>
+                onchange="setHabitForDate('${habitViewDate}','${hAttr}',{notes:this.value})">${esc(entry.notes||'')}</textarea>
             ` : ''}
           </div>
-          ${!isDefault ? `<button class="habit-remove-btn" onclick="removeCustomHabit('${esc(h)}')" title="Remove habit">✕</button>` : ''}
+          ${!isDefault ? `<button class="habit-remove-btn" onclick="removeCustomHabit('${hAttr}')" aria-label="Remove habit ${esc(h)}" title="Remove habit">✕</button>` : ''}
         </div>
       `;
     }).join('');
@@ -4711,6 +4679,7 @@ function renderHabits() {
   renderHabitStreaks();
   renderHabitHeatmap();
   renderHabitInsights();
+  renderRunChallenge();
 }
 
 function toggleHabit(habit) {
@@ -4769,8 +4738,8 @@ function addCustomHabit() {
   showToast(`✓ Added "${name}"`);
 }
 
-function removeCustomHabit(habit) {
-  if (!confirm(`Remove "${habit}" from your habits?`)) return;
+async function removeCustomHabit(habit) {
+  if (!(await confirmAsync(`Remove "${habit}" from your habits?`))) return;
   const habits = getHabitsList().filter(h => h !== habit);
   saveHabitsList(habits);
   // Also remove data for this habit from all dates
@@ -4945,70 +4914,13 @@ function renderHabitInsights() {
   const allDates = Object.keys(data).filter(d => d <= td).sort();
   if (!allDates.length) { container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem">No habit data yet.</p>'; return; }
 
-  const firstDate = allDates[0];
-  const years = [2026];
-
-  // ── Per-habit stats ──
-  function calcLongestStreak(habit) {
-    let longest = 0, current = 0;
-    const d = new Date(firstDate + 'T12:00:00');
-    const end = new Date(td + 'T12:00:00');
-    while (d <= end) {
-      const ds = d.toISOString().slice(0,10);
-      if (data[ds] && data[ds][habit] && data[ds][habit].done) {
-        current++;
-        if (current > longest) longest = current;
-      } else {
-        current = 0;
-      }
-      d.setDate(d.getDate() + 1);
-    }
-    return longest;
-  }
-
-  function calcTotalDays(habit) {
-    let count = 0;
-    for (const d of allDates) {
-      if (data[d] && data[d][habit] && data[d][habit].done) count++;
-    }
-    return count;
-  }
-
-  function calcBestMonth(habit) {
-    const months = {};
-    for (const d of allDates) {
-      if (data[d] && data[d][habit] && data[d][habit].done) {
-        const m = d.slice(0,7);
-        months[m] = (months[m] || 0) + 1;
-      }
-    }
-    let best = '', bestCount = 0;
-    for (const [m, c] of Object.entries(months)) {
-      if (c > bestCount) { best = m; bestCount = c; }
-    }
-    if (!best) return null;
-    const [y, mo] = best.split('-');
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return { label: monthNames[parseInt(mo)-1] + ' ' + y, count: bestCount };
-  }
-
-  // Overall stats
-  let totalCompletions = 0;
-  let totalTrackedDays = allDates.length;
-  habits.forEach(h => { totalCompletions += calcTotalDays(h); });
-  const overallLongest = Math.max(...habits.map(h => calcLongestStreak(h)));
-  const longestHabit = habits.find(h => calcLongestStreak(h) === overallLongest) || '';
-
-  // Days span
-  const daySpan = Math.round((new Date(td) - new Date(firstDate)) / 86400000) + 1;
-
   let html = '';
 
   // ── Habit filter toggle ──
   html += '<div class="insights-habit-toggle">';
   html += `<button class="${insightsActiveHabit==='all'?'active':''}" onclick="insightsActiveHabit='all';renderHabitInsights()">All</button>`;
   habits.forEach(h => {
-    html += `<button class="${insightsActiveHabit===h?'active':''}" onclick="insightsActiveHabit='${esc(h)}';renderHabitInsights()">${esc(h)}</button>`;
+    html += `<button class="${insightsActiveHabit===h?'active':''}" onclick="insightsActiveHabit='${attrEsc(h)}';renderHabitInsights()">${esc(h)}</button>`;
   });
   html += '</div>';
 
@@ -5101,54 +5013,11 @@ function renderHabitInsights() {
   container.innerHTML = html;
 }
 
-function updateHabitSyncUI() {
-  const btn = document.getElementById('habit-sync-btn');
-  const label = document.getElementById('habit-sync-label');
-  if (!btn || !label) return;
-  if (habitDirtyDates.size > 0) {
-    label.textContent = `${habitDirtyDates.size} day${habitDirtyDates.size>1?'s':''} to sync`;
-    label.className = 'sync-label dirty';
-    btn.textContent = 'Sync to Sheets';
-    btn.className = 'btn-sync dirty';
-  } else {
-    label.textContent = 'All synced';
-    label.className = 'sync-label';
-    btn.textContent = 'Sync to Sheets';
-    btn.className = 'btn-sync clean';
-  }
-}
-
-// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
-async function pushHabitsToSheets() {
-  showToast('All habit changes sync automatically');
-}
-
-async function refreshHabitsFromSheets() {
-  const url = getSheetsUrl();
-  if (!url) { showToast('No Sheets URL configured'); return; }
-  // Phase 3 cleanup: dropped dirty-set check (queue keeps sheet authoritative).
-  const btn = document.getElementById('habit-refresh-btn');
-  if (btn) { btn.textContent = 'Refreshing…'; btn.disabled = true; }
-  try {
-    const remote = await pullHabitsFromSheets();
-    if (!remote) throw new Error('Pull failed');
-    const local = getHabitsData();
-    const merged = mergeHabitsData(local, remote);
-    saveHabitsData(merged);
-    renderHabits();
-    showToast('✓ Habits refreshed from Google Sheets');
-  } catch(e) {
-    showToast('Refresh failed — your local data was not changed');
-  } finally {
-    if (btn) { btn.textContent = 'Refresh from Sheets'; btn.disabled = false; }
-  }
-}
-
 async function pullHabitsFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    const res = await fetch(url + '?type=habits');
+    const res = await noCacheFetch(url + '?type=habits');
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.entries)) return null;
     // Normalize dates
@@ -5459,9 +5328,9 @@ function _onDexaDateChange() {
   }
 }
 
-function deleteEditingDexa() {
+async function deleteEditingDexa() {
   if (!dexaEditingDate) return;
-  if (!confirm('Delete DEXA scan from ' + fmtDateShort(dexaEditingDate) + '?')) return;
+  if (!(await confirmAsync('Delete DEXA scan from ' + fmtDateShort(dexaEditingDate) + '?'))) return;
   deleteDexaScan(dexaEditingDate);
   closeDexaForm();
   renderDexaSection();
@@ -5493,8 +5362,8 @@ function saveDexaForm() {
   renderDexaSection();
   // Also refresh DEXA countdown if this matches the last scan
 }
-function confirmDeleteDexa(date) {
-  if (!confirm('Delete DEXA scan from ' + fmtDateShort(date) + '?')) return;
+async function confirmDeleteDexa(date) {
+  if (!(await confirmAsync('Delete DEXA scan from ' + fmtDateShort(date) + '?'))) return;
   deleteDexaScan(date);
   renderDexaSection();
 }
@@ -5543,14 +5412,24 @@ function startRunChallenge() {
   const startDate = input ? input.value.trim() : today();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) { showToast('Enter a valid date (YYYY-MM-DD)'); return; }
   const data = getRCData();
+  // Enqueue deletes for any prior entries before wiping local state. Without
+  // this, the next pull from Sheets re-populates the cleared runs.
+  Object.keys(data.entries || {}).forEach(date => {
+    enqueueWrite('deleteRunChallengeForDate', { date });
+  });
   data.startDate = startDate;
   data.entries = {};
   saveRCData(data);
   renderRunChallenge();
 }
 
-function resetRunChallenge() {
-  if (!confirm('Reset the 30 Day Run Challenge? All logged runs will be cleared.')) return;
+async function resetRunChallenge() {
+  if (!(await confirmAsync('Reset the 30 Day Run Challenge? All logged runs will be cleared.'))) return;
+  // Enqueue deletes for the cross-device case — see startRunChallenge.
+  const existing = getRCData();
+  Object.keys(existing.entries || {}).forEach(date => {
+    enqueueWrite('deleteRunChallengeForDate', { date });
+  });
   saveRCData({ startDate:null, entries:{} });
   renderRunChallenge();
 }
@@ -5569,7 +5448,6 @@ function removeRun(date) {
   }
 }
 
-const rcDirtyDates = new Set();
 let rcSelectedDate = null; // null = default to today
 
 function rcSelectDay(date) {
@@ -5831,14 +5709,6 @@ function renderRunChallenge() {
     </div>
   `;
 
-  // Sync bar
-  html += `
-    <div class="tab-sync-bar" style="margin-top:14px">
-      <span class="sync-label" id="rc-sync-label">All synced</span>
-      <button class="btn-sync clean" id="rc-sync-btn" onclick="pushRCToSheets()">Sync to Sheets</button>
-    </div>
-  `;
-
   // Reset link
   html += `
     <div class="rc-reset-row">
@@ -5847,36 +5717,13 @@ function renderRunChallenge() {
   `;
 
   body.innerHTML = html;
-  updateRCSyncUI();
-}
-
-function updateRCSyncUI() {
-  const btn = document.getElementById('rc-sync-btn');
-  const label = document.getElementById('rc-sync-label');
-  if (!btn || !label) return;
-  if (rcDirtyDates.size > 0) {
-    label.textContent = `${rcDirtyDates.size} run${rcDirtyDates.size>1?'s':''} to sync`;
-    label.className = 'sync-label dirty';
-    btn.textContent = 'Sync to Sheets';
-    btn.className = 'btn-sync dirty';
-  } else {
-    label.textContent = 'All synced';
-    label.className = 'sync-label';
-    btn.textContent = 'Sync to Sheets';
-    btn.className = 'btn-sync clean';
-  }
-}
-
-// Phase 3 cleanup: manual push handler is now a no-op — sync is automatic via the queue.
-async function pushRCToSheets() {
-  showToast('All run challenge changes sync automatically');
 }
 
 async function pullRCFromSheets() {
   const url = getSheetsUrl();
   if (!url) { console.log('RC pull: no sheets URL'); return; }
   try {
-    const res = await fetch(url + '?type=runChallenge');
+    const res = await noCacheFetch(url + '?type=runChallenge');
     const text = await res.text();
     let result;
     try { result = JSON.parse(text); } catch(pe) { console.warn('RC pull: JSON parse fail'); return; }
@@ -5918,14 +5765,9 @@ async function pullRCFromSheets() {
   }
 }
 
-// Render on habits tab load
-const origRenderHabits = renderHabits;
-renderHabits = function() {
-  origRenderHabits();
-  renderRunChallenge();
-};
-
-// Initial render from localStorage (Sheets pull happens in main boot sequence)
+// Initial render from localStorage (Sheets pull happens in main boot sequence).
+// renderHabits() also calls renderRunChallenge() at the end, so the panel
+// stays in sync when the habits tab is rendered.
 renderRunChallenge();
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -5966,19 +5808,19 @@ function addJournalNote() {
   renderJournal();
 }
 
-function deleteJournalNote(timestamp) {
-  if (!confirm('Delete this entry?')) return;
+async function deleteJournalNote(timestamp) {
+  if (!(await confirmAsync('Delete this entry?'))) return;
   const entries = getJournalDataLocal().filter(e => e.timestamp !== timestamp);
   saveJournalDataLocal(entries);
   if (typeof enqueueWrite === 'function') enqueueWrite('deleteJournal', { timestamp });
   renderJournal();
 }
 
-function editJournalNote(timestamp) {
+async function editJournalNote(timestamp) {
   const entries = getJournalDataLocal();
   const e = entries.find(x => x.timestamp === timestamp);
   if (!e) return;
-  const newText = prompt('Edit entry:', e.text);
+  const newText = await promptAsync('Edit entry:', e.text);
   if (newText === null) return;
   const trimmed = newText.trim();
   if (!trimmed) return deleteJournalNote(timestamp);
@@ -6048,7 +5890,7 @@ async function pullJournalFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    const res = await fetch(url + '?type=journal');
+    const res = await noCacheFetch(url + '?type=journal');
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.entries)) return null;
     return data.entries;
@@ -6086,24 +5928,7 @@ function mergeJournalEntries(local, remote) {
   }
 })();
 
-// Hook into syncOnVisibility — when the user returns to the tab, refresh
-// the journal too. Wraps the existing function rather than editing it.
-if (typeof syncOnVisibility === 'function') {
-  const origSyncOnVisibility = syncOnVisibility;
-  syncOnVisibility = async function() {
-    await origSyncOnVisibility.apply(this, arguments);
-    try {
-      const remote = await pullJournalFromSheets();
-      if (remote) {
-        const merged = mergeJournalEntries(getJournalDataLocal(), remote);
-        if (JSON.stringify(merged) !== JSON.stringify(getJournalDataLocal())) {
-          saveJournalDataLocal(merged);
-          renderJournal();
-        }
-      }
-    } catch(e) { /* swallow — non-critical */ }
-  };
-}
+// Journal sync is now inlined in syncOnVisibility (see body) — no wrap needed.
 
 // ══════════════════════════════════════════════════════════════════════════
 // init() — runs last so every `let`-declared global it touches (FOOD_DB,
@@ -6136,7 +5961,7 @@ if (typeof syncOnVisibility === 'function') {
   let _resizeChartT = null;
   window.addEventListener('resize', () => {
     if (_resizeChartT) clearTimeout(_resizeChartT);
-    _resizeChartT = setTimeout(() => { const d = load(); drawWeightChart(d); }, 150);
+    _resizeChartT = setTimeout(() => { const d = load(); drawWeightChart(d); }, CHART_RESIZE_DEBOUNCE_MS);
   });
 
   // Habits is the default tab — render it on load
@@ -6235,9 +6060,11 @@ if (typeof syncOnVisibility === 'function') {
     runBackfillMigration({
       weightRemote: remote, foodRemote, habitsRemote
     }).catch(() => {});
+
+    // Background poll while the app is open — picks up edits made on other
+    // devices without requiring a tab switch or manual refresh.
+    startBackgroundPoll();
   }
-  // Initialize food sync button state
-  updateFoodSyncUI();
 })();
 </script>
 </body>
