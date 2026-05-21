@@ -377,6 +377,43 @@
     .dexa-delta.pos { color: #10b981; }
     .dexa-delta.neg { color: #ef4444; }
 
+    /* ───── Morning Verdict card (v1 2026-05-21) ─────────────────────────────
+       Daily emotional-support feature: when Ethan logs his morning weigh-in,
+       this card surfaces a Claude-generated verdict on whether his deficit
+       is actually paying off. Status drives the left-border color. */
+    .verdict-card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      margin-bottom: 18px;
+      border-left: 4px solid var(--muted);
+      transition: border-left-color 0.3s ease;
+    }
+    .verdict-card.status-on_track { border-left-color: #10b981; }
+    .verdict-card.status-watch    { border-left-color: #f59e0b; }
+    .verdict-card.status-drift    { border-left-color: #ef4444; }
+    .verdict-head {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.72rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+    }
+    .verdict-icon { font-size: 1rem; line-height: 1; }
+    .verdict-headline {
+      font-size: 1.02rem; font-weight: 700; line-height: 1.35;
+      color: var(--text); margin-bottom: 8px;
+    }
+    .verdict-body {
+      font-size: 0.92rem; line-height: 1.5; color: var(--text);
+      opacity: 0.85;
+    }
+    .verdict-card.is-loading .verdict-headline,
+    .verdict-card.is-loading .verdict-body { opacity: 0.5; }
+    .verdict-loading-msg {
+      font-size: 0.88rem; color: var(--muted); font-style: italic;
+    }
+    .verdict-error {
+      font-size: 0.82rem; color: var(--muted); font-style: italic;
+    }
+
     /* ───── History table ───── */
     .history-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 520px; }
@@ -1406,6 +1443,19 @@
         <div class="stat-watchface-val" id="s-avg">—</div>
         <div class="stat-watchface-sub" id="s-avg-sub">lbs</div>
       </div>
+    </div>
+
+    <!-- Morning Verdict (v1 2026-05-21): Claude-generated reassurance card.
+         Hidden by default; shown once loadVerdictForToday() finds either a
+         cached verdict in the Verdicts sheet or generates a fresh one after
+         today's weigh-in. -->
+    <div class="verdict-card" id="verdict-card" style="display:none">
+      <div class="verdict-head">
+        <span class="verdict-icon" id="verdict-icon"></span>
+        <span id="verdict-status-label">Morning verdict</span>
+      </div>
+      <div class="verdict-headline" id="verdict-headline"></div>
+      <div class="verdict-body" id="verdict-body"></div>
     </div>
 
     <!-- Two-col -->
@@ -2502,6 +2552,98 @@ function logEntry() {
   if (newAvg != null) {
     animateNumber('s-avg', prevAvg || newAvg, newAvg, v => v.toFixed(1));
   }
+  // Morning Verdict (v1 2026-05-21): if this is the first weigh-in of the day,
+  // kick off the verdict request. Server-side cache means re-logs are no-ops.
+  // Slight delay so the enqueueWrite above flushes first — the Apps Script
+  // findWeightForDate() needs today's row to exist before it generates.
+  setTimeout(() => { loadVerdictForToday({ generateIfMissing: true }); }, 1500);
+}
+
+// ─── Morning Verdict (v1 2026-05-21) ─────────────────────────────────────────
+// Daily emotional-support feature. Fetches a cached verdict from the Verdicts
+// sheet if one exists for today, or generates a fresh one via the Apps Script
+// → Claude API proxy. One verdict per day; results render under the watchface.
+async function loadVerdictForToday(opts) {
+  opts = opts || {};
+  const url = getSheetsUrl();
+  if (!url) return; // No Sheets configured — skip silently.
+  const td = today();
+  const card = document.getElementById('verdict-card');
+  if (!card) return;
+
+  // 1. Check the Verdicts sheet for a cached entry.
+  let cached = null;
+  try {
+    const cacheRes = await sheetsGetJson(url, { type: 'verdict', date: td });
+    cached = cacheRes && cacheRes.verdict;
+  } catch (e) {
+    // Endpoint not deployed yet (returns "Unknown type") or other transient
+    // error. Stay silent — verdict is a non-critical enhancement; don't disrupt
+    // the rest of the app if the wire-up isn't done.
+    return;
+  }
+  if (cached) {
+    renderVerdict(cached);
+    return;
+  }
+
+  // 2. No cache. Only generate if explicitly invoked from the weigh-in flow,
+  // OR if there's a weigh-in for today AND the user opened the app fresh.
+  // Guarded so a stray page visit on a no-weigh-in day doesn't fire the API.
+  const data = load();
+  const hasTodayWeight = data.entries.some(e => e.date === td && e.weight);
+  if (!hasTodayWeight) return;
+  if (!opts.generateIfMissing && !opts.autoOnLoad) return;
+
+  // 3. Show loading state.
+  card.style.display = 'block';
+  card.classList.add('is-loading');
+  card.classList.remove('status-on_track', 'status-watch', 'status-drift');
+  document.getElementById('verdict-icon').textContent = '◐';
+  document.getElementById('verdict-status-label').textContent = 'Analyzing your morning';
+  document.getElementById('verdict-headline').textContent = '';
+  document.getElementById('verdict-body').innerHTML = '<span class="verdict-loading-msg">Looking at your food log, training, recovery, and trend…</span>';
+
+  // 4. POST to generate. Allow generous time — Sonnet with adaptive thinking
+  // typically returns in 3-8s, occasionally longer.
+  try {
+    const res = await sheetsPostJson(url, { action: 'generateVerdict', date: td });
+    if (res && res.verdict) {
+      renderVerdict(res.verdict);
+    } else {
+      hideVerdictWithError('Couldn\'t generate a verdict this morning.');
+    }
+  } catch (e) {
+    hideVerdictWithError('Couldn\'t reach the verdict service — ' + (e.message || 'unknown error'));
+  }
+}
+
+function renderVerdict(v) {
+  const card = document.getElementById('verdict-card');
+  if (!card || !v) return;
+  card.classList.remove('is-loading');
+  card.classList.remove('status-on_track', 'status-watch', 'status-drift');
+  const status = String(v.status || 'on_track');
+  card.classList.add('status-' + status);
+
+  const icons = { on_track: '🟢', watch: '🟡', drift: '🔴' };
+  const labels = { on_track: 'On track', watch: 'Watch this', drift: 'Drift detected' };
+  document.getElementById('verdict-icon').textContent = icons[status] || '🟢';
+  document.getElementById('verdict-status-label').textContent = labels[status] || 'Morning verdict';
+  document.getElementById('verdict-headline').textContent = v.headline || '';
+  document.getElementById('verdict-body').textContent = v.body || '';
+  card.style.display = 'block';
+}
+
+function hideVerdictWithError(msg) {
+  const card = document.getElementById('verdict-card');
+  if (!card) return;
+  card.classList.remove('is-loading', 'status-on_track', 'status-watch', 'status-drift');
+  document.getElementById('verdict-icon').textContent = '';
+  document.getElementById('verdict-status-label').textContent = 'Verdict';
+  document.getElementById('verdict-headline').textContent = '';
+  document.getElementById('verdict-body').innerHTML = '<span class="verdict-error">' + msg + '</span>';
+  card.style.display = 'block';
 }
 
 function animateNumber(elId, from, to, formatter, duration) {
@@ -6064,6 +6206,11 @@ function mergeJournalEntries(local, remote) {
     // Background poll while the app is open — picks up edits made on other
     // devices without requiring a tab switch or manual refresh.
     startBackgroundPoll();
+
+    // Morning Verdict (v1 2026-05-21): once sync completes, look for today's
+    // cached verdict and render it. If today has a weigh-in but no cached
+    // verdict yet, generate one. Runs once per app load.
+    loadVerdictForToday({ autoOnLoad: true });
   }
 })();
 </script>
