@@ -120,7 +120,8 @@
       color: var(--cool);
       text-transform: uppercase;
       letter-spacing: .06em;
-      padding-bottom: 14px;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
       border-bottom: 2px dashed var(--border-soft);
     }
     .header::before {
@@ -136,8 +137,6 @@
       font-size: 10px;
       letter-spacing: .08em;
     }
-    .date-label::before { content: 'POWER & FITNESS · '; color: var(--warn); }
-    .date-label::after  { content: ' · PLAYER 1'; color: var(--cool); }
     .header-sync {
       display: flex; align-items: center; gap: 8px;
       color: var(--good);
@@ -5280,7 +5279,8 @@ function renderHabits() {
   renderHabitStreaks();
   renderHabitHeatmap();
   renderHabitInsights();
-  renderNightlyCheckIn();
+  // Nightly Check-In disabled 2026-05-23 per Ethan — card stays hidden (style="display:none" inline).
+  // renderNightlyCheckIn();
 }
 
 function toggleHabit(habit) {
