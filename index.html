@@ -377,43 +377,6 @@
     .dexa-delta.pos { color: #10b981; }
     .dexa-delta.neg { color: #ef4444; }
 
-    /* ───── Morning Verdict card (v1 2026-05-21) ─────────────────────────────
-       Daily emotional-support feature: when Ethan logs his morning weigh-in,
-       this card surfaces a Claude-generated verdict on whether his deficit
-       is actually paying off. Status drives the left-border color. */
-    .verdict-card {
-      background: var(--card); border-radius: var(--radius);
-      padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
-      margin-bottom: 18px;
-      border-left: 4px solid var(--muted);
-      transition: border-left-color 0.3s ease;
-    }
-    .verdict-card.status-on_track { border-left-color: #10b981; }
-    .verdict-card.status-watch    { border-left-color: #f59e0b; }
-    .verdict-card.status-drift    { border-left-color: #ef4444; }
-    .verdict-head {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 0.72rem; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
-    }
-    .verdict-icon { font-size: 1rem; line-height: 1; }
-    .verdict-headline {
-      font-size: 1.02rem; font-weight: 700; line-height: 1.35;
-      color: var(--text); margin-bottom: 8px;
-    }
-    .verdict-body {
-      font-size: 0.92rem; line-height: 1.5; color: var(--text);
-      opacity: 0.85;
-    }
-    .verdict-card.is-loading .verdict-headline,
-    .verdict-card.is-loading .verdict-body { opacity: 0.5; }
-    .verdict-loading-msg {
-      font-size: 0.88rem; color: var(--muted); font-style: italic;
-    }
-    .verdict-error {
-      font-size: 0.82rem; color: var(--muted); font-style: italic;
-    }
-
     /* ───── History table ───── */
     .history-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 520px; }
@@ -933,6 +896,62 @@
     }
     .habit-add-btn:hover { opacity:0.85; }
 
+    /* ── Nightly Check-In ───────────────────────────────────────────────── */
+    .nrc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:10px; flex-wrap:wrap; }
+    .nrc-title { display:flex; align-items:center; gap:8px; font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+    .nrc-title .nrc-emoji { font-size:1rem; }
+    .nrc-streak { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px; font-size:0.78rem; font-weight:800; letter-spacing:.2px; position:relative; }
+    .nrc-streak.active { background:linear-gradient(135deg,#fff7ed,#fef3c7); color:#b45309; box-shadow:0 1px 2px rgba(217,119,6,0.18); }
+    .nrc-streak.broken { background:var(--bg); color:var(--muted); }
+
+    .nrc-divider { height:1px; background:var(--border); margin:10px 0 12px; }
+
+    .nrc-row { display:flex; align-items:center; gap:10px; padding:8px 0; font-size:0.92rem; }
+    .nrc-row + .nrc-row { border-top:1px dashed var(--border); }
+    .nrc-row .nrc-mark { width:20px; height:20px; border-radius:50%; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:0.78rem; font-weight:800; }
+    .nrc-row .nrc-mark.ok { background:#ecfdf5; color:#059669; }
+    .nrc-row .nrc-mark.miss { background:#fef2f2; color:#ef4444; }
+    .nrc-row .nrc-mark.pending { background:var(--bg); color:var(--muted); border:1.5px dashed var(--border); }
+    .nrc-row .nrc-label { font-weight:700; color:var(--text); width:90px; flex-shrink:0; }
+    .nrc-row .nrc-value { color:var(--text); flex:1; font-variant-numeric:tabular-nums; }
+    .nrc-row .nrc-value .nrc-delta { color:var(--muted); font-size:0.82rem; margin-left:6px; }
+    .nrc-row .nrc-value .nrc-delta.under { color:#059669; }
+    .nrc-row .nrc-value .nrc-delta.over { color:#ef4444; }
+
+    .nrc-verdict { margin-top:12px; padding:14px 12px; border-radius:10px; text-align:center; position:relative; overflow:hidden; }
+    .nrc-verdict.perfect {
+      background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);
+      color:#065f46;
+    }
+    .nrc-verdict.partial { background:var(--bg); color:var(--text); }
+    .nrc-verdict.missed  { background:#fef2f2; color:#991b1b; }
+    .nrc-verdict-headline { font-size:1.05rem; font-weight:800; letter-spacing:-0.2px; }
+    .nrc-verdict-sub { font-size:0.8rem; margin-top:4px; opacity:0.85; }
+
+    .nrc-rest-day-tag { display:inline-block; margin-left:6px; font-size:0.62rem; font-weight:700; padding:2px 6px; border-radius:6px; background:#fef3c7; color:#92400e; text-transform:uppercase; letter-spacing:.4px; }
+
+    /* Confetti — CSS-only burst from the streak badge. ~30 squares fan out,
+       fall, fade. Triggered by toggling .nrc-confetti-on on #nrc-card. */
+    .nrc-confetti-layer {
+      position:absolute; top:18px; right:14px; width:0; height:0;
+      pointer-events:none; z-index:5;
+    }
+    .nrc-confetti-piece {
+      position:absolute; width:8px; height:8px; border-radius:2px;
+      opacity:0; transform:translate(0,0) rotate(0deg);
+    }
+    .nrc-confetti-on .nrc-confetti-piece {
+      animation: nrcBurst 1.5s cubic-bezier(.18,.7,.4,1) forwards;
+    }
+    .nrc-confetti-on.nrc-confetti-big .nrc-confetti-piece {
+      animation-duration: 2.2s;
+    }
+    @keyframes nrcBurst {
+      0%   { opacity:1; transform:translate(0,0) rotate(0deg) scale(0.6); }
+      30%  { opacity:1; }
+      100% { opacity:0; transform:translate(var(--nrc-tx,0), calc(var(--nrc-ty,0) + 90px)) rotate(var(--nrc-rot,180deg)) scale(1); }
+    }
+
     /* ── 7-Day Goals (with progress rings + sparklines) ──────────────────── */
     .streak-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:12px; }
     .streak-card {
@@ -1011,102 +1030,6 @@
     .hm-dates { display:flex; justify-content:space-between; margin-top:4px; }
     .hm-dates span { font-size:0.65rem; color:var(--muted); }
     @media(max-width:580px){ .hm-sq { width:10px; height:10px; gap:2px; } }
-
-    /* ───── 30 Day Run Challenge ───── */
-    .rc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-    .rc-header h2 { margin-bottom:0; }
-    .rc-badge {
-      display:inline-flex; align-items:center; gap:5px;
-      padding:4px 10px; border-radius:20px; font-size:0.72rem; font-weight:700;
-      text-transform:uppercase; letter-spacing:.4px;
-    }
-    .rc-badge.active { background:#ecfdf5; color:#059669; }
-    .rc-badge.complete { background:#dbeafe; color:#2563eb; }
-    .rc-badge.not-started { background:var(--bg); color:var(--muted); }
-
-    .rc-progress-wrap { margin-bottom:16px; }
-    .rc-progress-label { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
-    .rc-progress-day { font-size:1.3rem; font-weight:800; color:var(--text); }
-    .rc-progress-sub { font-size:0.78rem; color:var(--muted); font-weight:500; }
-    .rc-progress-track { background:var(--border); border-radius:999px; height:10px; overflow:hidden; }
-    .rc-progress-fill {
-      height:100%; border-radius:999px; transition:width .6s cubic-bezier(.4,0,.2,1);
-      background:linear-gradient(90deg, #10b981, #059669);
-    }
-
-    .rc-day-grid {
-      display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; margin-bottom:16px;
-    }
-    .rc-day-header {
-      text-align:center; font-size:0.6rem; font-weight:600; color:var(--muted);
-      padding:2px 0 4px; text-transform:uppercase; letter-spacing:0.02em;
-    }
-    .rc-day {
-      aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center;
-      font-size:0.68rem; font-weight:700; cursor:default; position:relative;
-    }
-    .rc-day.blank { background:transparent; cursor:default; }
-    /* Days outside the formal 30-day window (logged runs that predate the
-       challenge start, or runs after day 30). Same green for done days, but
-       lighter for empty/missed cells so the formal window stays the focal
-       point of the grid. */
-    .rc-day.rc-outside { opacity: 0.72; }
-    .rc-day.rc-outside.done { opacity: 1; }
-    .rc-day-date { font-size:0.52rem; font-weight:600; opacity:0.7; }
-    .rc-day.done { background:var(--green); color:#fff; }
-    .rc-day.missed { background:#fef2f2; color:#ef4444; }
-    .rc-day.today { box-shadow:0 0 0 2px var(--primary); background:var(--bg); color:var(--text); }
-    .rc-day.future { background:var(--bg); color:var(--muted); }
-    .rc-day.today.done { box-shadow:0 0 0 2px var(--green); }
-    .rc-day.selected { box-shadow:0 0 0 2px var(--accent); }
-    .rc-day.done { flex-direction:column; gap:0; line-height:1.1; padding:2px 0; }
-    .rc-day-num { font-size:0.62rem; font-weight:700; }
-    .rc-day-pace { font-size:0.52rem; font-weight:600; opacity:0.85; }
-
-    .rc-log-today { margin-bottom:14px; }
-    .rc-log-today h3 { font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
-    .rc-log-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
-    .rc-field { display:flex; flex-direction:column; gap:4px; }
-    .rc-field label { font-size:0.72rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; }
-    .rc-field input {
-      padding:9px 12px; border:1.5px solid var(--border); border-radius:8px;
-      font-size:0.88rem; background:var(--bg); color:var(--text); outline:none; font-family:inherit;
-      width:110px;
-    }
-    .rc-field input:focus { border-color:var(--primary); background:#fff; }
-    .rc-log-btn {
-      padding:9px 16px; border:none; border-radius:8px; font-size:0.85rem; font-weight:700;
-      cursor:pointer; color:#fff; background:var(--green); white-space:nowrap; transition:opacity .15s;
-    }
-    .rc-log-btn:hover { opacity:0.85; }
-    .rc-log-btn:disabled { opacity:0.5; cursor:not-allowed; }
-    .rc-logged-msg { font-size:0.82rem; color:var(--green); font-weight:600; display:flex; align-items:center; gap:6px; }
-
-    .rc-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
-    .rc-stat {
-      background:var(--bg); border-radius:10px; padding:14px 12px 12px; text-align:center;
-      position:relative; overflow:hidden;
-    }
-    .rc-stat::before {
-      content:''; position:absolute; top:0; left:0; right:0; height:2px;
-      background: linear-gradient(90deg, var(--green), #34d399 60%, rgba(52,211,153,0));
-    }
-    .rc-stat .rc-stat-val { font-size:1.5rem; font-weight:800; color:var(--primary); letter-spacing:-0.4px; font-variant-numeric:tabular-nums; }
-    .rc-stat .rc-stat-label { font-size:0.66rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:3px; font-weight:700; }
-    /* Slightly enrich completed run cells so faster paces feel more 'achieved' */
-    .rc-day.done { background:linear-gradient(160deg, #14c592 0%, var(--green) 100%); box-shadow:0 1px 2px rgba(16,185,129,0.25); }
-
-    .rc-start-section { text-align:center; padding:10px 0; }
-    .rc-start-btn {
-      padding:12px 28px; border:none; border-radius:10px; font-size:0.95rem; font-weight:700;
-      cursor:pointer; color:#fff; background:var(--green); transition:opacity .15s;
-    }
-    .rc-start-btn:hover { opacity:0.85; }
-    .rc-start-hint { font-size:0.75rem; color:var(--muted); margin-top:8px; }
-
-    .rc-reset-row { text-align:center; margin-top:10px; }
-    .rc-reset-btn { background:none; border:none; color:var(--muted); font-size:0.72rem; cursor:pointer; text-decoration:underline; }
-    .rc-reset-btn:hover { color:var(--red); }
 
     /* ── Habit Insights ── */
     .insights-stats { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:10px; margin-bottom:18px; }
@@ -1445,19 +1368,6 @@
       </div>
     </div>
 
-    <!-- Morning Verdict (v1 2026-05-21): Claude-generated reassurance card.
-         Hidden by default; shown once loadVerdictForToday() finds either a
-         cached verdict in the Verdicts sheet or generates a fresh one after
-         today's weigh-in. -->
-    <div class="verdict-card" id="verdict-card" style="display:none">
-      <div class="verdict-head">
-        <span class="verdict-icon" id="verdict-icon"></span>
-        <span id="verdict-status-label">Morning verdict</span>
-      </div>
-      <div class="verdict-headline" id="verdict-headline"></div>
-      <div class="verdict-body" id="verdict-body"></div>
-    </div>
-
     <!-- Two-col -->
     <div class="card" style="margin-bottom:18px">
       <h2 id="log-heading">Log Today</h2>
@@ -1582,6 +1492,13 @@
       <button class="habit-nav-btn" onclick="habitNavDay(1)" aria-label="Next day">›</button>
     </div>
 
+    <!-- Nightly Check-In — daily process-adherence verdict, switches framing to
+         "Tonight" at 8pm local. Reinforces the cal-target / exercise / sleep
+         triad with streak mechanics. Renders into #nrc-card-body. -->
+    <div class="card" id="nrc-card" style="display:none">
+      <div id="nrc-card-body"></div>
+    </div>
+
     <!-- Journal — free-form notes timestamped to-the-minute, cross-referenced
          with WHOOP / weight / habits when answering personal-assistant questions -->
     <div class="card" id="journal-card">
@@ -1605,15 +1522,6 @@
         <input class="habit-add-input" id="habit-add-input" type="text" placeholder="Add custom habit…" onkeydown="if(event.key==='Enter')addCustomHabit()" />
         <button class="habit-add-btn" onclick="addCustomHabit()">Add</button>
       </div>
-    </div>
-
-    <!-- 30 Day Run Challenge -->
-    <div class="card" id="rc-card" style="margin-top:18px">
-      <div class="rc-header">
-        <h2>30 Day Run Challenge</h2>
-        <span class="rc-badge not-started" id="rc-badge">Not Started</span>
-      </div>
-      <div id="rc-body"></div>
     </div>
 
     <!-- 7-Day Goals -->
@@ -1967,9 +1875,9 @@ function getQueueStatus() {
 
 // Per-domain pending count, used so a refresh on one domain (e.g. weight)
 // isn't blocked just because another domain (e.g. food) has stuck writes.
-// Returns { weight: n, food: n, habit: n, rc: n, dexa: n, journal: n, skip: n }.
+// Returns { weight: n, food: n, habit: n, dexa: n, journal: n, skip: n }.
 function _pendingByDomain() {
-  const out = { weight: 0, food: 0, habit: 0, rc: 0, dexa: 0, journal: 0, skip: 0 };
+  const out = { weight: 0, food: 0, habit: 0, dexa: 0, journal: 0, skip: 0 };
   _readQueue().forEach(it => {
     const k = _coalesceKey(it.op, it.payload);
     if (!k) return;
@@ -2004,8 +1912,6 @@ function _coalesceKey(op, payload) {
     case 'setWeight':
     case 'deleteWeight':                return 'weight:' + payload.date;
     case 'setHabit':                    return 'habit:' + payload.date + '|' + payload.habit;
-    case 'setRunChallengeForDate':
-    case 'deleteRunChallengeForDate':   return 'rc:' + payload.date;
     case 'setDexa':
     case 'deleteDexa':                  return 'dexa:' + payload.date;
     case 'addJournal':
@@ -2058,8 +1964,6 @@ function _opToPayload(op, payload) {
     case 'setWeight':             return { action: 'sync', entries: [payload] };
     case 'deleteWeight':          return { action: 'delete', date: payload.date };
     case 'setHabit':              return { action: 'setHabit', entry: payload };
-    case 'setRunChallengeForDate':   return { action: 'setRunChallengeForDate',    entry: payload };
-    case 'deleteRunChallengeForDate':return { action: 'deleteRunChallengeForDate', date:  payload.date };
     case 'setDexa':                  return { action: 'setDexa',                   entry: payload };
     case 'deleteDexa':               return { action: 'deleteDexa',                date:  payload.date };
     case 'addJournal':               return { action: 'addJournal',                entry: payload };
@@ -2245,34 +2149,6 @@ async function runBackfillMigration({ weightRemote, foodRemote, habitsRemote }) 
         }
       });
     });
-  }
-
-  // Run Challenge — keyed by date. pullRCFromSheets doesn't expose remote data
-  // to init (it does its own internal merge), so we re-fetch here.
-  try {
-    const url = getSheetsUrl();
-    if (url && typeof sheetsGetJson === 'function') {
-      const json = await sheetsGetJson(url, { type: 'runChallenge' });
-      const remoteEntries = Array.isArray(json.entries) ? json.entries : [];
-      const remoteSet = new Set(remoteEntries.map(e => e.date));
-      const localData = (typeof getRCData === 'function' ? getRCData() : { entries: {} });
-      Object.keys(localData.entries || {}).forEach(date => {
-        if (!remoteSet.has(date)) {
-          const e = localData.entries[date];
-          const dayNum = localData.startDate && typeof rcDayNumber === 'function' ? rcDayNumber(date, localData.startDate) : '';
-          enqueueWrite('setRunChallengeForDate', {
-            date,
-            day:      dayNum,
-            distance: e.distance,
-            time:     e.time,
-            done:     e.done ? 'TRUE' : 'FALSE',
-          });
-          enqueued++;
-        }
-      });
-    }
-  } catch (e) {
-    // RC backfill is best-effort; don't block the migration
   }
 
   // Mark migration complete. If something threw before we got here, it'll re-run
@@ -2552,98 +2428,6 @@ function logEntry() {
   if (newAvg != null) {
     animateNumber('s-avg', prevAvg || newAvg, newAvg, v => v.toFixed(1));
   }
-  // Morning Verdict (v1 2026-05-21): if this is the first weigh-in of the day,
-  // kick off the verdict request. Server-side cache means re-logs are no-ops.
-  // Slight delay so the enqueueWrite above flushes first — the Apps Script
-  // findWeightForDate() needs today's row to exist before it generates.
-  setTimeout(() => { loadVerdictForToday({ generateIfMissing: true }); }, 1500);
-}
-
-// ─── Morning Verdict (v1 2026-05-21) ─────────────────────────────────────────
-// Daily emotional-support feature. Fetches a cached verdict from the Verdicts
-// sheet if one exists for today, or generates a fresh one via the Apps Script
-// → Claude API proxy. One verdict per day; results render under the watchface.
-async function loadVerdictForToday(opts) {
-  opts = opts || {};
-  const url = getSheetsUrl();
-  if (!url) return; // No Sheets configured — skip silently.
-  const td = today();
-  const card = document.getElementById('verdict-card');
-  if (!card) return;
-
-  // 1. Check the Verdicts sheet for a cached entry.
-  let cached = null;
-  try {
-    const cacheRes = await sheetsGetJson(url, { type: 'verdict', date: td });
-    cached = cacheRes && cacheRes.verdict;
-  } catch (e) {
-    // Endpoint not deployed yet (returns "Unknown type") or other transient
-    // error. Stay silent — verdict is a non-critical enhancement; don't disrupt
-    // the rest of the app if the wire-up isn't done.
-    return;
-  }
-  if (cached) {
-    renderVerdict(cached);
-    return;
-  }
-
-  // 2. No cache. Only generate if explicitly invoked from the weigh-in flow,
-  // OR if there's a weigh-in for today AND the user opened the app fresh.
-  // Guarded so a stray page visit on a no-weigh-in day doesn't fire the API.
-  const data = load();
-  const hasTodayWeight = data.entries.some(e => e.date === td && e.weight);
-  if (!hasTodayWeight) return;
-  if (!opts.generateIfMissing && !opts.autoOnLoad) return;
-
-  // 3. Show loading state.
-  card.style.display = 'block';
-  card.classList.add('is-loading');
-  card.classList.remove('status-on_track', 'status-watch', 'status-drift');
-  document.getElementById('verdict-icon').textContent = '◐';
-  document.getElementById('verdict-status-label').textContent = 'Analyzing your morning';
-  document.getElementById('verdict-headline').textContent = '';
-  document.getElementById('verdict-body').innerHTML = '<span class="verdict-loading-msg">Looking at your food log, training, recovery, and trend…</span>';
-
-  // 4. POST to generate. Allow generous time — Sonnet with adaptive thinking
-  // typically returns in 3-8s, occasionally longer.
-  try {
-    const res = await sheetsPostJson(url, { action: 'generateVerdict', date: td });
-    if (res && res.verdict) {
-      renderVerdict(res.verdict);
-    } else {
-      hideVerdictWithError('Couldn\'t generate a verdict this morning.');
-    }
-  } catch (e) {
-    hideVerdictWithError('Couldn\'t reach the verdict service — ' + (e.message || 'unknown error'));
-  }
-}
-
-function renderVerdict(v) {
-  const card = document.getElementById('verdict-card');
-  if (!card || !v) return;
-  card.classList.remove('is-loading');
-  card.classList.remove('status-on_track', 'status-watch', 'status-drift');
-  const status = String(v.status || 'on_track');
-  card.classList.add('status-' + status);
-
-  const icons = { on_track: '🟢', watch: '🟡', drift: '🔴' };
-  const labels = { on_track: 'On track', watch: 'Watch this', drift: 'Drift detected' };
-  document.getElementById('verdict-icon').textContent = icons[status] || '🟢';
-  document.getElementById('verdict-status-label').textContent = labels[status] || 'Morning verdict';
-  document.getElementById('verdict-headline').textContent = v.headline || '';
-  document.getElementById('verdict-body').textContent = v.body || '';
-  card.style.display = 'block';
-}
-
-function hideVerdictWithError(msg) {
-  const card = document.getElementById('verdict-card');
-  if (!card) return;
-  card.classList.remove('is-loading', 'status-on_track', 'status-watch', 'status-drift');
-  document.getElementById('verdict-icon').textContent = '';
-  document.getElementById('verdict-status-label').textContent = 'Verdict';
-  document.getElementById('verdict-headline').textContent = '';
-  document.getElementById('verdict-body').innerHTML = '<span class="verdict-error">' + msg + '</span>';
-  card.style.display = 'block';
 }
 
 function animateNumber(elId, from, to, formatter, duration) {
@@ -3162,17 +2946,15 @@ async function syncOnVisibility(forceEvenIfHidden) {
   // stuck writes in one area (e.g. a flaky food upload) from blocking pulls
   // in unrelated areas (weight, habits, etc.).
   // Manual force-refresh drains the queue first, so it can skip this guard.
-  const pending = forceEvenIfHidden ? { weight:0, food:0, habit:0, rc:0, dexa:0, journal:0, skip:0 } : _pendingByDomain();
+  const pending = forceEvenIfHidden ? { weight:0, food:0, habit:0, dexa:0, journal:0, skip:0 } : _pendingByDomain();
   updateSyncUI('yellow', 'Re-syncing...');
   _syncInFlight = (async () => {
     try {
-    // Pull all 6 domains so everything stays in sync across devices.
-    // (Was 7 — steps removed 2026-05-02.) Library was previously init-only,
-    // which meant a manual refresh (or PWA resume) never picked up new foods
-    // added to the sheet. 2026-05-02: added pullFoodLibraryFromSheets so the
-    // sync badge actually refreshes it.
-    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote, skipDatesRemote] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullRCFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets()
+    // Library was previously init-only, which meant a manual refresh (or PWA
+    // resume) never picked up new foods added to the sheet. 2026-05-02: added
+    // pullFoodLibraryFromSheets so the sync badge actually refreshes it.
+    const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, _sleep] = await Promise.all([
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets(), pullWhoopSleepFromSheets()
     ]);
     if (remote && pending.weight === 0) {
       const local = load();
@@ -3219,11 +3001,10 @@ async function syncOnVisibility(forceEvenIfHidden) {
       if (document.getElementById('panel-food')?.classList.contains('active')) populateFoodSelect();
     }
     updateSyncUI('green', 'Synced just now');
-    // Re-render visible tab — and run challenge has its own panel.
+    // Re-render visible tab.
     if (document.getElementById('panel-food')   && document.getElementById('panel-food').classList.contains('active'))   renderFood();
     if (document.getElementById('panel-habits') && document.getElementById('panel-habits').classList.contains('active')) renderHabits();
     if (document.getElementById('panel-trends') && document.getElementById('panel-trends').classList.contains('active')) renderTrends();
-    if (document.getElementById('panel-run')    && document.getElementById('panel-run').classList.contains('active')    && typeof renderRunChallenge === 'function') renderRunChallenge();
 
     // Journal pull is non-critical — keep it isolated so a journal failure
     // doesn't trip the outer catch and flag the whole re-sync as failed.
@@ -3282,6 +3063,23 @@ async function syncOnVisibility(forceEvenIfHidden) {
         if (e.meal === 'Evening Snack') { e.meal = 'Supper'; changed = true; }
       });
       if (changed) safeSetItem(FOOD_ENTRIES_KEY, JSON.stringify(entries));
+    }
+  } catch(e) {}
+  safeSetItem(MIG_KEY, '1');
+})();
+
+// Run-challenge UI was retired 2026-05-22. Purge any stale RC writes from the
+// queue so they don't repeatedly fail _opToPayload (now missing those cases)
+// and block subsequent real writes from flushing.
+(function purgeStaleRunChallengeQueue() {
+  const MIG_KEY = 'migration_purgeRunChallengeQueue_v1';
+  if (localStorage.getItem(MIG_KEY)) return;
+  try {
+    const raw = localStorage.getItem(PENDING_WRITES_KEY);
+    if (raw) {
+      const q = JSON.parse(raw);
+      const filtered = q.filter(it => it.op !== 'setRunChallengeForDate' && it.op !== 'deleteRunChallengeForDate');
+      if (filtered.length !== q.length) safeSetItem(PENDING_WRITES_KEY, JSON.stringify(filtered));
     }
   } catch(e) {}
   safeSetItem(MIG_KEY, '1');
@@ -3520,6 +3318,68 @@ function mergeSkipDates(remoteDates) {
     else out.delete(date);
   }
   return out;
+}
+
+// ── WHOOP Sleep (read-only, for nightly check-in streak grading) ──────────────
+// WHOOP cycle convention: a sleep entry's `date` is the CYCLE day (wake-to-wake),
+// so the sleep that ended on the morning of day d belongs to cycle d-1. The
+// nightly check-in for "today d" should read the cycle-(d-1) entry. Naps
+// (`nap:true`) are filtered out — only the main overnight sleep counts.
+const WHOOP_SLEEP_KEY = 'whoop_sleep_v1';
+
+function getWhoopSleepByDate() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(WHOOP_SLEEP_KEY)) || [];
+    const out = {};
+    arr.forEach(e => { if (e && e.date) out[e.date] = e.performance; });
+    return out;
+  } catch(e) { return {}; }
+}
+
+// Performance for the night that ended on the morning of `wakeDate` (YYYY-MM-DD).
+// Returns a number 0–100, or null if no entry.
+function getSleepPerformanceForWakeDate(wakeDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(wakeDate)) return null;
+  const d = new Date(wakeDate + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  const cycleDate = d.toISOString().slice(0, 10);
+  const map = getWhoopSleepByDate();
+  const v = map[cycleDate];
+  return (typeof v === 'number') ? v : null;
+}
+
+async function pullWhoopSleepFromSheets() {
+  const url = getSheetsUrl(); if (!url) return null;
+  try {
+    const res  = await noCacheFetch(url + '?type=whoopSleep');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.entries)) return null;
+    // Project to the minimal shape used by the nightly check-in. Filter out naps
+    // (we only want the main overnight). Keep last 90 days to bound localStorage.
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+    const projected = [];
+    data.entries.forEach(e => {
+      if (!e || e.nap === true) return;
+      const dt = e.date ? new Date(e.date) : null;
+      if (!dt || isNaN(dt)) return;
+      if (dt < cutoff) return;
+      const perf = (typeof e.performance === 'number') ? e.performance : null;
+      if (perf == null) return;
+      projected.push({ date: dt.toISOString().slice(0, 10), performance: perf });
+    });
+    // Dedup by date — if multiple entries share a cycle date (rare), keep the
+    // one with the higher performance (typically the main sleep, not a nap-
+    // misclassified short cycle).
+    const byDate = {};
+    projected.forEach(e => {
+      if (byDate[e.date] == null || e.performance > byDate[e.date]) {
+        byDate[e.date] = e.performance;
+      }
+    });
+    const dedup = Object.keys(byDate).map(d => ({ date: d, performance: byDate[d] }));
+    safeSetItem(WHOOP_SLEEP_KEY, JSON.stringify(dedup));
+    return dedup;
+  } catch(e) { return null; }
 }
 
 // ── Meal Plan Template ────────────────────────────────────────────────────────
@@ -4821,7 +4681,7 @@ function renderHabits() {
   renderHabitStreaks();
   renderHabitHeatmap();
   renderHabitInsights();
-  renderRunChallenge();
+  renderNightlyCheckIn();
 }
 
 function toggleHabit(habit) {
@@ -4943,6 +4803,395 @@ function calcTotal7(habit) {
     if (data[d] && data[d][habit] && data[d][habit].done) count++;
   }
   return count;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NIGHTLY CHECK-IN
+// Daily process-adherence verdict, switches framing to "Tonight" at 8pm local.
+// Three criteria: calories under target, exercise as a rolling 4-of-last-7
+// check (so rest days don't break a perfect day), last night's sleep
+// performance >= NRC_SLEEP_THRESHOLD. Skip days drop the calorie criterion.
+// Missing WHOOP sleep data doesn't punish (shown as "—" and treated as OK so
+// a data gap can't break a streak). Confetti fires once per graded day.
+// ═══════════════════════════════════════════════════════════════════════════
+const NRC_LAST_ANIMATED_KEY = 'nightly_review_last_animated_v1';
+const NRC_REVIEW_HOUR       = 20;   // 8pm local — switches "Today" framing on
+const NRC_SLEEP_THRESHOLD   = 75;   // WHOOP sleep performance % required
+const NRC_EXERCISE_WINDOW   = 7;    // rolling window (days) for exercise check
+const NRC_EXERCISE_TARGET   = 4;    // required exercises within the window
+const NRC_MILESTONES        = [3, 7, 14, 30]; // streak lengths that bump animation
+
+// Date string (YYYY-MM-DD) the nightly check-in should grade: today if past
+// NRC_REVIEW_HOUR local, otherwise yesterday.
+function nrcReviewDate() {
+  const now = new Date();
+  if (now.getHours() < NRC_REVIEW_HOUR) {
+    now.setDate(now.getDate() - 1);
+  }
+  return now.toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
+}
+
+// Build a context object that batches all localStorage reads once. Pass into
+// nrcGradeDay to avoid re-parsing JSON for every iteration of the streak walk.
+function nrcBuildContext() {
+  const ctx = { calByDate: {}, calCountByDate: {}, habitsData: {}, skipSet: new Set(), sleepByDate: {}, calTarget: 2500 };
+  try {
+    const targets = (typeof getFoodTargets === 'function') ? getFoodTargets() : null;
+    if (targets && typeof targets.cal === 'number' && targets.cal > 0) ctx.calTarget = targets.cal;
+  } catch(e) {}
+  try {
+    const entries = (typeof getFoodEntries === 'function') ? getFoodEntries() : [];
+    entries.forEach(e => {
+      if (!e || !e.date) return;
+      ctx.calByDate[e.date] = (ctx.calByDate[e.date] || 0) + (Number(e.calories) || 0);
+      ctx.calCountByDate[e.date] = (ctx.calCountByDate[e.date] || 0) + 1;
+    });
+  } catch(e) {}
+  try {
+    ctx.habitsData = (typeof getHabitsData === 'function') ? getHabitsData() : {};
+  } catch(e) { ctx.habitsData = {}; }
+  try {
+    ctx.skipSet = (typeof getSkipDates === 'function') ? getSkipDates() : new Set();
+  } catch(e) { ctx.skipSet = new Set(); }
+  try {
+    ctx.sleepByDate = (typeof getWhoopSleepByDate === 'function') ? getWhoopSleepByDate() : {};
+  } catch(e) { ctx.sleepByDate = {}; }
+  return ctx;
+}
+
+// Grade a single date against the perfect-day criteria. Returns shape:
+// { cal: {ok, total, target, present}, exercise: {ok, note, present},
+//   sleep: {ok, perf, present}, isSkip, requiredCount, metCount, overall }
+// Pass `ctx` from nrcBuildContext() to avoid repeated localStorage parses.
+function nrcGradeDay(date, ctx) {
+  ctx = ctx || nrcBuildContext();
+  const isSkip = ctx.skipSet.has(date);
+  const calTarget = ctx.calTarget;
+
+  // Calories
+  const calTotal = ctx.calByDate[date] || 0;
+  const calPresent = (ctx.calCountByDate[date] || 0) > 0;
+  const calOk = calPresent && calTotal <= calTarget;
+
+  // Exercise — rolling 4-of-last-7 (window includes the grading date itself).
+  // Rest days don't break a perfect day; the streak rewards a sustained pattern.
+  // Today's habit row is surfaced in the verdict but is not by itself required.
+  let exCount = 0;
+  const exBase = new Date(date + 'T12:00:00');
+  for (let i = 0; i < NRC_EXERCISE_WINDOW; i++) {
+    const d = new Date(exBase); d.setDate(d.getDate() - i);
+    const ds = d.toLocaleDateString('en-CA');
+    const h = (ctx.habitsData[ds] || {}).exercise;
+    if (h && h.done) exCount++;
+  }
+  const exOk = exCount >= NRC_EXERCISE_TARGET;
+  const todayHabit = (ctx.habitsData[date] || {}).exercise;
+  const todayDone  = !!(todayHabit && todayHabit.done);
+  const todayNote  = (todayHabit && todayHabit.notes) ? String(todayHabit.notes) : '';
+
+  // Sleep — last night's sleep credited to date `date` (= WHOOP cycle date - 1)
+  let sleepPerf = null;
+  try {
+    const d = new Date(date + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    const cycleDate = d.toISOString().slice(0, 10);
+    const v = ctx.sleepByDate[cycleDate];
+    if (typeof v === 'number') sleepPerf = v;
+  } catch(e) {}
+  const sleepPresent = sleepPerf != null;
+  // Data-gap rule: missing sleep => treat as OK (don't punish for sync gaps).
+  const sleepOk = !sleepPresent || sleepPerf >= NRC_SLEEP_THRESHOLD;
+
+  let required, met;
+  if (isSkip) {
+    // Skip day: drop the cal check entirely. Exercise + sleep still required.
+    required = 2;
+    met = (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
+  } else {
+    required = 3;
+    met = (calOk ? 1 : 0) + (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
+  }
+  const overall = met === required;
+
+  return {
+    cal:      { ok: calOk,    total: calTotal, target: calTarget, present: calPresent },
+    exercise: { ok: exOk,     count: exCount,  window: NRC_EXERCISE_WINDOW, target: NRC_EXERCISE_TARGET, todayDone, todayNote },
+    sleep:    { ok: sleepOk,  perf: sleepPerf, present: sleepPresent },
+    isSkip,
+    requiredCount: required,
+    metCount: met,
+    overall,
+  };
+}
+
+// Walk backward from `endDate` (inclusive) counting consecutive perfect days.
+// Also computes the best streak across the lookback window. Returns
+// { currentStreak, bestStreak, bestStreakEnd } where bestStreakEnd is the
+// YYYY-MM-DD on which the best streak ended (its most recent day).
+// `ctx` is the batched-data context from nrcBuildContext().
+function nrcComputeStreak(endDate, lookbackDays, ctx) {
+  ctx = ctx || nrcBuildContext();
+  const LOOKBACK = Math.max(lookbackDays || 120, 30);
+  const end = new Date(endDate + 'T12:00:00');
+  let current = 0;
+  let runningTrue = false;
+  let runLen = 0;
+  let best = 0;
+  let bestEnd = null;
+  let runEnd = null;
+
+  for (let i = 0; i < LOOKBACK; i++) {
+    const d = new Date(end);
+    d.setDate(d.getDate() - i);
+    const ds = d.toLocaleDateString('en-CA');
+    const g = nrcGradeDay(ds, ctx);
+
+    // Tail-from-end current streak (only counts from i=0 forward, breaks on first miss)
+    if (i === current && g.overall) current++;
+
+    // Best streak — walk all of history. Since we're going backward, a "run"
+    // begins on the most recent miss-adjacent day and grows as we step further
+    // back through consecutive overall=true days.
+    if (g.overall) {
+      if (!runningTrue) { runningTrue = true; runLen = 1; runEnd = ds; }
+      else              { runLen += 1; }
+      if (runLen > best) { best = runLen; bestEnd = runEnd; }
+    } else {
+      runningTrue = false;
+      runLen = 0;
+      runEnd = null;
+    }
+  }
+  // The current streak is always ≤ the best streak by construction.
+  if (current > best) { best = current; bestEnd = endDate; }
+  return { currentStreak: current, bestStreak: best, bestStreakEnd: bestEnd };
+}
+
+// One-line formatter: "12 (Apr 14–25)" or "" if no best streak.
+function nrcFormatBestStreak(best, bestEnd) {
+  if (!best || best < 2 || !bestEnd) return '';
+  const end = new Date(bestEnd + 'T12:00:00');
+  const start = new Date(end);
+  start.setDate(start.getDate() - (best - 1));
+  const sameMonth = start.getMonth() === end.getMonth();
+  const sMonth = start.toLocaleDateString('en-US', { month: 'short' });
+  const eMonth = end.toLocaleDateString('en-US', { month: 'short' });
+  if (sameMonth) {
+    return `${best} (${sMonth} ${start.getDate()}–${end.getDate()})`;
+  }
+  return `${best} (${sMonth} ${start.getDate()} – ${eMonth} ${end.getDate()})`;
+}
+
+function nrcRenderConfettiLayer(big) {
+  // Generate ~30 (or ~45 for big) pieces with randomized trajectories. Colors
+  // pick from a green/gold/blue palette to fit the "perfect day" mood.
+  const palette = ['#10b981','#34d399','#f59e0b','#fbbf24','#60a5fa','#a78bfa','#f472b6'];
+  const count = big ? 45 : 30;
+  let html = '<div class="nrc-confetti-layer">';
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.random() * Math.PI * 2);
+    const dist  = 70 + Math.random() * 90;
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist - 30; // bias upward
+    const rot = (Math.random() * 720 - 360) | 0;
+    const color = palette[i % palette.length];
+    const delay = (Math.random() * 0.25).toFixed(2);
+    html += `<span class="nrc-confetti-piece" style="background:${color};--nrc-tx:${tx.toFixed(0)}px;--nrc-ty:${ty.toFixed(0)}px;--nrc-rot:${rot}deg;animation-delay:${delay}s;"></span>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderNightlyCheckIn() {
+  const card = document.getElementById('nrc-card');
+  const body = document.getElementById('nrc-card-body');
+  if (!card || !body) return;
+
+  const reviewDate = nrcReviewDate();
+  const ctx = nrcBuildContext();
+  const grade = nrcGradeDay(reviewDate, ctx);
+
+  // Compute the streak going INTO the review date (exclusive). When today is
+  // perfect, the displayed streak is priorStreak+1. When today is partial or
+  // missed, the chip carries the prior streak (yesterday's run still standing)
+  // — locking or breaking happens once today is graded.
+  const priorDate = (() => {
+    const d = new Date(reviewDate + 'T12:00:00'); d.setDate(d.getDate() - 1);
+    return d.toLocaleDateString('en-CA');
+  })();
+  const priorInfo = nrcComputeStreak(priorDate, 120, ctx);
+  const streakIntoToday = priorInfo.currentStreak;
+  const streakIncludingToday = grade.overall ? streakIntoToday + 1 : 0;
+  // Best streak: priorInfo.bestStreak is computed across all of history pre-today;
+  // if today's perfect-day completion creates a new high, take it.
+  let bestStreak    = priorInfo.bestStreak;
+  let bestStreakEnd = priorInfo.bestStreakEnd;
+  if (streakIncludingToday > bestStreak) {
+    bestStreak    = streakIncludingToday;
+    bestStreakEnd = reviewDate;
+  }
+  // Chip value: locked count if perfect today, else carrying count.
+  const chipStreak = grade.overall ? streakIncludingToday : streakIntoToday;
+  // Verdict subtext uses the "locked" count when perfect.
+  const currentStreak = streakIncludingToday;
+
+  // Framing — does the review date == today (local)?
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const isToday = reviewDate === todayStr;
+  const headline = isToday ? 'TONIGHT\'S CHECK-IN' : 'YESTERDAY\'S CHECK-IN';
+
+  // Streak chip — always shows streak. No more "X of Y" duplication with the
+  // verdict; the verdict carries "X of 3" on its own.
+  let streakHtml;
+  if (chipStreak >= 1) {
+    streakHtml = `<span class="nrc-streak active">🔥 ${chipStreak} ${chipStreak === 1 ? 'day' : 'days'}</span>`;
+  } else {
+    streakHtml = `<span class="nrc-streak broken">Streak: —</span>`;
+  }
+
+  // Rows — cal row hidden on skip days
+  const rowsHtml = [];
+  if (!grade.isSkip) {
+    const c = grade.cal;
+    let calValue;
+    if (!c.present) {
+      calValue = `<span class="nrc-value"><em style="color:var(--muted)">No entries yet</em></span>`;
+    } else {
+      const delta = c.total - c.target;
+      const deltaCls = delta <= 0 ? 'under' : 'over';
+      const deltaStr = (delta === 0) ? '±0' : (delta < 0 ? `${delta}` : `+${delta}`);
+      calValue = `<span class="nrc-value">${Math.round(c.total).toLocaleString()} / ${Math.round(c.target).toLocaleString()}<span class="nrc-delta ${deltaCls}">${deltaStr}</span></span>`;
+    }
+    const markCls = c.ok ? 'ok' : (c.present ? 'miss' : 'pending');
+    const markChar = c.ok ? '✓' : (c.present ? '✗' : '◯');
+    rowsHtml.push(`
+      <div class="nrc-row">
+        <span class="nrc-mark ${markCls}">${markChar}</span>
+        <span class="nrc-label">Calories</span>
+        ${calValue}
+      </div>
+    `);
+  }
+
+  // Exercise — rolling 4-of-last-7. Surface today's note (or "rest day") as a
+  // sub-line so the user can tell at a glance what today contributed.
+  {
+    const e = grade.exercise;
+    const markCls = e.ok ? 'ok' : 'miss';
+    const markChar = e.ok ? '✓' : '✗';
+    let sub;
+    if (e.todayDone) sub = e.todayNote ? `today: ${esc(e.todayNote)}` : 'today: done';
+    else             sub = 'today: rest';
+    const tally = `${e.count} of last ${e.window}`;
+    rowsHtml.push(`
+      <div class="nrc-row">
+        <span class="nrc-mark ${markCls}">${markChar}</span>
+        <span class="nrc-label">Exercise</span>
+        <span class="nrc-value">${tally}<span class="nrc-delta">· ${sub}</span></span>
+      </div>
+    `);
+  }
+
+  // Sleep
+  {
+    const s = grade.sleep;
+    let markCls, markChar, valueText;
+    if (!s.present) {
+      markCls = 'pending';
+      markChar = '—';
+      valueText = '<em style="color:var(--muted)">No WHOOP data</em>';
+    } else if (s.ok) {
+      markCls = 'ok';
+      markChar = '✓';
+      valueText = `${Math.round(s.perf)}% <span class="nrc-delta under">(≥ ${NRC_SLEEP_THRESHOLD}%)</span>`;
+    } else {
+      markCls = 'miss';
+      markChar = '✗';
+      valueText = `${Math.round(s.perf)}% <span class="nrc-delta over">(target ${NRC_SLEEP_THRESHOLD}%)</span>`;
+    }
+    rowsHtml.push(`
+      <div class="nrc-row">
+        <span class="nrc-mark ${markCls}">${markChar}</span>
+        <span class="nrc-label">Sleep</span>
+        <span class="nrc-value">${valueText}</span>
+      </div>
+    `);
+  }
+
+  // Verdict block
+  let verdictHtml = '';
+  if (grade.overall) {
+    const bestStr = nrcFormatBestStreak(bestStreak, bestStreakEnd);
+    let headlineEmoji = '🎉';
+    let headlineText = grade.isSkip ? 'Rest Day ✓' : 'Perfect Day';
+    let subText = '';
+    if (currentStreak >= 30)      { headlineEmoji = '🏆'; subText = '30-day streak — legendary.'; }
+    else if (currentStreak >= 14) { headlineEmoji = '🔥'; subText = `${currentStreak}-day streak — two full weeks straight.`; }
+    else if (currentStreak >= 7)  { headlineEmoji = '🔥'; subText = `${currentStreak}-day streak — one week locked in.`; }
+    else if (currentStreak >= 3)  { headlineEmoji = '🔥'; subText = `${currentStreak}-day streak — momentum building.`; }
+    else                          { subText = `${currentStreak}-day streak — keep it going.`; }
+    if (bestStr && bestStreak > currentStreak) subText += ` Best: ${bestStr}.`;
+    verdictHtml = `
+      <div class="nrc-verdict perfect">
+        <div class="nrc-verdict-headline">${headlineEmoji} ${headlineText}${grade.isSkip ? '<span class="nrc-rest-day-tag">skip day</span>' : ''}</div>
+        <div class="nrc-verdict-sub">${esc(subText)}</div>
+      </div>
+    `;
+  } else if (grade.metCount >= Math.max(1, grade.requiredCount - 1)) {
+    let leftLabel;
+    if (!grade.cal.ok && !grade.isSkip) {
+      leftLabel = grade.cal.present ? 'Tighten calories' : 'Log your food';
+    } else if (!grade.exercise.ok) {
+      const need = grade.exercise.target - grade.exercise.count;
+      leftLabel = grade.exercise.todayDone
+        ? `${need} more workout${need === 1 ? '' : 's'} this week`
+        : `Exercise today to hit ${grade.exercise.target} of ${grade.exercise.window}`;
+    } else {
+      leftLabel = 'Sleep needed last night to lock today';
+    }
+    verdictHtml = `
+      <div class="nrc-verdict partial">
+        <div class="nrc-verdict-headline">Almost there — ${grade.metCount} of ${grade.requiredCount}</div>
+        <div class="nrc-verdict-sub">${esc(leftLabel)}.</div>
+      </div>
+    `;
+  } else {
+    verdictHtml = `
+      <div class="nrc-verdict missed">
+        <div class="nrc-verdict-headline">Tomorrow's a new day</div>
+        <div class="nrc-verdict-sub">${grade.metCount} of ${grade.requiredCount} today. Reset, try again.</div>
+      </div>
+    `;
+  }
+
+  // Animation gating — fire confetti once per graded day, only on a perfect day.
+  let lastAnimated = '';
+  try { lastAnimated = localStorage.getItem(NRC_LAST_ANIMATED_KEY) || ''; } catch(e) {}
+  const shouldAnimate = grade.overall && lastAnimated !== reviewDate;
+  const isMilestone = NRC_MILESTONES.includes(currentStreak);
+  const confettiHtml = shouldAnimate ? nrcRenderConfettiLayer(isMilestone) : '';
+
+  body.innerHTML = `
+    <div class="nrc-header">
+      <div class="nrc-title"><span class="nrc-emoji">${grade.overall ? '🌙' : '🌙'}</span>${headline}</div>
+      ${streakHtml}
+    </div>
+    <div class="nrc-divider"></div>
+    ${rowsHtml.join('')}
+    ${verdictHtml}
+    ${confettiHtml}
+  `;
+  card.style.display = '';
+
+  if (shouldAnimate) {
+    card.classList.add('nrc-confetti-on');
+    if (isMilestone) card.classList.add('nrc-confetti-big');
+    try { safeSetItem(NRC_LAST_ANIMATED_KEY, reviewDate); } catch(e) {}
+    setTimeout(() => {
+      card.classList.remove('nrc-confetti-on');
+      card.classList.remove('nrc-confetti-big');
+    }, isMilestone ? 2400 : 1700);
+  }
 }
 
 function renderHabitStreaks() {
@@ -5510,408 +5759,6 @@ async function confirmDeleteDexa(date) {
   renderDexaSection();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 30 DAY RUN CHALLENGE
-// ═══════════════════════════════════════════════════════════════════════════
-const RC_KEY = 'run_challenge_v1';
-const RC_SHEET_NAME = '30 Day Run Challenge';
-
-function getRCData() {
-  try { return JSON.parse(localStorage.getItem(RC_KEY)) || { startDate:null, entries:{} }; }
-  catch(e) { return { startDate:null, entries:{} }; }
-}
-function saveRCData(data) { safeSetItem(RC_KEY, JSON.stringify(data)); }
-
-function rcDayNumber(dateStr, startDate) {
-  const d = new Date(dateStr + 'T12:00:00');
-  const s = new Date(startDate + 'T12:00:00');
-  return Math.floor((d - s) / 86400000) + 1;
-}
-
-function rcGetAllDays(startDate) {
-  const days = [];
-  const s = new Date(startDate + 'T12:00:00');
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(s);
-    d.setDate(d.getDate() + i);
-    days.push(d.toISOString().slice(0,10));
-  }
-  return days;
-}
-
-function rcCompletedCount(data) {
-  if (!data.startDate) return 0;
-  // 2026-05-15: only count runs inside the formal 30-day window so the
-  // "X / 30 days" badge stays consistent with what the calendar renders.
-  const formalSet = new Set(rcGetAllDays(data.startDate));
-  return Object.keys(data.entries)
-    .filter(d => formalSet.has(d) && data.entries[d] && data.entries[d].done)
-    .length;
-}
-
-function startRunChallenge() {
-  const input = document.getElementById('rc-start-date');
-  const startDate = input ? input.value.trim() : today();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) { showToast('Enter a valid date (YYYY-MM-DD)'); return; }
-  const data = getRCData();
-  // Enqueue deletes for any prior entries before wiping local state. Without
-  // this, the next pull from Sheets re-populates the cleared runs.
-  Object.keys(data.entries || {}).forEach(date => {
-    enqueueWrite('deleteRunChallengeForDate', { date });
-  });
-  data.startDate = startDate;
-  data.entries = {};
-  saveRCData(data);
-  renderRunChallenge();
-}
-
-async function resetRunChallenge() {
-  if (!(await confirmAsync('Reset the 30 Day Run Challenge? All logged runs will be cleared.'))) return;
-  // Enqueue deletes for the cross-device case — see startRunChallenge.
-  const existing = getRCData();
-  Object.keys(existing.entries || {}).forEach(date => {
-    enqueueWrite('deleteRunChallengeForDate', { date });
-  });
-  saveRCData({ startDate:null, entries:{} });
-  renderRunChallenge();
-}
-
-function logRun() { logRunForDate(today()); }
-
-function removeRun(date) {
-  const data = getRCData();
-  if (data.entries[date]) {
-    delete data.entries[date];
-    saveRCData(data);
-    // Phase 2: enqueue the granular delete — single-row removal in the sheet.
-    enqueueWrite('deleteRunChallengeForDate', { date });
-    renderRunChallenge();
-    showToast('Run removed');
-  }
-}
-
-let rcSelectedDate = null; // null = default to today
-
-function rcSelectDay(date) {
-  rcSelectedDate = date;
-  renderRunChallenge();
-}
-
-function logRunForDate(date) {
-  const dist = document.getElementById('rc-distance');
-  const time = document.getElementById('rc-time');
-  if (!dist || !time) return;
-  const distance = parseFloat(dist.value);
-  const timeVal = time.value.trim();
-  if (isNaN(distance) || distance <= 0) { showToast('Enter a valid distance'); return; }
-  if (!timeVal) { showToast('Enter your run time'); return; }
-  const data = getRCData();
-  data.entries[date] = { done:true, distance, time:timeVal };
-  saveRCData(data);
-  renderRunChallenge();
-  // Phase 2: enqueue the granular setRunChallengeForDate write — single-row upsert.
-  // `day` is the day number (1–30) computed from the challenge start date.
-  const dayNum = data.startDate ? rcDayNumber(date, data.startDate) : '';
-  enqueueWrite('setRunChallengeForDate', {
-    date,
-    day:      dayNum,
-    distance, time: timeVal,
-    done:     'TRUE',
-  });
-  showToast('🏃 Run logged!');
-}
-
-// Calculate pace per mile from distance (mi) and time string (mm:ss or m:ss)
-// Normalize time from Sheets Date string to mm:ss
-function rcNormalizeTime(t) {
-  if (!t) return '';
-  // Already mm:ss or h:mm:ss? keep it
-  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(t.trim())) return t.trim();
-  // Google Sheets Date object stringified: "Sat Dec 30 1899 09:13:00 GMT..."
-  const m = t.match(/(\d{1,2}):(\d{2}):(\d{2})/);
-  if (m) {
-    const hrs = parseInt(m[1]) || 0;
-    const mins = parseInt(m[2]) || 0;
-    const secs = parseInt(m[3]) || 0;
-    if (hrs > 0) return hrs + ':' + String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
-    return mins + ':' + String(secs).padStart(2,'0');
-  }
-  return t.trim();
-}
-
-function rcCalcPace(distance, timeStr) {
-  if (!distance || distance <= 0 || !timeStr) return '';
-  const parts = timeStr.split(':');
-  let totalSeconds = 0;
-  if (parts.length === 2) {
-    totalSeconds = (parseInt(parts[0])||0) * 60 + (parseInt(parts[1])||0);
-  } else if (parts.length === 3) {
-    totalSeconds = (parseInt(parts[0])||0) * 3600 + (parseInt(parts[1])||0) * 60 + (parseInt(parts[2])||0);
-  } else {
-    return '';
-  }
-  const paceSeconds = Math.round(totalSeconds / distance);
-  const pm = Math.floor(paceSeconds / 60);
-  const ps = paceSeconds % 60;
-  return pm + ':' + String(ps).padStart(2,'0');
-}
-
-function renderRunChallenge() {
-  const body = document.getElementById('rc-body');
-  const badge = document.getElementById('rc-badge');
-  if (!body) return;
-  const data = getRCData();
-  const td = today();
-
-  // Not started state
-  if (!data.startDate) {
-    badge.textContent = 'Not Started';
-    badge.className = 'rc-badge not-started';
-    const yesterday = (() => { const d = new Date(); d.setDate(d.getDate()-1); return d.toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'}); })();
-    body.innerHTML = `
-      <div style="text-align:center;padding:10px 0;color:var(--muted);font-size:0.88rem;margin-bottom:14px;">
-        Inspired by Kelly Matthews — run 1+ miles every day for 30 days straight.
-      </div>
-      <div class="rc-start-section">
-        <div class="rc-field" style="display:inline-flex;margin-bottom:12px">
-          <label>Start Date</label>
-          <input type="date" id="rc-start-date" value="${yesterday}" style="width:160px" />
-        </div>
-        <div><button class="rc-start-btn" onclick="startRunChallenge()">Start Challenge</button></div>
-      </div>
-    `;
-    return;
-  }
-
-  const formalDays = rcGetAllDays(data.startDate);
-  const formalSet = new Set(formalDays);
-  const formalEnd = formalDays[29];
-
-  // 2026-05-15: calendar is intentionally scoped to the formal 30-day window.
-  // Earlier behavior extended the grid to cover pre-challenge runs and any
-  // days past formalEnd/today, which surfaced unrelated history and stretched
-  // the grid weeks past the challenge end. Runs logged outside the window
-  // still live in the sheet but don't render here.
-  const allDays = formalDays.slice();
-
-  const endDate = allDays[allDays.length - 1];
-  const completed = rcCompletedCount(data);
-  const challengeDay = rcDayNumber(td, data.startDate);
-  const isActive = challengeDay >= 1 && challengeDay <= 30;
-  const isComplete = completed >= 30;
-  const isPast = challengeDay > 30;
-
-  // Badge
-  if (isComplete) {
-    badge.textContent = 'Complete! 🎉';
-    badge.className = 'rc-badge complete';
-  } else if (isActive) {
-    badge.textContent = 'Active';
-    badge.className = 'rc-badge active';
-  } else if (isPast) {
-    badge.textContent = `Done — ${completed}/30`;
-    badge.className = 'rc-badge not-started';
-  } else {
-    badge.textContent = 'Active';
-    badge.className = 'rc-badge active';
-  }
-
-  // Build progress
-  const pct = Math.round((completed / 30) * 100);
-  let html = `
-    <div class="rc-progress-wrap">
-      <div class="rc-progress-label">
-        <span class="rc-progress-day">${completed} / 30 days</span>
-        <span class="rc-progress-sub">${isActive ? 'Day ' + challengeDay + ' of 30' : (isPast ? 'Challenge ended' : '')}</span>
-      </div>
-      <div class="rc-progress-track">
-        <div class="rc-progress-fill" style="width:${pct}%"></div>
-      </div>
-    </div>
-  `;
-
-  // Month label(s) for the visible calendar range (may exceed the formal
-  // 30-day window if there are entries outside it).
-  const rcStartDt = new Date(allDays[0] + 'T12:00:00');
-  const rcEndDt = new Date(allDays[allDays.length - 1] + 'T12:00:00');
-  const rcStartMonth = rcStartDt.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-  const rcEndMonth = rcEndDt.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-  const monthLabel = rcStartMonth === rcEndMonth ? rcStartMonth : `${rcStartDt.toLocaleDateString('en-US',{month:'short'})} – ${rcEndDt.toLocaleDateString('en-US',{month:'short',year:'numeric'})}`;
-  html += `<div style="text-align:center;font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:8px;">${monthLabel}</div>`;
-
-  // Day grid — calendar layout with day-of-week headers
-  html += '<div class="rc-day-grid">';
-  const dowHeaders = ['S','M','T','W','T','F','S'];
-  dowHeaders.forEach(d => { html += `<div class="rc-day-header">${d}</div>`; });
-
-  // Add blank cells before the first day to align with day of week
-  const firstDow = new Date(allDays[0] + 'T12:00:00').getDay(); // 0=Sun
-  for (let b = 0; b < firstDow; b++) {
-    html += '<div class="rc-day blank"></div>';
-  }
-
-  allDays.forEach((date) => {
-    const inFormalWindow = formalSet.has(date);
-    const dayNum = inFormalWindow ? rcDayNumber(date, data.startDate) : null;
-    const entry = data.entries[date];
-    const isDone = entry && entry.done;
-    const isToday = date === td;
-    const isFuture = date > td;
-    // Days outside the formal window aren't "missed" in the challenge sense —
-    // they're just history. Only mark missed when inside the formal window
-    // and not done/future/today.
-    const isMissed = inFormalWindow && !isDone && !isFuture && !isToday;
-    const isSelected = date === rcSelectedDate;
-    let cls = 'rc-day';
-    if (isDone) cls += ' done';
-    else if (isToday) cls += ' today';
-    else if (isFuture) cls += ' future';
-    else if (isMissed) cls += ' missed';
-    if (!inFormalWindow) cls += ' rc-outside';
-    if (isSelected && !isFuture) cls += ' selected';
-    const pace = isDone ? rcCalcPace(entry.distance, entry.time) : '';
-    const dt = new Date(date + 'T12:00:00');
-    const dateLabel = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-    const dayLabel = dayNum != null ? `Day ${dayNum}` : 'Pre-challenge';
-    const title = isDone
-      ? `${dayLabel}: ${dateLabel} — ${entry.distance} mi, ${entry.time} (${pace}/mi)`
-      : `${dayLabel}: ${dateLabel}`;
-    const clickable = !isFuture ? `onclick="rcSelectDay('${date}')" style="cursor:pointer"` : '';
-    const dom = dt.getDate();
-    let inner;
-    if (isDone && pace) {
-      inner = `<span class="rc-day-num">${dom}</span><span class="rc-day-pace">${pace}</span>`;
-    } else {
-      inner = `${dom}`;
-    }
-    html += `<div class="${cls}" title="${esc(title)}" ${clickable}>${inner}</div>`;
-  });
-  html += '</div>';
-
-  // Log form for the selected day (defaults to today, or clicked day)
-  const logDate = rcSelectedDate && rcSelectedDate <= td && allDays.includes(rcSelectedDate) ? rcSelectedDate : td;
-  const logEntry = data.entries[logDate];
-  const logDayNum = rcDayNumber(logDate, data.startDate);
-  const logLabel = logDate === td ? "Today's Run" : `Day ${logDayNum} — ${fmtDate(logDate)}`;
-  const canLog = logDayNum >= 1 && logDayNum <= 30 && logDate <= td;
-
-  if (canLog) {
-    if (logEntry && logEntry.done) {
-      html += `
-        <div class="rc-log-today">
-          <h3>${esc(logLabel)}</h3>
-          <div class="rc-logged-msg">
-            ✓ ${logEntry.distance} mi in ${esc(logEntry.time)}
-            <button class="rc-reset-btn" onclick="removeRun('${logDate}')" style="margin-left:8px">undo</button>
-          </div>
-        </div>
-      `;
-    } else {
-      html += `
-        <div class="rc-log-today">
-          <h3>Log Run — ${esc(logLabel)}</h3>
-          <div class="rc-log-row">
-            <div class="rc-field">
-              <label>Distance (mi)</label>
-              <input type="number" id="rc-distance" step="0.01" min="0" placeholder="1.0" />
-            </div>
-            <div class="rc-field">
-              <label>Time (mm:ss)</label>
-              <input type="text" id="rc-time" placeholder="10:30" />
-            </div>
-            <button class="rc-log-btn" onclick="logRunForDate('${logDate}')">Log Run</button>
-          </div>
-        </div>
-      `;
-    }
-  }
-
-  // Stats — scoped to the formal 30-day window so they line up with the
-  // calendar and the "X / 30 days" badge.
-  const distances = formalDays
-    .map(d => data.entries[d])
-    .filter(e => e && e.done)
-    .map(e => e.distance);
-  const totalDist = distances.reduce((a,b) => a + b, 0);
-  const avgDist = distances.length ? (totalDist / distances.length) : 0;
-  html += `
-    <div class="rc-stats">
-      <div class="rc-stat">
-        <div class="rc-stat-val">${totalDist.toFixed(1)}</div>
-        <div class="rc-stat-label">Total Miles</div>
-      </div>
-      <div class="rc-stat">
-        <div class="rc-stat-val">${avgDist.toFixed(1)}</div>
-        <div class="rc-stat-label">Avg Miles</div>
-      </div>
-      <div class="rc-stat">
-        <div class="rc-stat-val">${completed}</div>
-        <div class="rc-stat-label">Days Done</div>
-      </div>
-    </div>
-  `;
-
-  // Reset link
-  html += `
-    <div class="rc-reset-row">
-      <button class="rc-reset-btn" onclick="resetRunChallenge()">Reset challenge</button>
-    </div>
-  `;
-
-  body.innerHTML = html;
-}
-
-async function pullRCFromSheets() {
-  const url = getSheetsUrl();
-  if (!url) { console.log('RC pull: no sheets URL'); return; }
-  try {
-    const res = await noCacheFetch(url + '?type=runChallenge');
-    const text = await res.text();
-    let result;
-    try { result = JSON.parse(text); } catch(pe) { console.warn('RC pull: JSON parse fail'); return; }
-    if (!result.ok || !Array.isArray(result.entries) || !result.entries.length) return;
-    const data = getRCData();
-
-    // Determine startDate: prefer explicit from Sheet, else compute from day 1 entry
-    if (!data.startDate) {
-      if (result.startDate) {
-        data.startDate = normalizeDate(result.startDate);
-      } else {
-        // Find the entry with day=1, or use the earliest date
-        const day1 = result.entries.find(e => Number(e.day) === 1);
-        if (day1 && day1.date) {
-          data.startDate = normalizeDate(day1.date);
-        } else {
-          // Fall back to earliest date
-          const dates = result.entries.map(e => normalizeDate(e.date)).filter(Boolean).sort();
-          if (dates.length) data.startDate = dates[0];
-        }
-      }
-    }
-
-    result.entries.forEach(e => {
-      if (!e.date) return;
-      e.date = normalizeDate(e.date);
-      if (String(e.done).toUpperCase() === 'TRUE' || e.done === true) {
-        data.entries[e.date] = {
-          done: true,
-          distance: Number(e.distance) || 0,
-          time: rcNormalizeTime(String(e.time || ''))
-        };
-      }
-    });
-    saveRCData(data);
-    renderRunChallenge();
-  } catch(e) {
-    console.warn('RC pull error:', e);
-  }
-}
-
-// Initial render from localStorage (Sheets pull happens in main boot sequence).
-// renderHabits() also calls renderRunChallenge() at the end, so the panel
-// stays in sync when the habits tab is rendered.
-renderRunChallenge();
-
 // ══════════════════════════════════════════════════════════════════════════
 // JOURNAL (added 2026-05-02)
 // Free-form notes timestamped to-the-minute. Stored locally in
@@ -6125,10 +5972,12 @@ function mergeJournalEntries(local, remote) {
   const sheetsUrl = getSheetsUrl();
   if (sheetsUrl) {
     updateSyncUI('yellow','Connecting to Google Sheets...');
-    // Pull weight, food entries, food library, habits, run challenge, and DEXA in parallel
-    const [remote, foodRemote, libraryData, habitsRemote, _rc, dexaRemote, skipDatesRemote] = await Promise.all([
+    // Pull weight, food entries, food library, habits, DEXA, skip dates, and
+    // WHOOP sleep in parallel. WHOOP sleep is read-only — used by the nightly
+    // check-in to grade sleep performance against the perfect-day criteria.
+    const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, _sleep] = await Promise.all([
       pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(),
-      pullRCFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets()
+      pullDexaFromSheets(), pullSkipDatesFromSheets(), pullWhoopSleepFromSheets()
     ]);
     if (remote) {
       const local = load();
@@ -6206,11 +6055,6 @@ function mergeJournalEntries(local, remote) {
     // Background poll while the app is open — picks up edits made on other
     // devices without requiring a tab switch or manual refresh.
     startBackgroundPoll();
-
-    // Morning Verdict (v1 2026-05-21): once sync completes, look for today's
-    // cached verdict and render it. If today has a weigh-in but no cached
-    // verdict yet, generate one. Runs once per app load.
-    loadVerdictForToday({ autoOnLoad: true });
   }
 })();
 </script>
