@@ -3074,12 +3074,7 @@ function drawWeightChart(data) {
     }
   }
 
-  // Goal pace line (straight line from start weight, extended only as far as the visible chart window)
-  const goalEnd = paceEndWeight;
-  const goalLine = [
-    { x: CFG.startDate, y: CFG.startWeight },
-    { x: endDate,       y: goalEnd }
-  ];
+  // Goal pace line removed 2026-05-23 per Ethan; goalEnd/goalLine consts dropped along with the dataset.
 
   // Y-axis bounds — fixed range so the trend visibly moves rather than auto-fitting
   // to a flat slice. Adjust here if the working weight range shifts materially.
@@ -3116,20 +3111,8 @@ function drawWeightChart(data) {
           spanGaps: true,
           order: 2,
           yAxisID: 'y',
-        },
-        {
-          type: 'line',
-          label: 'Goal Pace',
-          data: goalLine,
-          borderColor: '#00f0ff',
-          borderWidth: 2,
-          borderDash: [6, 4],
-          pointRadius: 0,
-          pointHoverRadius: 0,
-          fill: false,
-          order: 3,
-          yAxisID: 'y',
         }
+        // Goal Pace line removed 2026-05-23 per Ethan.
       ]
     },
     options: {
