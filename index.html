@@ -910,19 +910,11 @@
     .food-entry-actions {
       display: flex; align-items: center; gap: 4px;
     }
+    /* Kebab disabled 2026-05-23 per Ethan — action icons (clock/edit/delete) are always visible inline. */
     .food-entry-actions-collapsible {
-      display: none; gap: 4px;
+      display: flex; gap: 4px;
     }
-    .food-entry-row.expanded .food-entry-actions-collapsible { display: flex; }
-    .food-entry-disclosure {
-      background: transparent; border: none;
-      color: var(--dim);
-      font-size: 18px;
-      cursor: pointer;
-      padding: 4px 6px;
-      font-family: 'VT323', monospace;
-    }
-    .food-entry-disclosure:hover { color: var(--ink); }
+    .food-entry-disclosure { display: none; }
     .food-delete-btn {
       background: transparent;
       border: 1px solid var(--border-soft);
