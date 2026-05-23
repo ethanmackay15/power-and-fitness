@@ -59,6 +59,10 @@
     .header {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 24px; min-height: 30px;
+      /* Reserve room on the right for the fixed-position .settings-toggle gear
+         (38px wide, 14px right inset) so the sync pill never slides under it.
+         2026-05-22 App Review #6. */
+      padding-right: 54px;
     }
     .header .date-label {
       font-size: 0.7rem; font-weight: 600; color: var(--muted);
@@ -127,7 +131,13 @@
       text-transform: none; letter-spacing: 0;
     }
     .journey-chip .journey-since::before { content: '· '; }
-    .journey-chip .journey-right { display: none; }
+    /* Journey-target: inline goal anchor restored 2026-05-22 (App Review #7).
+       Was hidden via display:none; now surfaces "→ 12% BF" beside "WEEK N · since Mar 15"
+       so the daily watchface always points at the destination. */
+    .journey-chip .journey-right { display: inline-flex; align-items: baseline; gap: 4px; margin-left: 6px; }
+    .journey-chip .journey-right::before { content: '→'; color: var(--muted); font-size: 0.7rem; }
+    .journey-chip .journey-target { font-size: 0.7rem; font-weight: 700; color: var(--text); letter-spacing: 0.3px; }
+    .journey-chip .journey-target-lbl { display: none; }
 
     /* ───── Bottom Nav Bar (Watchface v2) ─────
        Minimal text-only labels, mixed case, ink + thin underline for the active tab.
@@ -148,18 +158,22 @@
       text-transform: none; letter-spacing: 0;
       display: inline-flex; align-items: center; justify-content: center;
     }
-    .tab .tab-icon { display: none; } /* legacy markup compatibility */
+    /* 2026-05-22: .tab-icon hide-rule removed — bottom tab bar is text-only by design;
+       no markup references the class anymore. */
     .tab:hover { color: var(--text); }
+    /* Active tab — emphasized 2026-05-22 (App Review #14). Was: ink color +
+       font-weight 600 + 26×2px underline. Now: bolder weight + 34×3px accent
+       indigo underline so at-a-glance the active tab pops clearly. */
     .tab-active {
       color: var(--text) !important;
-      font-weight: 600;
+      font-weight: 700;
     }
     .tab-active::after {
       content: '';
       position: absolute;
       left: 50%; bottom: -10px;
-      width: 26px; height: 2px;
-      background: var(--text);
+      width: 34px; height: 3px;
+      background: var(--accent);
       transform: translateX(-50%);
       border-radius: 2px;
     }
@@ -357,6 +371,15 @@
     }
     .edit-link { display:block; text-align:center; margin-top:8px; font-size:0.8rem; color:var(--primary); cursor:pointer; }
     .edit-link:hover { text-decoration:underline; }
+    /* Log Today — collapsed state (App Review #17, 2026-05-22).
+       Once today's weight is logged, the card transforms into a slim confirmation
+       strip — hides the "Log Today" header, shrinks padding, frees the visual top
+       of the Weight tab for the trend chart (which is the more interesting view
+       post-log). Tap "Edit today's entry" re-expands. */
+    .card.log-collapsed { padding: 10px 14px; }
+    .card.log-collapsed h2 { display: none; }
+    .card.log-collapsed .logged-ok { padding: 6px 10px; font-size: 0.85rem; }
+    .card.log-collapsed .edit-link { margin-top: 4px; font-size: 0.75rem; }
 
     /* ───── Chart containers ───── */
     .chart-wrap { position: relative; width: 100%; }
@@ -560,10 +583,6 @@
       }
       .food-entry-name { display: inline !important; }
       .food-entry-qty { display: inline !important; margin-left: 4px; }
-      .food-entry-macros {
-        flex: 1 1 auto !important;
-        font-size: 0.78rem;
-      }
       .food-delete-btn {
         min-width: 36px; min-height: 36px; font-size: 1rem;
         display: flex; align-items: center; justify-content: center;
@@ -633,10 +652,8 @@
     .food-nav-btn:hover { color:var(--text); }
     .food-nav-date { font-size:1.1rem; font-weight:800; color:var(--text); letter-spacing:-0.3px; }
 
-    .food-cal-row { display:none; } /* hidden — replaced by macro-top-bar */
-    .food-cal-label { display:none; }
-    .food-cal-count { display:none; }
-    .food-cal-target { display:none; }
+    /* 2026-05-22: .food-cal-row + sibling class selectors removed — orphan CSS
+       from the pre-macro-top-bar era, no remaining HTML referenced them. */
 
     /* ── MacroFactor-style macro top bar ── */
     .macro-top-bar {
@@ -673,6 +690,9 @@
     .mtb-p { background:#ef4444; }
     .mtb-f { background:#f59e0b; }
     .mtb-c { background:#10b981; }
+    /* App Review #2 ("(+N) over-target chip" + bar-color shift on overage/met) was
+       reverted 2026-05-22 per Ethan. Pre-#2 behavior restored: natural macro color,
+       fill clamped to 100%. */
 
     .macro-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
     .macro-bar-label { width:54px; font-size:0.78rem; font-weight:600; color:var(--muted); flex-shrink:0; }
@@ -758,13 +778,33 @@
     .food-entry-detail .fd-c { color:#10b981; font-weight:600; }
     .food-entry-detail .fd-sep { color:var(--border); }
     .food-entry-qty { font-size:0.75rem; color:var(--muted); }
-    .food-entry-macros { display:none; } /* hidden — using .food-entry-detail instead */
+    /* 2026-05-22: .food-entry-macros class removed — orphan, no HTML references it
+       (entries now render via .food-entry-detail). */
     .food-macro-p { color:#ef4444; font-weight:600; }
     .food-macro-c { color:#10b981; font-weight:600; }
     .food-macro-f { color:#f59e0b; font-weight:600; }
-    .food-entry-actions { display:flex; gap:2px; flex-shrink:0; }
-    .food-delete-btn { background:none; border:none; color:#d1d5db; cursor:pointer; font-size:0.9rem; padding:4px 5px; border-radius:6px; flex-shrink:0; transition:color 0.15s; }
+    .food-entry-actions { display:flex; gap:2px; flex-shrink:0; align-items:center; }
+    .food-delete-btn { background:none; border:none; color:#d1d5db; cursor:pointer; font-size:0.9rem; padding:4px 5px; border-radius:6px; flex-shrink:0; transition:color 0.15s, opacity 0.15s, max-width 0.2s ease; }
     .food-delete-btn:hover { color:var(--text); }
+    /* App Review #13 (2026-05-22): collapse the always-visible clock/edit/delete
+       icon trio into a single ⋯ disclosure. On a 15-entry day that's 45 visible
+       icons → 15. Tap ⋯ to reveal the row's actions; the disclosure is the only
+       affordance shown at rest. Schema and click-handlers unchanged. */
+    .food-entry-disclosure {
+      background:none; border:none; color:#9ca3af; cursor:pointer;
+      font-size:1.1rem; padding:6px 8px; border-radius:6px;
+      flex-shrink:0; transition:color 0.15s, background 0.15s; line-height:1;
+    }
+    .food-entry-disclosure:hover { color:var(--text); background:rgba(0,0,0,0.04); }
+    .food-entry-actions-collapsible {
+      display:flex; gap:2px; align-items:center;
+      max-width:0; overflow:hidden; opacity:0; pointer-events:none;
+      transition: max-width 0.2s ease, opacity 0.15s ease;
+    }
+    .food-entry-row.expanded .food-entry-actions-collapsible {
+      max-width:120px; opacity:1; pointer-events:auto;
+    }
+    .food-entry-row.expanded .food-entry-disclosure { color:var(--accent); }
 
     .food-empty { text-align:center; color:var(--muted); font-size:0.88rem; padding:24px 0; }
 
@@ -1369,7 +1409,7 @@
     </div>
 
     <!-- Two-col -->
-    <div class="card" style="margin-bottom:18px">
+    <div class="card" id="log-today-card" style="margin-bottom:18px">
       <h2 id="log-heading">Log Today</h2>
       <div id="log-form">
         <div style="display:flex;gap:12px;align-items:flex-end">
@@ -1396,11 +1436,44 @@
       <div class="chart-wrap"><canvas id="chart-weight" height="440"></canvas></div>
     </div>
 
+    <!-- DEXA add/edit modal -->
+    <div class="dexa-modal-overlay" id="dexa-modal-overlay" onclick="closeDexaForm(event)">
+      <div class="dexa-modal" onclick="event.stopPropagation()">
+        <h2 id="dexa-modal-title" style="margin-top:0">Add DEXA Scan</h2>
+        <div class="dexa-form-grid">
+          <div><label>Date</label><input type="text" id="dexa-f-date" placeholder="YYYY-MM-DD" /></div>
+          <div><label>Body Fat %</label><input type="number" id="dexa-f-bf" step="0.1" min="3" max="60" /></div>
+          <div><label>Fat Tissue (lbs)</label><input type="number" id="dexa-f-fat" step="0.1" min="0" max="200" /></div>
+          <div><label>Lean Tissue (lbs)</label><input type="number" id="dexa-f-lean" step="0.1" min="0" max="300" /></div>
+          <div><label>Total Mass (lbs)</label><input type="number" id="dexa-f-total" step="0.1" min="0" max="500" /></div>
+          <div><label>BMC (lbs, optional)</label><input type="number" id="dexa-f-bmc" step="0.1" min="0" max="30" /></div>
+        </div>
+        <div style="margin-top:10px">
+          <label for="dexa-f-notes" style="display:block;font-size:0.78rem;color:var(--muted);margin-bottom:4px">Notes (protocol, prep, anything worth knowing)</label>
+          <textarea id="dexa-f-notes" rows="2" placeholder="e.g. fasted; standardized protocol — or — ate 5th meal night before, likely glycogen-loaded" style="width:100%;font-size:0.85rem;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px">
+          <button class="btn-sm" id="dexa-delete-btn" style="display:none;background:#fee2e2;color:#b91c1c;border:none" onclick="deleteEditingDexa()">Delete scan</button>
+          <div style="display:flex;gap:8px;margin-left:auto">
+            <button class="btn-sm" onclick="closeDexaForm()">Cancel</button>
+            <button class="btn-sm" onclick="saveDexaForm()" style="background:var(--primary);color:#fff;border:none">Save scan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="card" style="margin-bottom:18px">
+      <h2>Log History</h2>
+      <div class="history-wrap" id="history-wrap"></div>
+    </div>
+
     <!-- DEXA Body Composition (last 4 scans — post-collarbone window) -->
     <!-- 2026-05-15: simplified — removed "Goal · 12% BF" chip and target line. -->
     <!-- 2026-05-16: split into three small-multiples — each metric gets its own
          tight-range chart so actual scan-to-scan movement is visible. -->
-    <div class="card" style="margin-bottom:18px">
+    <!-- 2026-05-22: moved below Log History so the weight log sits directly under the trend chart. -->
+    <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
         <h2 style="margin-bottom:0">DEXA · Last 4 scans</h2>
         <button class="btn-sm" onclick="openDexaForm()" style="background:var(--primary);color:#fff;border:none">+ Add scan</button>
@@ -1431,38 +1504,6 @@
     <!-- DEXA Scan History table removed 2026-05-01: redundant with the 4-scan chart.
          Edit + delete are reachable via "+ Add scan" → enter existing date → modal
          opens with the scan loaded; the modal now also has a Delete button. -->
-
-    <!-- DEXA add/edit modal -->
-    <div class="dexa-modal-overlay" id="dexa-modal-overlay" onclick="closeDexaForm(event)">
-      <div class="dexa-modal" onclick="event.stopPropagation()">
-        <h2 id="dexa-modal-title" style="margin-top:0">Add DEXA Scan</h2>
-        <div class="dexa-form-grid">
-          <div><label>Date</label><input type="text" id="dexa-f-date" placeholder="YYYY-MM-DD" /></div>
-          <div><label>Body Fat %</label><input type="number" id="dexa-f-bf" step="0.1" min="3" max="60" /></div>
-          <div><label>Fat Tissue (lbs)</label><input type="number" id="dexa-f-fat" step="0.1" min="0" max="200" /></div>
-          <div><label>Lean Tissue (lbs)</label><input type="number" id="dexa-f-lean" step="0.1" min="0" max="300" /></div>
-          <div><label>Total Mass (lbs)</label><input type="number" id="dexa-f-total" step="0.1" min="0" max="500" /></div>
-          <div><label>BMC (lbs, optional)</label><input type="number" id="dexa-f-bmc" step="0.1" min="0" max="30" /></div>
-        </div>
-        <div style="margin-top:10px">
-          <label for="dexa-f-notes" style="display:block;font-size:0.78rem;color:var(--muted);margin-bottom:4px">Notes (protocol, prep, anything worth knowing)</label>
-          <textarea id="dexa-f-notes" rows="2" placeholder="e.g. fasted; standardized protocol — or — ate 5th meal night before, likely glycogen-loaded" style="width:100%;font-size:0.85rem;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;resize:vertical"></textarea>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px">
-          <button class="btn-sm" id="dexa-delete-btn" style="display:none;background:#fee2e2;color:#b91c1c;border:none" onclick="deleteEditingDexa()">Delete scan</button>
-          <div style="display:flex;gap:8px;margin-left:auto">
-            <button class="btn-sm" onclick="closeDexaForm()">Cancel</button>
-            <button class="btn-sm" onclick="saveDexaForm()" style="background:var(--primary);color:#fff;border:none">Save scan</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- History -->
-    <div class="card">
-      <h2>Log History</h2>
-      <div class="history-wrap" id="history-wrap"></div>
-    </div>
 
     <!-- Backup nudge + Backup bar removed 2026-05-02 per Ethan's request:
          everything is in Google Sheets now, so the local export/import flow
@@ -1589,7 +1630,8 @@ const DEXA_SEED = [
   {date:'2025-11-29', bf:17.7, total:184.0, fat:32.6, lean:143.6, bmc:7.9},
   {date:'2025-12-20', bf:16.5, total:181.8, fat:30.1, lean:143.9, bmc:7.8},
   {date:'2026-01-31', bf:18.4, total:181.5, fat:33.4, lean:140.4, bmc:7.7},
-  {date:'2026-03-21', bf:19.3, total:190.2, fat:36.7, lean:145.8, bmc:7.7}
+  {date:'2026-03-21', bf:19.3, total:190.2, fat:36.7, lean:145.8, bmc:7.7},
+  {date:'2026-05-15', bf:18.4, total:187.9, fat:34.5, lean:145.6, bmc:7.7}
 ];
 function getDexaScans() {
   try {
@@ -1671,6 +1713,36 @@ const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDat
 const fmtDateShort = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}); };
 const fmtMonYear = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',year:'numeric'}); };
 const esc = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+// Quantity / unit display normalizers (added 2026-05-22 per App Review v1 #3+#4).
+// fmtQty: round to 1 decimal max, drop trailing zero. Fixes the "249.916 g" autopop
+// back-conversion artifact and any other float-precision crud from imported entries.
+const fmtQty = q => {
+  const n = Number(q);
+  if (!isFinite(n)) return String(q ?? '');
+  const r = Math.round(n * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+};
+// fmtUnit: canonicalize the unit label so the food log doesn't mix "g" / "grams".
+// Schema is unchanged — this is purely a display normalizer; raw values still flow
+// to the sheet as the user / library entered them.
+const UNIT_DISPLAY = {
+  g: 'g', gram: 'g', grams: 'g',
+  ml: 'ml', milliliter: 'ml', milliliters: 'ml',
+  cup: 'cup', cups: 'cups',
+  tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp',
+  tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp',
+  oz: 'oz', ounce: 'oz', ounces: 'oz',
+  egg: 'eggs', eggs: 'eggs',
+  pill: 'pill', pills: 'pills',
+  scoop: 'scoop', scoops: 'scoops',
+  tin: 'tin', tins: 'tins',
+  slice: 'slice', slices: 'slices',
+  serving: 'serving', servings: 'servings'
+};
+const fmtUnit = u => {
+  const k = String(u || '').trim().toLowerCase();
+  return UNIT_DISPLAY[k] || u;
+};
 // Escape a string for safe embedding inside a single-quoted HTML attribute value
 // (e.g. onclick="fn('${attrEsc(name)}')"). HTML-escape covers <,>,&,"; we also
 // escape ' so the attribute can't be broken out of by names containing apostrophes.
@@ -2358,34 +2430,52 @@ function renderWeight() {
   if (sTodayEl) sTodayEl.textContent = todayWeight ? Number(todayWeight).toFixed(1) : '—';
   if (sTodaySubEl) sTodaySubEl.textContent = todayWeight ? 'lbs' : 'not logged yet';
 
-  // 7-day avg + delta-since-start subline
+  // 7-day avg + delta-since-start subline + rate-of-loss chip
+  // 2026-05-22 (App Review #9): added the "−0.4/wk" rate-of-loss tail. It's the
+  // single most decision-useful number on a cut — beats daily-scale noise without
+  // having to wait for the next DEXA. Uses the rolling-14d slope-based rateOfLoss
+  // (statistically smoother than 7-day-avg vs prior-7-day-avg).
   const sAvgEl = document.getElementById('s-avg');
   const sAvgSubEl = document.getElementById('s-avg-sub');
   if (sAvgEl) sAvgEl.textContent = avg != null ? avg.toFixed(1) : '—';
   if (sAvgSubEl) {
+    const parts = ['lbs'];
     if (avg != null && CFG.startWeight) {
       const lost = CFG.startWeight - avg;
-      sAvgSubEl.textContent = 'lbs · ' + (lost >= 0 ? '↓ ' : '↑ ') + Math.abs(lost).toFixed(1) + ' since start';
-    } else {
-      sAvgSubEl.textContent = 'lbs';
+      parts.push((lost >= 0 ? '↓ ' : '↑ ') + Math.abs(lost).toFixed(1) + ' since start');
     }
+    const rate = rateOfLoss(data.entries);
+    if (rate != null && Math.abs(rate) >= 0.05) {
+      // Negative = losing weight (good on a cut, render greenish-muted)
+      // Positive = gaining (render muted; don't celebrate, don't alarm — just show).
+      const losing = rate < 0;
+      const color = losing ? '#10b981' : 'var(--muted)';
+      const arrow = losing ? '↓' : '↑';
+      parts.push(`<span style="color:${color};font-variant-numeric:tabular-nums">${arrow} ${Math.abs(rate).toFixed(1)}/wk</span>`);
+    }
+    sAvgSubEl.innerHTML = parts.join(' · ');
   }
 
   // Keep the legacy sparkline call alive in case the element is reintroduced (no-op now).
   drawWeightSparkline(data.entries.slice(-30));
 
-  // Log form
+  // Log form — collapses to a compact strip once today's entry exists (App Review #17).
+  // Adds .log-collapsed to the card; CSS hides the heading and shrinks padding so the
+  // post-log state is a slim confirmation, not a full card slot.
   const todayEntry = data.entries.find(e=>e.date===td);
+  const logCard = document.getElementById('log-today-card');
   if (todayEntry && todayEntry.weight) {
     document.getElementById('log-form').style.display = 'none';
     const ok = document.getElementById('logged-ok');
     ok.style.display = 'block';
     ok.innerHTML = `✓ Logged <strong>${todayEntry.weight} lbs</strong> today${todayEntry.notes?'<br><em style="font-weight:400;font-size:.85rem">'+esc(todayEntry.notes)+'</em>':''}`;
     document.getElementById('edit-link').style.display = 'block';
+    if (logCard) logCard.classList.add('log-collapsed');
   } else {
     document.getElementById('log-form').style.display = 'block';
     document.getElementById('logged-ok').style.display = 'none';
     document.getElementById('edit-link').style.display = 'none';
+    if (logCard) logCard.classList.remove('log-collapsed');
   }
 
   drawWeightChart(data);
@@ -2398,6 +2488,8 @@ function showForm() {
   document.getElementById('log-form').style.display = 'block';
   document.getElementById('logged-ok').style.display = 'none';
   document.getElementById('edit-link').style.display = 'none';
+  const logCard = document.getElementById('log-today-card');
+  if (logCard) logCard.classList.remove('log-collapsed');
   const entry = load().entries.find(e=>e.date===today());
   if (entry) {
     if (entry.weight) document.getElementById('w-input').value = entry.weight;
@@ -3856,6 +3948,17 @@ function logFood() {
   }, 50);
 }
 
+// App Review #13 (2026-05-22): toggle disclosure on a food entry row. Tapping
+// the ⋯ button reveals the row's action icons (clock/edit/delete). Tapping
+// another row's ⋯ closes any open row first so only one is open at a time.
+function toggleFoodEntryActions(id) {
+  const target = document.getElementById(`frow-${id}`);
+  if (!target) return;
+  const wasOpen = target.classList.contains('expanded');
+  document.querySelectorAll('.food-entry-row.expanded').forEach(el => el.classList.remove('expanded'));
+  if (!wasOpen) target.classList.add('expanded');
+}
+
 function deleteFoodEntry(id) {
   saveFoodEntriesDB(getFoodEntries().filter(e => e.id !== id));
   renderFood();
@@ -4037,7 +4140,10 @@ function renderFood() {
   setVal('val-carbs',   Math.round(totC));
   setVal('val-fat',     Math.round(totF));
 
-  // Update target labels and progress bars
+  // Update target labels and progress bars. App Review #2's "(+N) over-target"
+  // chip was reverted 2026-05-22 per Ethan ("don't like the difference
+  // calculations in the macros chips"). Bar fill stays clamped to 100% (the
+  // pre-#2 behavior).
   setVal('mtv-cal-target', '/ ' + targets.cal);
   setVal('mtv-p-target',   '/ ' + targets.protein);
   setVal('mtv-f-target',   '/ ' + targets.fat);
@@ -4121,13 +4227,16 @@ function renderFood() {
             <span class="fd-f">${e.fat}F</span>
             <span class="fd-c">${e.carbs}C</span>
             <span class="fd-sep">·</span>
-            <span class="food-entry-qty">${e.qty} ${esc(e.unit)}</span>
+            <span class="food-entry-qty">${fmtQty(e.qty)} ${esc(fmtUnit(e.unit))}</span>
           </div>
         </div>
         <div class="food-entry-actions">
-          <button class="food-delete-btn" onclick="editFoodTime('${e.id}')" aria-label="Change time for ${esc(e.food_name)}" title="Change time">🕐</button>
-          <button class="food-delete-btn" onclick="editFoodEntry('${e.id}')" aria-label="Edit quantity of ${esc(e.food_name)}" title="Edit qty">✎</button>
-          <button class="food-delete-btn" onclick="deleteFoodEntry('${e.id}')" aria-label="Delete ${esc(e.food_name)}" title="Delete">✕</button>
+          <div class="food-entry-actions-collapsible">
+            <button class="food-delete-btn" onclick="editFoodTime('${e.id}')" aria-label="Change time for ${esc(e.food_name)}" title="Change time">🕐</button>
+            <button class="food-delete-btn" onclick="editFoodEntry('${e.id}')" aria-label="Edit quantity of ${esc(e.food_name)}" title="Edit qty">✎</button>
+            <button class="food-delete-btn" onclick="deleteFoodEntry('${e.id}')" aria-label="Delete ${esc(e.food_name)}" title="Delete">✕</button>
+          </div>
+          <button class="food-entry-disclosure" onclick="toggleFoodEntryActions('${e.id}')" aria-label="Show actions for ${esc(e.food_name)}" title="Actions">⋯</button>
         </div>
       </div>`).join('');
     return `<div class="food-meal-card">
@@ -4834,7 +4943,11 @@ function nrcReviewDate() {
 // Build a context object that batches all localStorage reads once. Pass into
 // nrcGradeDay to avoid re-parsing JSON for every iteration of the streak walk.
 function nrcBuildContext() {
-  const ctx = { calByDate: {}, calCountByDate: {}, habitsData: {}, skipSet: new Set(), sleepByDate: {}, calTarget: 2500 };
+  // 2026-05-22 (App Review #8): added manualByDate tracking so the calorie grade
+  // can detect the autopop tautology — if a day's food rows are all `plan-*` IDs
+  // with no manual edits, the day isn't "finalized" and the cal grade should
+  // show "pending" rather than tick ✓ against itself.
+  const ctx = { calByDate: {}, calCountByDate: {}, manualByDate: {}, habitsData: {}, skipSet: new Set(), sleepByDate: {}, calTarget: 2500 };
   try {
     const targets = (typeof getFoodTargets === 'function') ? getFoodTargets() : null;
     if (targets && typeof targets.cal === 'number' && targets.cal > 0) ctx.calTarget = targets.cal;
@@ -4845,6 +4958,10 @@ function nrcBuildContext() {
       if (!e || !e.date) return;
       ctx.calByDate[e.date] = (ctx.calByDate[e.date] || 0) + (Number(e.calories) || 0);
       ctx.calCountByDate[e.date] = (ctx.calCountByDate[e.date] || 0) + 1;
+      // A row is "manual" if it isn't a plan-autopop entry. Plan rows are tagged
+      // either via the `plan` boolean OR via the `plan-` id prefix convention.
+      const isPlan = e.plan === true || (e.id && String(e.id).startsWith('plan-'));
+      if (!isPlan) ctx.manualByDate[e.date] = (ctx.manualByDate[e.date] || 0) + 1;
     });
   } catch(e) {}
   try {
@@ -4868,10 +4985,18 @@ function nrcGradeDay(date, ctx) {
   const isSkip = ctx.skipSet.has(date);
   const calTarget = ctx.calTarget;
 
-  // Calories
+  // Calories — with autopop-tautology guard (App Review #8, 2026-05-22).
+  // If `date` is today AND the only food rows are plan-autopop entries (no manual
+  // edits yet), treat the day as not-finalized: calPending=true, calOk=false. The
+  // verdict then surfaces "pending finalize" instead of grading the plan against
+  // itself (which would always tick ✓ tautologically).
   const calTotal = ctx.calByDate[date] || 0;
-  const calPresent = (ctx.calCountByDate[date] || 0) > 0;
-  const calOk = calPresent && calTotal <= calTarget;
+  const calCount = ctx.calCountByDate[date] || 0;
+  const manualCount = ctx.manualByDate[date] || 0;
+  const calPresent = calCount > 0;
+  const isToday = (date === (new Date()).toLocaleDateString('en-CA'));
+  const calPending = isToday && calPresent && manualCount === 0;
+  const calOk = calPresent && !calPending && calTotal <= calTarget;
 
   // Exercise — rolling 4-of-last-7 (window includes the grading date itself).
   // Rest days don't break a perfect day; the streak rewards a sustained pattern.
@@ -4907,6 +5032,12 @@ function nrcGradeDay(date, ctx) {
     // Skip day: drop the cal check entirely. Exercise + sleep still required.
     required = 2;
     met = (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
+  } else if (calPending) {
+    // Cal slot is "not yet decided" (today, autopop-only, no manual edits).
+    // Verdict drops to exercise + sleep so the day reads "pending finalize"
+    // rather than getting marked missed for an undecided metric. App Review #8.
+    required = 2;
+    met = (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
   } else {
     required = 3;
     met = (calOk ? 1 : 0) + (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
@@ -4914,7 +5045,7 @@ function nrcGradeDay(date, ctx) {
   const overall = met === required;
 
   return {
-    cal:      { ok: calOk,    total: calTotal, target: calTarget, present: calPresent },
+    cal:      { ok: calOk,    total: calTotal, target: calTarget, present: calPresent, pending: calPending },
     exercise: { ok: exOk,     count: exCount,  window: NRC_EXERCISE_WINDOW, target: NRC_EXERCISE_TARGET, todayDone, todayNote },
     sleep:    { ok: sleepOk,  perf: sleepPerf, present: sleepPresent },
     isSkip,
@@ -5049,12 +5180,18 @@ function renderNightlyCheckIn() {
     streakHtml = `<span class="nrc-streak broken">Streak: —</span>`;
   }
 
-  // Rows — cal row hidden on skip days
+  // Rows — cal row hidden on skip days. App Review #8 (2026-05-22): when the
+  // calorie grade is `pending` (today, only plan-autopop entries, no manual
+  // edits), show "Pending — finalize the day" instead of grading the plan
+  // against the target tautologically. The verdict math also treats pending
+  // as not-counting (see verdict block below).
   const rowsHtml = [];
   if (!grade.isSkip) {
     const c = grade.cal;
     let calValue;
-    if (!c.present) {
+    if (c.pending) {
+      calValue = `<span class="nrc-value"><em style="color:var(--muted)">Pending — finalize the day</em></span>`;
+    } else if (!c.present) {
       calValue = `<span class="nrc-value"><em style="color:var(--muted)">No entries yet</em></span>`;
     } else {
       const delta = c.total - c.target;
@@ -5062,8 +5199,8 @@ function renderNightlyCheckIn() {
       const deltaStr = (delta === 0) ? '±0' : (delta < 0 ? `${delta}` : `+${delta}`);
       calValue = `<span class="nrc-value">${Math.round(c.total).toLocaleString()} / ${Math.round(c.target).toLocaleString()}<span class="nrc-delta ${deltaCls}">${deltaStr}</span></span>`;
     }
-    const markCls = c.ok ? 'ok' : (c.present ? 'miss' : 'pending');
-    const markChar = c.ok ? '✓' : (c.present ? '✗' : '◯');
+    const markCls = c.ok ? 'ok' : (c.pending ? 'pending' : (c.present ? 'miss' : 'pending'));
+    const markChar = c.ok ? '✓' : (c.pending ? '◯' : (c.present ? '✗' : '◯'));
     rowsHtml.push(`
       <div class="nrc-row">
         <span class="nrc-mark ${markCls}">${markChar}</span>
@@ -5139,7 +5276,10 @@ function renderNightlyCheckIn() {
     `;
   } else if (grade.metCount >= Math.max(1, grade.requiredCount - 1)) {
     let leftLabel;
-    if (!grade.cal.ok && !grade.isSkip) {
+    // App Review #8: when cal is pending, the cal row is "not graded yet" — don't
+    // surface "Tighten calories" (which would imply over-target). Skip to the
+    // exercise/sleep branches; the row itself reads "Pending — finalize the day."
+    if (!grade.cal.ok && !grade.isSkip && !grade.cal.pending) {
       leftLabel = grade.cal.present ? 'Tighten calories' : 'Log your food';
     } else if (!grade.exercise.ok) {
       const need = grade.exercise.target - grade.exercise.count;
