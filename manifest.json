@@ -8,8 +8,8 @@
   "theme_color": "#0a0e27",
   "icons": [
     {
-      "src": "appicon-arcade-2026-05-23.png",
-      "sizes": "560x560",
+      "src": "appicon-arcade-padded-2026-05-23.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
