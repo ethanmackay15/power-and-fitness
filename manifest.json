@@ -1,11 +1,11 @@
 {
-  "name": "Power and Fitness",
-  "short_name": "Power and Fitness",
+  "name": "POWER",
+  "short_name": "POWER",
   "description": "Track weight, food, habits, and trends",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f1f5f9",
-  "theme_color": "#6366f1",
+  "background_color": "#0a0e27",
+  "theme_color": "#0a0e27",
   "icons": [
     {
       "src": "appicon-v3-2026-05-09.png",

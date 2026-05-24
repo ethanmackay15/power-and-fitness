@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Power and Fitness</title>
+  <title>POWER</title>
   <!-- Web App Manifest -->
   <link rel="manifest" href="manifest.json" />
   <!-- iOS standalone mode -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Power and Fitness" />
+  <meta name="apple-mobile-web-app-title" content="POWER" />
   <link rel="apple-touch-icon" href="appicon-v3-2026-05-09.png" />
   <!-- Theme color for Android Chrome -->
   <meta name="theme-color" content="#0a0e27" />
@@ -21,7 +21,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     /* ════════════════════════════════════════════════════════════════════════
-       POWER & FITNESS — ARCADE REDESIGN
+       POWER — ARCADE REDESIGN
        80s gym-arcade aesthetic: Press Start 2P + VT323, neon palettes, chunky
        3px borders with offset block shadows, scanline overlay.
        2026-05-23 v1 — visual layer only; data model and render functions
@@ -138,18 +138,26 @@
       letter-spacing: .08em;
     }
     .header-sync {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 12px;
       color: var(--good);
       cursor: pointer;
       font-size: 9px;
     }
+    /* Sync dot — keep the neon glow + blink, but isolate the compositor layer
+       (will-change + isolation) so the opacity animation doesn't drag the
+       adjacent Press Start 2P text into the repaint, which was producing
+       subpixel ghost-text artifacts. (2026-05-23) */
     .sync-dot {
       width: 8px; height: 8px; flex-shrink: 0;
       background: var(--good);
       box-shadow: 0 0 6px var(--good);
       animation: arcBlink 1s infinite steps(2);
       border-radius: 0;
+      will-change: opacity;
+      transform: translateZ(0);
     }
+    .header-sync { isolation: isolate; }
+    #header-sync-msg { transform: translateZ(0); }
     .sync-dot.gray   { background: var(--dim);  box-shadow: 0 0 4px var(--dim);  animation: none; }
     .sync-dot.green  { background: var(--good); box-shadow: 0 0 6px var(--good); }
     .sync-dot.yellow { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
