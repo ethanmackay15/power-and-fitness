@@ -82,6 +82,7 @@
       line-height: 1.2;
       -webkit-font-smoothing: antialiased;
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     /* Scanline + vignette overlay — toggleable via body.scanlines */
@@ -811,6 +812,12 @@
       font-size: 18px !important;
       border-radius: 0 !important;
       padding: 9px 11px !important;
+      min-width: 0 !important;
+    }
+    .food-form-inline #food-select,
+    .food-meal-row #food-meal {
+      text-overflow: ellipsis;
+      overflow: hidden;
     }
     .food-unit-label {
       font-family: 'Press Start 2P', monospace !important;
