@@ -673,71 +673,60 @@
     .dexa-delta.pos { color: var(--good); }
     .dexa-delta.neg { color: var(--bad); }
 
-    /* ════ 12% BF target box (subtle) — added 2026-05-25 ════
-       Static aspirational targets Ethan set on 2026-05-25:
-       152 lb lean → FFM (152 + 7.7 bone) = 159.7 → /0.88 = 181.5 lb @ 12% BF, fat 21.8 lb.
-       Modeled on .dexa-mini (thin border-soft, no offset shadow) so it reads quiet, not as a loud card. */
-    .target-box {
-      border: 2px solid var(--border-soft);
-      background: var(--bg);
-      padding: 13px 16px;
-      margin-bottom: 18px;
-    }
-    .target-box-head {
-      display: flex; justify-content: space-between; align-items: baseline;
-      margin-bottom: 12px;
-    }
-    .target-box-title {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 9px;
-      color: var(--dim);
-      letter-spacing: .1em;
-      text-transform: uppercase;
-    }
-    .target-box-sub {
-      font-family: 'VT323', monospace;
-      font-size: 15px;
-      color: var(--dim);
-    }
-    .target-grid {
+    /* ════ Body Composition table (scans → targets) — 2026-05-25 ════
+       Replaced the DEXA small-multiples charts (Ethan: 4-scan plots not useful)
+       with one Weight/Lean/Fat table. The two most-recent DEXA scans are
+       data-driven (#bc-scan-rows, filled by renderDexaSection — refreshes when a
+       scan is added) and flow into the 15% milestone + 12% ultimate targets
+       (static). Left column = the BF% journey (e.g. 19.3 -> 18.4 -> 15 -> 12);
+       three value columns = Weight / Lean / Fat (lb). Target numbers: 15% assumes
+       lean ~149 (mid-reclamation, realistic by the ~3.5-mo ETA), 12% assumes lean
+       152 — both kept monotonic vs the measured scans (weight down, lean up, fat
+       down). Holding today's lean would put 15% weight below 12% weight — a
+       confusing down-then-up — so the partial-reclaim assumption is deliberate. */
+    .bc-row {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
+      grid-template-columns: 74px 1fr 1fr 1fr;
+      align-items: center;
+      column-gap: 8px;
+      padding: 8px 0;
     }
-    .target-cell { text-align: center; }
-    .target-cell-lbl {
+    .bc-head {
+      padding: 0 0 8px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .bc-col-h {
       font-family: 'Press Start 2P', monospace;
       font-size: 7px;
       color: var(--dim);
-      letter-spacing: .08em;
+      letter-spacing: .06em;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      text-align: center;
     }
-    .target-cell-val {
-      font-family: 'VT323', monospace;
-      font-size: 28px;
+    .bc-lbl { display: flex; flex-direction: column; gap: 3px; }
+    .bc-bf {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
       color: var(--ink);
-      line-height: 1;
+      letter-spacing: .02em;
     }
-    .target-cell-unit {
+    .bc-when {
       font-family: 'VT323', monospace;
       font-size: 14px;
       color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .04em;
     }
-    /* Two-tier target box: 15% milestone (green = active focus) above the 12%
-       ultimate goal (dim), separated by a hairline. Both tiers use the same head +
-       3-metric grid so they read as a matched pair (per Ethan's request to mirror
-       the destination row). The 15% row assumes lean ~149 (mid-reclamation —
-       realistic by the ~3.5-mo 15% ETA), which keeps all three metrics monotonic
-       toward 12%: weight 184.4->181.5, lean 149->152, fat 27.7->21.8. Holding
-       today's lean instead would put the 15% weight (~180) BELOW the 12% weight
-       (181.5) — a confusing down-then-up — so the partial-reclaim assumption is
-       deliberate. */
-    .target-box-title.next { color: var(--good); }
-    .target-rule {
-      border-top: 1px solid var(--border-soft);
-      margin: 14px 0;
+    .bc-val {
+      font-family: 'VT323', monospace;
+      font-size: 23px;
+      color: var(--ink);
+      text-align: center;
+      line-height: 1;
     }
+    .bc-row.next .bc-bf  { color: var(--good); }
+    .bc-row.goal .bc-bf  { color: var(--cool); }
+    .bc-rule { border-top: 1px solid var(--border-soft); margin: 6px 0; }
     .dexa-modal-overlay {
       position: fixed; inset: 0;
       background: rgba(10,14,39,.78);
@@ -2008,81 +1997,38 @@
       <div class="history-wrap" id="history-wrap"></div>
     </div>
 
-    <!-- DEXA Body Composition (last 4 scans — post-collarbone window) -->
-    <!-- 2026-05-15: simplified — removed "Goal · 12% BF" chip and target line. -->
-    <!-- 2026-05-16: split into three small-multiples — each metric gets its own
-         tight-range chart so actual scan-to-scan movement is visible. -->
-    <!-- 2026-05-22: moved below Log History so the weight log sits directly under the trend chart. -->
+    <!-- Body Composition table (scans → targets) — 2026-05-25.
+         Replaced the DEXA small-multiples charts (Ethan: 4-scan plots not useful)
+         with a single Weight/Lean/Fat table. The two most-recent scans come from the
+         DEXA_SEED constant (renderDexaSection → #bc-scan-rows); the 15% + 12% target
+         rows are static. NO in-app "Add scan" button (removed 2026-05-25) — scans are
+         rare, so Ethan shares new results and we append a line to DEXA_SEED in code.
+         (The DEXA entry modal + its JS are left intact but unused, so a trigger can be
+         re-added later if wanted.) -->
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-        <h2 style="margin-bottom:0">DEXA · Last 4 scans</h2>
-        <button class="btn-sm" onclick="openDexaForm()" style="background:var(--primary);color:#fff;border:none">+ Add scan</button>
+      <h2>Body Composition</h2>
+      <!-- Column headers (blank label cell + the three value columns, in lb) -->
+      <div class="bc-row bc-head">
+        <span></span>
+        <span class="bc-col-h">Weight</span>
+        <span class="bc-col-h">Lean</span>
+        <span class="bc-col-h">Fat</span>
       </div>
-      <div class="dexa-mini">
-        <div class="dexa-mini-head">
-          <span class="dexa-mini-label" style="color:#ef4444">Body Fat %</span>
-          <span class="dexa-delta" id="dexa-delta-bf"></span>
-        </div>
-        <div class="chart-wrap"><canvas id="chart-dexa-bf"></canvas></div>
+      <!-- Two most-recent DEXA scans — injected by renderDexaSection (oldest first) -->
+      <div id="bc-scan-rows"></div>
+      <div class="bc-rule"></div>
+      <!-- Targets (static). 15% assumes lean ~149, 12% lean 152 — see CSS note. -->
+      <div class="bc-row next">
+        <div class="bc-lbl"><span class="bc-bf">15%</span><span class="bc-when">next</span></div>
+        <div class="bc-val">184.4</div>
+        <div class="bc-val">149</div>
+        <div class="bc-val">27.7</div>
       </div>
-      <div class="dexa-mini">
-        <div class="dexa-mini-head">
-          <span class="dexa-mini-label" style="color:#f59e0b">Fat Mass</span>
-          <span class="dexa-delta" id="dexa-delta-fat"></span>
-        </div>
-        <div class="chart-wrap"><canvas id="chart-dexa-fat"></canvas></div>
-      </div>
-      <div class="dexa-mini">
-        <div class="dexa-mini-head">
-          <span class="dexa-mini-label" style="color:#10b981">Lean Mass</span>
-          <span class="dexa-delta" id="dexa-delta-lean"></span>
-        </div>
-        <div class="chart-wrap"><canvas id="chart-dexa-lean"></canvas></div>
-      </div>
-    </div>
-
-    <!-- 12% BF target box (subtle) — added 2026-05-25.
-         Static targets Ethan set: 152 lb lean → FFM 159.7 / 0.88 = 181.5 lb @ 12% BF, fat 21.8 lb.
-         Sits under the DEXA charts so the lean/fat/weight goals read against the scan trend lines. -->
-    <div class="target-box">
-      <!-- Near-term milestone (active focus) — lean ~149 assumed; see CSS note -->
-      <div class="target-box-head">
-        <span class="target-box-title next">Next · 15% BF</span>
-        <span class="target-box-sub">the next stop</span>
-      </div>
-      <div class="target-grid">
-        <div class="target-cell">
-          <div class="target-cell-lbl">Weight</div>
-          <div class="target-cell-val">184.4<span class="target-cell-unit"> lb</span></div>
-        </div>
-        <div class="target-cell">
-          <div class="target-cell-lbl">Lean</div>
-          <div class="target-cell-val">149<span class="target-cell-unit"> lb</span></div>
-        </div>
-        <div class="target-cell">
-          <div class="target-cell-lbl">Fat</div>
-          <div class="target-cell-val">27.7<span class="target-cell-unit"> lb</span></div>
-        </div>
-      </div>
-      <div class="target-rule"></div>
-      <!-- Ultimate goal -->
-      <div class="target-box-head">
-        <span class="target-box-title">Ultimate · 12% BF</span>
-        <span class="target-box-sub">the destination</span>
-      </div>
-      <div class="target-grid">
-        <div class="target-cell">
-          <div class="target-cell-lbl">Weight</div>
-          <div class="target-cell-val">181.5<span class="target-cell-unit"> lb</span></div>
-        </div>
-        <div class="target-cell">
-          <div class="target-cell-lbl">Lean</div>
-          <div class="target-cell-val">152<span class="target-cell-unit"> lb</span></div>
-        </div>
-        <div class="target-cell">
-          <div class="target-cell-lbl">Fat</div>
-          <div class="target-cell-val">21.8<span class="target-cell-unit"> lb</span></div>
-        </div>
+      <div class="bc-row goal">
+        <div class="bc-lbl"><span class="bc-bf">12%</span><span class="bc-when">goal</span></div>
+        <div class="bc-val">181.5</div>
+        <div class="bc-val">152</div>
+        <div class="bc-val">21.8</div>
       </div>
     </div>
 
@@ -2204,6 +2150,11 @@ function projectedGoalDate() {
 }
 // ─── DEXA scan history ───────────────────────────────────────────────────────
 const DEXA_KEY = 'dexa_scans_v1';
+// DEXA scan history — the code-maintained source of truth for the Body Composition
+// table (renderDexaSection reads DEXA_SEED.slice(-2) for the two most-recent rows).
+// As of 2026-05-25 there is no in-app "Add scan" button: when Ethan gets a new DEXA,
+// append one {date,bf,total,fat,lean,bmc} row below (keep ascending by date) — that
+// single edit is all that's needed to update the table.
 const DEXA_SEED = [
   {date:'2023-07-15', bf:18.3, total:191.1, fat:34.9, lean:148.2, bmc:8.0},
   {date:'2023-09-09', bf:15.5, total:185.9, fat:28.8, lean:149.1, bmc:8.0},
@@ -6259,10 +6210,28 @@ function renderTrends() {
 // and throw ReferenceError. Hoisted declaration is the fix.
 
 function renderDexaSection() {
-  const scans = getDexaScans();
-  // 2026-05-15: simplified — no goal chip / target line. Chart shows only
-  // the data (BF%, Lean, Fat) for the last 4 scans.
-  drawDexaChart(scans.slice(-4));
+  // 2026-05-25: DEXA small-multiples charts retired (drawDexaChart kept below as
+  // dead code). Now renders the two most-recent scans as Weight/Lean/Fat rows in
+  // the Body Composition table, above the static 15%/12% target rows. Data-driven,
+  // so adding/editing a scan via "+ Add scan" refreshes these rows on next render.
+  const host = document.getElementById('bc-scan-rows');
+  if (!host) return;
+  // Scans are code-maintained via DEXA_SEED (no in-app entry as of 2026-05-25 —
+  // Ethan shares new results and we append a line to DEXA_SEED). Read straight from
+  // the constant, NOT getDexaScans(), so a code edit deterministically updates the
+  // table regardless of localStorage/sheet-sync state on an existing install.
+  const recent = DEXA_SEED.slice(-2); // ascending by date → [older, newest]
+  const num = (v, p) => (v == null || isNaN(Number(v))) ? '—' : Number(v).toFixed(p);
+  host.innerHTML = recent.map(s => {
+    const when = new Date(s.date + 'T12:00:00')
+      .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `<div class="bc-row scan">
+        <div class="bc-lbl"><span class="bc-bf">${num(s.bf,1)}%</span><span class="bc-when">${when}</span></div>
+        <div class="bc-val">${num(s.total,1)}</div>
+        <div class="bc-val">${num(s.lean,1)}</div>
+        <div class="bc-val">${num(s.fat,1)}</div>
+      </div>`;
+  }).join('');
 }
 
 // renderDexaStats / renderDexaHistory removed 2026-05-02 — the stat-card
@@ -6280,6 +6249,10 @@ function renderDexaSection() {
 // maintainAspectRatio:true (NOT false) per 2026-05-01 — Chart.js resize
 // feedback loop with `.chart-wrap canvas { width:100% !important }`.
 // Aspect ratio is wide-and-short so the three minis stack cleanly.
+//
+// RETIRED 2026-05-25 — DEXA charts replaced by the Body Composition table
+// (see renderDexaSection). Kept as dead code (house style) in case the
+// small-multiples view is ever wanted back; no longer called anywhere.
 function drawDexaChart(scans) {
   if (dexaChartBf)   { dexaChartBf.destroy();   dexaChartBf = null; }
   if (dexaChartFat)  { dexaChartFat.destroy();  dexaChartFat = null; }
