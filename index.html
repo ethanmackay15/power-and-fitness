@@ -724,29 +724,19 @@
       font-size: 14px;
       color: var(--dim);
     }
-    /* Near-term milestone strip (15% BF) — sits above the 12% ultimate-goal grid,
-       given the --good accent so the active focus reads first; 12% stays dim below.
-       Shows the fat delta, not a goal weight: 15%-at-current-lean (~180 lb) is below
-       12%-at-full-lean (181.5), so a weight here would look like it goes down then up. */
-    .target-milestone {
-      display: flex; justify-content: space-between; align-items: baseline;
-      gap: 12px;
-      padding-bottom: 10px;
-      margin-bottom: 12px;
-      border-bottom: 1px solid var(--border-soft);
-    }
-    .target-milestone-lbl {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 9px;
-      color: var(--good);
-      letter-spacing: .1em;
-      text-transform: uppercase;
-    }
-    .target-milestone-val {
-      font-family: 'VT323', monospace;
-      font-size: 17px;
-      color: var(--ink);
-      white-space: nowrap;
+    /* Two-tier target box: 15% milestone (green = active focus) above the 12%
+       ultimate goal (dim), separated by a hairline. Both tiers use the same head +
+       3-metric grid so they read as a matched pair (per Ethan's request to mirror
+       the destination row). The 15% row assumes lean ~149 (mid-reclamation —
+       realistic by the ~3.5-mo 15% ETA), which keeps all three metrics monotonic
+       toward 12%: weight 184.4->181.5, lean 149->152, fat 27.7->21.8. Holding
+       today's lean instead would put the 15% weight (~180) BELOW the 12% weight
+       (181.5) — a confusing down-then-up — so the partial-reclaim assumption is
+       deliberate. */
+    .target-box-title.next { color: var(--good); }
+    .target-rule {
+      border-top: 1px solid var(--border-soft);
+      margin: 14px 0;
     }
     .dexa-modal-overlay {
       position: fixed; inset: 0;
@@ -2055,10 +2045,27 @@
          Static targets Ethan set: 152 lb lean → FFM 159.7 / 0.88 = 181.5 lb @ 12% BF, fat 21.8 lb.
          Sits under the DEXA charts so the lean/fat/weight goals read against the scan trend lines. -->
     <div class="target-box">
-      <div class="target-milestone">
-        <span class="target-milestone-lbl">Next · 15% BF</span>
-        <span class="target-milestone-val">lose ~7.5 lb fat</span>
+      <!-- Near-term milestone (active focus) — lean ~149 assumed; see CSS note -->
+      <div class="target-box-head">
+        <span class="target-box-title next">Next · 15% BF</span>
+        <span class="target-box-sub">the next stop</span>
       </div>
+      <div class="target-grid">
+        <div class="target-cell">
+          <div class="target-cell-lbl">Weight</div>
+          <div class="target-cell-val">184.4<span class="target-cell-unit"> lb</span></div>
+        </div>
+        <div class="target-cell">
+          <div class="target-cell-lbl">Lean</div>
+          <div class="target-cell-val">149<span class="target-cell-unit"> lb</span></div>
+        </div>
+        <div class="target-cell">
+          <div class="target-cell-lbl">Fat</div>
+          <div class="target-cell-val">27.7<span class="target-cell-unit"> lb</span></div>
+        </div>
+      </div>
+      <div class="target-rule"></div>
+      <!-- Ultimate goal -->
       <div class="target-box-head">
         <span class="target-box-title">Ultimate · 12% BF</span>
         <span class="target-box-sub">the destination</span>
