@@ -672,6 +672,58 @@
     }
     .dexa-delta.pos { color: var(--good); }
     .dexa-delta.neg { color: var(--bad); }
+
+    /* ════ 12% BF target box (subtle) — added 2026-05-25 ════
+       Static aspirational targets Ethan set on 2026-05-25:
+       152 lb lean → FFM (152 + 7.7 bone) = 159.7 → /0.88 = 181.5 lb @ 12% BF, fat 21.8 lb.
+       Modeled on .dexa-mini (thin border-soft, no offset shadow) so it reads quiet, not as a loud card. */
+    .target-box {
+      border: 2px solid var(--border-soft);
+      background: var(--bg);
+      padding: 13px 16px;
+      margin-bottom: 18px;
+    }
+    .target-box-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .target-box-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .target-box-sub {
+      font-family: 'VT323', monospace;
+      font-size: 15px;
+      color: var(--dim);
+    }
+    .target-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    .target-cell { text-align: center; }
+    .target-cell-lbl {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .target-cell-val {
+      font-family: 'VT323', monospace;
+      font-size: 28px;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .target-cell-unit {
+      font-family: 'VT323', monospace;
+      font-size: 14px;
+      color: var(--dim);
+    }
     .dexa-modal-overlay {
       position: fixed; inset: 0;
       background: rgba(10,14,39,.78);
@@ -1972,6 +2024,30 @@
           <span class="dexa-delta" id="dexa-delta-lean"></span>
         </div>
         <div class="chart-wrap"><canvas id="chart-dexa-lean"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 12% BF target box (subtle) — added 2026-05-25.
+         Static targets Ethan set: 152 lb lean → FFM 159.7 / 0.88 = 181.5 lb @ 12% BF, fat 21.8 lb.
+         Sits under the DEXA charts so the lean/fat/weight goals read against the scan trend lines. -->
+    <div class="target-box">
+      <div class="target-box-head">
+        <span class="target-box-title">Target · 12% BF</span>
+        <span class="target-box-sub">the destination</span>
+      </div>
+      <div class="target-grid">
+        <div class="target-cell">
+          <div class="target-cell-lbl">Weight</div>
+          <div class="target-cell-val">181.5<span class="target-cell-unit"> lb</span></div>
+        </div>
+        <div class="target-cell">
+          <div class="target-cell-lbl">Lean</div>
+          <div class="target-cell-val">152<span class="target-cell-unit"> lb</span></div>
+        </div>
+        <div class="target-cell">
+          <div class="target-cell-lbl">Fat</div>
+          <div class="target-cell-val">21.8<span class="target-cell-unit"> lb</span></div>
+        </div>
       </div>
     </div>
 
