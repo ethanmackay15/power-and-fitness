@@ -3799,11 +3799,13 @@ let foodCurrentDate = today();
 const MEAL_TIMES = {
   'Breakfast': '6:30 AM',
   'Lunch': '11:00 AM',
-  'Snack': '5:00 PM',
   'Dinner': '2:30 PM',
-  'Supper': '7:00 PM'
+  'Supper': '7:00 PM',
+  'Snack': '8:00 PM'
 };
-const MEAL_CHRONO_ORDER = ['Breakfast','Lunch','Dinner','Snack','Supper'];
+// Snack moved 5:00 PM → 8:00 PM (2026-05-25): it's the late-evening snack, so it
+// now sorts after Supper. Chrono order reflects that for same-time tie-breaks.
+const MEAL_CHRONO_ORDER = ['Breakfast','Lunch','Dinner','Supper','Snack'];
 
 // Convert "7:30 AM" display time to "07:30" 24-hr format for sorting/storage
 function mealTimeToHHMM(timeStr) {
@@ -4208,6 +4210,33 @@ function createPlanEntries(date) {
   safeSetItem(MIG_KEY, '1');
 })();
 
+// Re-time Snack from the old 5:00 PM default slot to the new 8:00 PM slot (2026-05-25).
+// `time` is local-only (the Sheet doesn't store it), so this is a localStorage-only fixup
+// that closes the pre-sync window where today's already-autopopulated Snack rows still
+// carry a baked-in 17:00. After the next idle sync, entries lose their local time and fall
+// back to MEAL_TIMES['Snack'] = 8:00 PM anyway, so this is belt-and-suspenders.
+// Guarded on the OLD default (17:00) so it only moves entries that sat at the default Snack
+// slot (autopop plan rows + past-day snacks logged without a real clock time); snacks logged
+// at a genuine clock time (anything other than 17:00) are left untouched.
+// NOTE: must run AFTER the `const FOOD_ENTRIES_KEY` declaration above — placing it among the
+// earlier boot IIFEs would hit the temporal-dead-zone ReferenceError and silently no-op.
+(function migrateSnackTimeTo8pm() {
+  const MIG_KEY = 'migration_snackTimeTo8pm_v1';
+  if (localStorage.getItem(MIG_KEY)) return;
+  try {
+    const raw = localStorage.getItem(FOOD_ENTRIES_KEY);
+    if (raw) {
+      const entries = JSON.parse(raw);
+      let changed = false;
+      entries.forEach(e => {
+        if (e.meal === 'Snack' && e.time === '17:00') { e.time = '20:00'; changed = true; }
+      });
+      if (changed) safeSetItem(FOOD_ENTRIES_KEY, JSON.stringify(entries));
+    }
+  } catch(e) {}
+  safeSetItem(MIG_KEY, '1');
+})();
+
 // ── Storage helpers ──────────────────────────────────────────────────────────
 // 2026-05-15: ALL target values (cal, protein, carbs, fat) follow the raw
 // Sheet meal plan totals. Edit the plan in the Sheet → targets update on the
@@ -4280,9 +4309,9 @@ function autoDetectMeal() {
   const h = new Date().getHours();
   if (h < 11) return 'Breakfast';
   if (h < 14) return 'Lunch';
-  if (h < 17) return 'Dinner';   // 2–5pm (Dinner is at 2:30 PM)
-  if (h < 19) return 'Snack';    // 5–7pm (Snack is at 5:00 PM)
-  return 'Supper';               // 7pm+  (Supper is at 7:00 PM)
+  if (h < 17) return 'Dinner';   // 2–5pm  (Dinner is at 2:30 PM)
+  if (h < 20) return 'Supper';   // 5–8pm  (Supper is at 7:00 PM)
+  return 'Snack';                // 8pm+   (Snack is at 8:00 PM)
 }
 
 // All foods sorted alphabetically — built once, filtered on search
