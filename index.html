@@ -759,29 +759,8 @@
     .dexa-form-grid label { margin-bottom: 4px; }
     .dexa-form-grid input { width: 100%; }
 
-    /* Inspiration images */
-    /* Inspiration — small, side-by-side, de-emphasized (2026-05-25 per Ethan:
-       smaller / one row / less prominent). Were full-width stacked blocks with a
-       neon warn border + hot drop-shadow; now soft-bordered thumbnails in a 2-col
-       row, fixed short height with object-fit:cover so they sit as a quiet footer. */
-    .inspo-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 18px;
-    }
-    .inspo {
-      border: 1px solid var(--border-soft);
-      background: var(--bg);
-      overflow: hidden;
-      image-rendering: pixelated;
-    }
-    .inspo img {
-      display: block; width: 100%; height: 110px;
-      object-fit: cover;
-      filter: saturate(.8) contrast(1.05);
-      opacity: .9;
-    }
+    /* Inspiration thumbnail row + its .inspo CSS removed 2026-05-25 per Ethan:
+       the pixelated retro filter mangled the photographic beach images. */
 
     /* ════ FOOD TAB ════ */
     .food-nav {
@@ -925,28 +904,25 @@
       letter-spacing: .05em;
       flex-wrap: wrap;
     }
-    .food-meal-time-pill {
+    /* .food-meal-time-pill / .food-meal-dot-spacer / .food-meal-right removed
+       2026-05-25 per Ethan: meal-group headers no longer show a (nominal,
+       inaccurate) time — just the meal name on the left and macros on the right. */
+    /* 2026-05-25: the meal name now wears the old time-pill box style (Ethan
+       liked those boxes) — cyan text, cyan border, dark fill, hot drop-shadow. */
+    .food-meal-name {
       color: var(--cool);
       background: var(--bg2);
       padding: 6px 10px;
       border: 2px solid var(--cool);
-      font-size: 10px;
       box-shadow: 2px 2px 0 var(--hot);
-    }
-    .food-meal-time-pill.has-food { color: var(--cool); }
-    .food-meal-dot-spacer::before { content: '●'; color: var(--dim); }
-    .food-meal-right {
-      display: flex; align-items: center; gap: 14px;
-      margin-left: auto; flex-wrap: wrap;
-    }
-    .food-meal-name {
-      color: var(--warn);
+      font-size: 10px;
       letter-spacing: .06em;
       text-transform: uppercase;
     }
     .food-meal-cal {
       display: flex; gap: 10px;
       font-size: 9px;
+      margin-left: auto;
     }
     .food-meal-cal .mc-val { color: var(--warn); }
     .food-meal-cal .mc-p   { color: var(--bad); }
@@ -2054,15 +2030,9 @@
          The header sync badge (top-right of every tab) is the single source
          of sync truth now. -->
 
-    <!-- Inspiration — small side-by-side thumbnails, de-emphasized -->
-    <div class="inspo-row">
-      <div class="inspo">
-        <img src="10256345_1003947152951883_5404304817066547595_o.webp" alt="Beach" />
-      </div>
-      <div class="inspo">
-        <img src="RMOTU.png" alt="Lifeguard tower on the beach" />
-      </div>
-    </div>
+    <!-- Inspiration thumbnail row removed 2026-05-25 per Ethan's request: the
+         pixelated retro filter mangled the photographic beach images and they
+         didn't fit the look. Associated .inspo CSS removed too. -->
 
   </div><!-- /panel-weight -->
   <!-- ════════════════════════════════════════════════
@@ -4181,7 +4151,17 @@ function markFoodDateInitialized(date) {
 }
 
 function createPlanEntries(date) {
-  return MEAL_PLAN_TEMPLATE.map(item => ({
+  // 2026-05-26: per-item autopop override. The Sheet's "Autopopulate in Power
+  // App?" column flows through the mealplan endpoint as an `autopop` flag on
+  // each template item. Only items that are NOT explicitly opted out auto-add to
+  // the day's food log. We filter HERE (not on MEAL_PLAN_TEMPLATE itself) so the
+  // full template is preserved for target math — RAW_PLAN_TOTALS (cal + macro
+  // targets) and the legacy plan-totals chips both still sum the whole plan, so
+  // turning an item off here does NOT change the targets.
+  // Fail-safe: a missing flag (offline hardcoded fallback, or a backend deploy
+  // that predates the autopop column) defaults to autopopulating — i.e. only an
+  // explicit `false` suppresses, preserving prior whole-plan behavior.
+  return MEAL_PLAN_TEMPLATE.filter(item => item.autopop !== false).map(item => ({
     id: 'plan-' + item.food_id + '-' + date,
     date,
     meal:      item.meal,
@@ -4607,6 +4587,11 @@ function saveFoodEdit(id) {
   showToast('✓ Updated');
 }
 
+// 2026-05-25: editFoodTime/saveFoodTime are no longer wired to any UI — the
+// food log stopped showing per-meal times (meals now group by name only) so the
+// 🕐 button was removed. Kept as dead code (like exportData/importData) in case
+// per-entry times ever come back. `time` is still set at creation/log for
+// potential future use; it just isn't displayed or used for grouping.
 function editFoodTime(id) {
   const entry = getFoodEntries().find(e => e.id === id);
   if (!entry) return;
@@ -4774,26 +4759,22 @@ function renderFood() {
   const MEAL_ALIAS = { 'Evening Snack': 'Supper' };
   function normMeal(m) { return MEAL_ALIAS[m] || m || 'Other'; }
 
-  function entryTime(e) {
-    if (e.time) return e.time; // "HH:MM" 24hr
-    return mealTimeToHHMM(MEAL_TIMES[normMeal(e.meal)] || '12:00 PM');
-  }
-  // Group entries by (meal + time) so that e.g. two snacks at different times are separate groups
-  const groups = []; // [{key, meal, time, entries}]
+  // Group entries by MEAL ONLY (2026-05-25): times are no longer shown, so each
+  // meal is a single card regardless of individual entry clock-times — an item
+  // logged at an odd time no longer spawns a second, indistinguishable card.
+  const groups = []; // [{meal, entries}]
   const groupMap = {};
   dayEntries.forEach(e => {
     const meal = normMeal(e.meal);
-    const t = entryTime(e);
-    const key = meal + '|' + t;
-    if (!groupMap[key]) {
-      groupMap[key] = { key, meal, time: t, entries: [] };
-      groups.push(groupMap[key]);
+    if (!groupMap[meal]) {
+      groupMap[meal] = { meal, entries: [] };
+      groups.push(groupMap[meal]);
     }
-    groupMap[key].entries.push(e);
+    groupMap[meal].entries.push(e);
   });
-  // Sort groups chronologically by time, then by meal chrono order for ties
+  // Order meals by chrono order (Breakfast → Lunch → Dinner → Supper → Snack);
+  // anything unrecognized falls to the end.
   groups.sort((a,b) => {
-    if (a.time !== b.time) return a.time < b.time ? -1 : 1;
     const ai = MEAL_CHRONO_ORDER.indexOf(a.meal);
     const bi = MEAL_CHRONO_ORDER.indexOf(b.meal);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
@@ -4811,7 +4792,6 @@ function renderFood() {
     const mP   = entries.reduce((s,e)=>s+(e.protein||0),0);
     const mC   = entries.reduce((s,e)=>s+(e.carbs||0),0);
     const mF   = entries.reduce((s,e)=>s+(e.fat||0),0);
-    const timeLabel = hhmmToDisplay(g.time);
     const rows = entries.map(e => `
       <div class="food-entry-row" id="frow-${e.id}">
         <div class="food-entry-info">
@@ -4827,7 +4807,6 @@ function renderFood() {
         </div>
         <div class="food-entry-actions">
           <div class="food-entry-actions-collapsible">
-            <button class="food-delete-btn" onclick="editFoodTime('${e.id}')" aria-label="Change time for ${esc(e.food_name)}" title="Change time">🕐</button>
             <button class="food-delete-btn" onclick="editFoodEntry('${e.id}')" aria-label="Edit quantity of ${esc(e.food_name)}" title="Edit qty">✎</button>
             <button class="food-delete-btn" onclick="deleteFoodEntry('${e.id}')" aria-label="Delete ${esc(e.food_name)}" title="Delete">✕</button>
           </div>
@@ -4836,17 +4815,13 @@ function renderFood() {
       </div>`).join('');
     return `<div class="food-meal-card">
       <div class="food-meal-header">
-        <div class="food-meal-time-pill has-food">${timeLabel || g.meal}</div>
-        <div class="food-meal-dot-spacer"></div>
-        <div class="food-meal-right">
-          <span class="food-meal-name">${esc(g.meal)}</span>
-          <span class="food-meal-cal">
-            <span class="mc-val">${Math.round(mCal)}🔥</span>
-            <span class="mc-p">${mP.toFixed(0)}P</span>
-            <span class="mc-f">${mF.toFixed(0)}F</span>
-            <span class="mc-c">${mC.toFixed(0)}C</span>
-          </span>
-        </div>
+        <span class="food-meal-name">${esc(g.meal)}</span>
+        <span class="food-meal-cal">
+          <span class="mc-val">${Math.round(mCal)}🔥</span>
+          <span class="mc-p">${mP.toFixed(0)}P</span>
+          <span class="mc-f">${mF.toFixed(0)}F</span>
+          <span class="mc-c">${mC.toFixed(0)}C</span>
+        </span>
       </div>
       <div class="food-entries-list">${rows}</div>
     </div>`;
