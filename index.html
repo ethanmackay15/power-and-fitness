@@ -1554,19 +1554,9 @@
       text-transform: uppercase;
     }
 
-    /* Habit insights */
-    #habit-insights {
-      font-family: 'VT323', monospace;
-      font-size: 17px;
-      color: var(--ink);
-      line-height: 1.45;
-    }
-    .insights-stat {
-      display: flex; justify-content: space-between; align-items: baseline;
-      padding: 8px 0;
-      border-bottom: 1px dashed var(--border-soft);
-    }
-    .insights-stat:last-child { border-bottom: none; }
+    /* Habit Insights section removed 2026-05-26 — broken render (heatmap .iy-* +
+       .insights-habit-toggle CSS was missing) and unused. Markup, renderHabitInsights(),
+       and its call site removed too. */
 
     /* Celebration toast */
     .habit-celebration {
@@ -2091,11 +2081,7 @@
       <div id="habit-heatmap"></div>
     </div>
 
-    <!-- Habit Insights -->
-    <div class="card" style="margin-top:18px">
-      <h2>Habit Insights</h2>
-      <div id="habit-insights"></div>
-    </div>
+    <!-- Habit Insights card removed 2026-05-26 (broken render + unused) -->
 
   </div><!-- /panel-habits -->
 
@@ -5359,7 +5345,7 @@ function renderHabits() {
 
   renderHabitStreaks();
   renderHabitHeatmap();
-  renderHabitInsights();
+  // renderHabitInsights() removed 2026-05-26 (section deleted — broken render + unused)
   // Nightly Check-In disabled 2026-05-23 per Ethan — card stays hidden (style="display:none" inline).
   // renderNightlyCheckIn();
 }
@@ -6002,118 +5988,7 @@ function renderHabitHeatmap() {
 }
 
 // ── Habits Sheets Sync ───────────────────────────────────────────────────────
-// ── Habit Insights ──────────────────────────────────────────────────────────
-let insightsActiveHabit = 'all';
-
-function renderHabitInsights() {
-  const data = getHabitsData();
-  const habits = getHabitsList();
-  const td = today();
-  const container = document.getElementById('habit-insights');
-  if (!container) return;
-
-  // Collect all dates that have any done habit
-  const allDates = Object.keys(data).filter(d => d <= td).sort();
-  if (!allDates.length) { container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem">No habit data yet.</p>'; return; }
-
-  let html = '';
-
-  // ── Habit filter toggle ──
-  html += '<div class="insights-habit-toggle">';
-  html += `<button class="${insightsActiveHabit==='all'?'active':''}" onclick="insightsActiveHabit='all';renderHabitInsights()">All</button>`;
-  habits.forEach(h => {
-    html += `<button class="${insightsActiveHabit===h?'active':''}" onclick="insightsActiveHabit='${attrEsc(h)}';renderHabitInsights()">${esc(h)}</button>`;
-  });
-  html += '</div>';
-
-  // ── Rolling 3-month heatmap ──
-  const filterHabits = insightsActiveHabit === 'all' ? habits : [insightsActiveHabit];
-
-  {
-    const todayDate = new Date(td + 'T12:00:00');
-    const dayOfWeek = todayDate.getDay(); // 0=Sun
-
-    // End = this Saturday
-    const endDate = new Date(todayDate);
-    endDate.setDate(endDate.getDate() + (6 - dayOfWeek));
-
-    // Start = 13 weeks back (Sunday of that week)
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - (13 * 7) + 1); // go back 13 weeks, land on Sunday
-    // Ensure startDate is a Sunday
-    const startDay = startDate.getDay();
-    if (startDay !== 0) startDate.setDate(startDate.getDate() - startDay);
-
-    const totalDays = Math.round((endDate - startDate) / 86400000) + 1;
-
-    html += '<div class="insights-year-section">';
-    html += '<div class="iy-header">';
-
-    // Header: show date range
-    const startLabel = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const endLabel = todayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    html += `<span class="iy-year">Last 3 Months</span>`;
-
-    let daysWithDone = 0, totalCompletionsHM = 0;
-    let cellsHtml = '<div class="iy-grid-wrap"><div class="iy-grid">';
-
-    for (let i = 0; i < totalDays; i++) {
-      const dt = new Date(startDate);
-      dt.setDate(dt.getDate() + i);
-      const ds = dt.toISOString().slice(0,10);
-      if (ds > td) {
-        cellsHtml += `<div class="iy-cell future" title="${ds}"></div>`;
-        continue;
-      }
-      let count = 0;
-      filterHabits.forEach(h => {
-        if (data[ds] && data[ds][h] && data[ds][h].done) count++;
-      });
-      if (count > 0) { daysWithDone++; totalCompletionsHM += count; }
-      const level = count === 0 ? 0 : Math.min(count, 4);
-      const title = `${fmtDate(ds)}: ${count}/${filterHabits.length}`;
-      cellsHtml += `<div class="iy-cell c${level}" title="${title}"></div>`;
-    }
-    cellsHtml += '</div>';
-
-    // Month labels — figure out which months appear in the range
-    cellsHtml += '<div class="iy-months">';
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    // Walk week by week, emit a label when the month changes
-    const seenMonths = new Set();
-    let wk = new Date(startDate);
-    while (wk <= endDate) {
-      const m = wk.getMonth();
-      const key = wk.getFullYear() + '-' + m;
-      if (!seenMonths.has(key)) {
-        seenMonths.add(key);
-        cellsHtml += `<span>${monthNames[m]}</span>`;
-      } else {
-        cellsHtml += '<span></span>';
-      }
-      wk.setDate(wk.getDate() + 7);
-    }
-    cellsHtml += '</div></div>';
-
-    // Summary
-    const trackedDays = Math.round((todayDate - startDate) / 86400000) + 1;
-    const pct = trackedDays > 0 ? Math.round((daysWithDone / trackedDays) * 100) : 0;
-    html += `<span class="iy-summary">${daysWithDone} active days (${pct}%) &middot; ${totalCompletionsHM} completions</span>`;
-    html += '</div>';
-    html += cellsHtml;
-
-    // Legend
-    html += '<div class="iy-legend"><span>Less</span>';
-    for (let l = 0; l <= 4; l++) html += `<div class="iy-cell c${l}"></div>`;
-    html += '<span>More</span></div>';
-
-    html += '</div>';
-  }
-
-  // (Best months section removed)
-
-  container.innerHTML = html;
-}
+// ── Habit Insights removed 2026-05-26 (section deleted — broken render + unused) ──
 
 async function pullHabitsFromSheets() {
   const url = getSheetsUrl();
