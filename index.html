@@ -760,18 +760,27 @@
     .dexa-form-grid input { width: 100%; }
 
     /* Inspiration images */
-    .inspo {
+    /* Inspiration — small, side-by-side, de-emphasized (2026-05-25 per Ethan:
+       smaller / one row / less prominent). Were full-width stacked blocks with a
+       neon warn border + hot drop-shadow; now soft-bordered thumbnails in a 2-col
+       row, fixed short height with object-fit:cover so they sit as a quiet footer. */
+    .inspo-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
       margin-bottom: 18px;
-      border: 3px solid var(--warn);
-      box-shadow: 6px 6px 0 var(--hot);
+    }
+    .inspo {
+      border: 1px solid var(--border-soft);
       background: var(--bg);
-      padding: 0;
       overflow: hidden;
       image-rendering: pixelated;
     }
     .inspo img {
-      display: block; width: 100%; height: auto;
-      filter: saturate(.85) contrast(1.1);
+      display: block; width: 100%; height: 110px;
+      object-fit: cover;
+      filter: saturate(.8) contrast(1.05);
+      opacity: .9;
     }
 
     /* ════ FOOD TAB ════ */
@@ -1991,12 +2000,6 @@
       </div>
     </div>
 
-    <!-- History -->
-    <div class="card" style="margin-bottom:18px">
-      <h2>Log History</h2>
-      <div class="history-wrap" id="history-wrap"></div>
-    </div>
-
     <!-- Body Composition table (scans → targets) — 2026-05-25.
          Replaced the DEXA small-multiples charts (Ethan: 4-scan plots not useful)
          with a single Weight/Lean/Fat table. The two most-recent scans come from the
@@ -2004,7 +2007,9 @@
          rows are static. NO in-app "Add scan" button (removed 2026-05-25) — scans are
          rare, so Ethan shares new results and we append a line to DEXA_SEED in code.
          (The DEXA entry modal + its JS are left intact but unused, so a trigger can be
-         re-added later if wanted.) -->
+         re-added later if wanted.)
+         2026-05-25: moved above Log History per Ethan — body-comp goals sit right
+         under the weight trend; the weigh-in log drops below them. -->
     <div class="card">
       <h2>Body Composition</h2>
       <!-- Column headers (blank label cell + the three value columns, in lb) -->
@@ -2032,6 +2037,12 @@
       </div>
     </div>
 
+    <!-- History -->
+    <div class="card" style="margin-bottom:18px">
+      <h2>Log History</h2>
+      <div class="history-wrap" id="history-wrap"></div>
+    </div>
+
     <!-- DEXA Scan History table removed 2026-05-01: redundant with the 4-scan chart.
          Edit + delete are reachable via "+ Add scan" → enter existing date → modal
          opens with the scan loaded; the modal now also has a Delete button. -->
@@ -2043,12 +2054,14 @@
          The header sync badge (top-right of every tab) is the single source
          of sync truth now. -->
 
-    <!-- Inspiration -->
-    <div class="inspo">
-      <img src="10256345_1003947152951883_5404304817066547595_o.webp" alt="Beach" />
-    </div>
-    <div class="inspo" style="margin-top: 12px;">
-      <img src="RMOTU.png" alt="Lifeguard tower on the beach" />
+    <!-- Inspiration — small side-by-side thumbnails, de-emphasized -->
+    <div class="inspo-row">
+      <div class="inspo">
+        <img src="10256345_1003947152951883_5404304817066547595_o.webp" alt="Beach" />
+      </div>
+      <div class="inspo">
+        <img src="RMOTU.png" alt="Lifeguard tower on the beach" />
+      </div>
     </div>
 
   </div><!-- /panel-weight -->
@@ -4111,13 +4124,23 @@ function isSupperFoodName(name) {
 }
 
 // Normalize a single food entry's meal field: if it's a known supper food stored as Dinner/Evening Snack, fix it
+// 2026-05-25 BUGFIX: this used to re-file ANY supper-named entry under Dinner → Supper, which clobbered
+// MANUALLY logged Dinner items (Ethan logged an Apple (Gala) under Dinner and it kept jumping to Supper).
+// "Dinner" is a real, current meal the user can deliberately pick — only re-file a Dinner entry when it's an
+// AUTOPOPULATED PLAN entry whose "Supper" label was lost in a Sheets round-trip (an outdated Apps Script deploy
+// returns Supper template rows as Dinner). Same lesson as the v10 rice-cake bugfix: template/meal normalization
+// must never rewrite user-logged data. ("Evening Snack" is a retired category, so it still always migrates —
+// it's not a meal the user can choose anymore.) NOTE: plan detection keys off the `plan-` id prefix, because the
+// Sheet does not round-trip the `plan:true` flag (it comes back as null on synced plan rows).
 function normalizeEntryMeal(e) {
   if (e.meal === 'Supper') return e;
   if (e.meal !== 'Dinner' && e.meal !== 'Evening Snack') return e;
-  if (isSupperFoodName(e.food_name)) {
-    return { ...e, meal: 'Supper', time: mealTimeToHHMM(MEAL_TIMES['Supper'] || '7:00 PM') };
+  if (!isSupperFoodName(e.food_name)) return e;
+  if (e.meal === 'Dinner') {
+    const isPlanEntry = e.plan === true || (e.id && String(e.id).startsWith('plan-'));
+    if (!isPlanEntry) return e;  // manually logged Dinner item — preserve the user's choice
   }
-  return e;
+  return { ...e, meal: 'Supper', time: mealTimeToHHMM(MEAL_TIMES['Supper'] || '7:00 PM') };
 }
 
 // 2026-05-17: removed `isExcludedSnack` helper (snack autopop re-opened to the
