@@ -2428,6 +2428,11 @@ const QUEUE_MAX_BACKOFF_MS = 30000;
 // UI timing
 const TOAST_DURATION_MS = 3500;
 const CHART_RESIZE_DEBOUNCE_MS = 150;
+// Boot autopop fallback — if the live meal-plan pull hasn't resolved within this
+// window, seed today's plan from the localStorage cache as a last resort (offline
+// or a hung network). On a normal connection the post-pull seed fires well before
+// this, so the cache is never the source when online. See seedTodayPlanOnce in init().
+const AUTOPOP_FALLBACK_MS = 8000;
 // Background polling — while the tab is visible, re-sync from Sheets every minute
 // so edits made on another device show up without requiring a manual refresh.
 // The interval is harmless when the tab is hidden because syncOnVisibility
@@ -3693,7 +3698,22 @@ async function syncOnVisibility(forceEvenIfHidden) {
 // foodInitDates — "plan entries exist in localStorage" (set once per day)
 // Sheets push is now manual via the "Sync to Sheets" button.
 
+// 2026-05-27: boot autopop must run against the LIVE meal-plan template, never
+// the stale localStorage cache. A cache captured mid-config (most `autopop` flags
+// still false) once seeded only 2 items and then permanently locked the day —
+// ensureTodayMealPlan marks the date initialized on first run, and the live
+// template arrived ~500ms too late to correct it (the 5/27 partial-populate bug).
+// This flag gates BOTH seed paths (boot + the renderFood call site): seeding is
+// blocked until init() has either applied the live template, accepted the cache as
+// a deliberate fallback (offline / failed pull), or hit the fallback timer. It is
+// flipped true exactly once, in seedTodayPlanOnce(); after that, normal post-boot
+// renders seed today as before.
+let _mealPlanSeedReady = false;
+
 function ensureTodayMealPlan() {
+  // Don't seed from a possibly-stale cached template before init() has resolved
+  // the freshest available plan. The boot seed / next render re-calls this once ready.
+  if (!_mealPlanSeedReady) return;
   const td = today();
   if (!getFoodInitDates().has(td)) {
     // First time seeing this date — create plan entries locally AND enqueue them.
@@ -4615,26 +4635,16 @@ function renderFood() {
   // user is viewing in the Food tab (was previously frozen on today's date).
   if (typeof setHeaderDateLabel === 'function') setHeaderDateLabel(foodCurrentDate);
 
-  // Auto-initialize day from meal plan the FIRST time this date is viewed (local only)
-  // Does NOT mark the date as dirty — only explicit edits (add/delete/edit) trigger sync
-  // ARCHITECTURAL FIX (2026-04-29 evening): only autopopulate for TODAY.
-  // For past dates we'd be recreating plan entries that may have been deliberately
-  // deleted on another device — the source of the "Apple (Gala) coming back"
-  // bug Ethan saw on mobile after clearing browser data.
-  if (foodCurrentDate === today() && !getFoodInitDates().has(foodCurrentDate)) {
-    markFoodDateInitialized(foodCurrentDate);
-    const existing = getFoodEntries();
-    // Only auto-populate from template if no entries already exist for this date
-    // (e.g. synced from Sheets). Prevents stale template items overlaying real data.
-    const hasExisting = existing.some(e => e.date === foodCurrentDate);
-    if (!hasExisting) {
-      const planEntries = createPlanEntries(foodCurrentDate);
-      saveFoodEntriesDB([...existing, ...planEntries]);
-      // ARCHITECTURAL FIX (2026-04-30): enqueue each plan entry so the sheet
-      // gets them; otherwise the overwrite-merge wipes them on next refresh.
-      planEntries.forEach(e => enqueueWrite('addFood', e));
-    }
-  }
+  // Auto-initialize today's plan the first time we render after boot.
+  // 2026-05-27: de-duplicated — this used to inline the same create-plan-entries
+  // logic as ensureTodayMealPlan, which meant a fast open to the Food tab could
+  // seed today from the STALE cache before the live template loaded (same bug as
+  // boot). ensureTodayMealPlan now owns the logic AND the readiness gate
+  // (_mealPlanSeedReady), so it no-ops until init() has the freshest template, and
+  // it only ever targets today() — never a past date being viewed (the old
+  // "only autopopulate for TODAY" guard, which prevented recreating plan entries
+  // deliberately deleted on another device). Safe to call on every render.
+  ensureTodayMealPlan();
 
   const allEntries = getFoodEntries();
   let dayEntries = allEntries.filter(e => e.date === foodCurrentDate);
@@ -6583,9 +6593,21 @@ function mergeJournalEntries(local, remote) {
   // Habits is the default tab — render it on load
   setTimeout(()=>{ renderHabits(); }, 100);
 
-  // Auto-populate today's meal plan on boot (regardless of which tab is active)
-  // Deferred slightly so FOOD_DB / MEAL_PLAN_TEMPLATE from cache are ready
-  setTimeout(ensureTodayMealPlan, 50);
+  // Auto-populate today's meal plan on boot. CRITICAL (2026-05-27): seed ONLY
+  // after the live meal-plan template is in hand — never from the stale cache at
+  // +50ms, which caused the partial-populate-then-lock bug. seedTodayPlanOnce
+  // flips the _mealPlanSeedReady gate and runs at most once; it is called from
+  // exactly three places: (1) after the Sheets pull below applies the live
+  // template + merges the Sheet's food, (2) the no-Sheets-URL branch (offline /
+  // unconfigured → cache is the only source), and (3) this fallback timer for a
+  // hung/failed network. Whichever fires first wins; the rest no-op via the gate.
+  function seedTodayPlanOnce() {
+    if (_mealPlanSeedReady) return;
+    _mealPlanSeedReady = true;
+    ensureTodayMealPlan();
+    if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+  }
+  setTimeout(seedTodayPlanOnce, AUTOPOP_FALLBACK_MS);
 
   // Show backup status
   setTimeout(updateBackupStatus, 100);
@@ -6667,7 +6689,14 @@ function mergeJournalEntries(local, remote) {
       // Refresh the food dropdown if the food tab is visible
       if (document.getElementById('panel-food').classList.contains('active')) populateFoodSelect();
     }
-    // After Sheets pull, update backup status (meal plan was already ensured above)
+    // Seed today's plan now that the live template (or the cache, if the library
+    // pull failed and libraryData was null) AND the Sheet's food rows are both in
+    // hand. This is the authoritative seed — it uses live `autopop` flags and sees
+    // any rows already logged on another device, so it can't partial-populate from
+    // a stale cache the way the old +50ms boot timer did.
+    seedTodayPlanOnce();
+
+    // After Sheets pull, update backup status.
     updateBackupStatus();
     // Trends tab removed 2026-05-01; null-safe in case panel ever returns.
     if (document.getElementById('panel-trends')?.classList.contains('active')) renderTrends();
@@ -6682,6 +6711,11 @@ function mergeJournalEntries(local, remote) {
     // Background poll while the app is open — picks up edits made on other
     // devices without requiring a tab switch or manual refresh.
     startBackgroundPoll();
+  } else {
+    // No Sheets URL (offline-first / not yet configured): the cached template is
+    // the only source available, so seed from it immediately rather than waiting
+    // out the fallback timer.
+    seedTodayPlanOnce();
   }
 })();
 </script>
