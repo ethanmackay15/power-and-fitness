@@ -5305,6 +5305,7 @@ function habitNavDay(delta) {
   dt.setDate(dt.getDate() + delta);
   habitViewDate = dt.toISOString().slice(0,10);
   renderHabits();
+  if (typeof renderJournal === 'function') renderJournal();
 }
 
 // ── Render habits ────────────────────────────────────────────────────────────
@@ -6423,7 +6424,10 @@ function addJournalNote() {
   const now = new Date();
   const entry = {
     timestamp: now.toISOString(),
-    date:      today(),  // YYYY-MM-DD in local TZ
+    // File the note under the day being viewed (Habits-tab navigator), so a
+    // note left while scrolled back to yesterday is dated yesterday — not today.
+    // 2026-05-29.
+    date:      (typeof habitViewDate !== 'undefined') ? habitViewDate : today(),
     text:      text
   };
   const entries = getJournalDataLocal();
@@ -6483,7 +6487,10 @@ function renderJournal() {
   if (!todayList) return;
 
   const entries = getJournalDataLocal();
-  const td = today();
+  // Scope to whichever day the Habits-tab navigator is showing (the journal
+  // lives on that panel and shares its day-nav). Was previously frozen on
+  // today(), which made today's notes appear on every navigated day. 2026-05-29.
+  const td = (typeof habitViewDate !== 'undefined') ? habitViewDate : today();
   const todayEntries = entries.filter(e => e.date === td);
   const olderEntries = entries.filter(e => e.date !== td);
 
