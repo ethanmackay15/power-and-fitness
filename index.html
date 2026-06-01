@@ -98,12 +98,6 @@
       background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.35) 100%);
     }
 
-    /* Hide visually but keep accessible */
-    .sr-only {
-      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
-    }
-
     .wrap {
       max-width: 980px;
       margin: 0 auto;
@@ -282,30 +276,6 @@
       box-shadow: 2px 2px 0 var(--hot);
     }
     .scanline-toggle-btn.on { background: var(--good); color: var(--bg); border-color: var(--good); }
-
-    /* ════ Day banner (above tabs content) ════ */
-    .day-banner {
-      text-align: center;
-      padding: 20px 0 8px;
-      display: flex; align-items: center; justify-content: center; gap: 24px;
-    }
-    .day-banner .arc-arrow {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 16px;
-      color: var(--cool);
-      cursor: pointer;
-      user-select: none;
-      padding: 8px;
-      background: none; border: none;
-    }
-    .day-banner .arc-arrow:hover { color: var(--warn); }
-    .day-banner .day-title {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 26px;
-      color: var(--warn);
-      text-shadow: 3px 3px 0 var(--hot);
-      letter-spacing: .05em;
-    }
 
     /* ════ Tabs (bottom fixed) ════ */
     .tabs {
@@ -648,23 +618,6 @@
     }
     .history-wrap td button:hover { color: var(--warn); }
 
-    /* DEXA mini panels */
-    .dexa-mini {
-      margin-bottom: 18px;
-      padding: 12px 14px;
-      border: 2px solid var(--border-soft);
-      background: var(--bg);
-    }
-    .dexa-mini-head {
-      display: flex; justify-content: space-between; align-items: baseline;
-      margin-bottom: 8px;
-    }
-    .dexa-mini-label {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 11px;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-    }
     .dexa-delta {
       font-family: 'Press Start 2P', monospace;
       font-size: 10px;
@@ -1124,7 +1077,6 @@
     }
     .train-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
     .train-day { font-family: 'VT323', monospace; font-size: 22px; color: var(--hot); letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
-    .train-focus { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--ink); margin-top: 6px; }
     .train-count { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--good); white-space: nowrap; }
     /* Workout picker — selectable on any date (decoupled from the calendar weekday) */
     .train-chips {
@@ -1722,7 +1674,6 @@
       .macro-top-bar { grid-template-columns: repeat(4, 1fr); gap: 8px; }
       .macro-top-item { padding: 10px; }
       .macro-top-vals { font-size: 15px; }
-      .day-banner .day-title { font-size: 20px; }
       .food-meal-cal { gap: 6px; font-size: 8px; }
       .food-entry-name { font-size: 9px; }
       .food-entry-detail { font-size: 16px; }
@@ -5384,9 +5335,10 @@ function mergeFoodEntries(local, remote) {
 const HABITS_KEY = 'habits_tracker_v1';
 const HABITS_LIST_KEY = 'habits_list_v1';
 // Vacuums removed from default tracking 2026-05-31 — folded into the Weekly
-// Training Plan (Thursday "Vacuum"). Historical vacuum entries remain in the
-// Sheet and still render via habitMeta/HABIT_SORT_WEIGHT (same approach used
-// when water was retired 2026-05-13).
+// Training Plan (Thursday "Vacuum"). Historical vacuum rows remain untouched in
+// the Sheet; the tile stops rendering on fresh devices, and persists on any
+// device that customized its habit list until removed via the in-app habit
+// editor (same retirement approach used for water on 2026-05-13).
 const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch'];
 let habitViewDate = today();
 
@@ -5966,7 +5918,6 @@ const HABIT_7D_GOALS = {
   'exercise': 4,
   'meditation': 4,
   'stretch': 2,
-  'vacuums': 2,
 };
 const DEFAULT_7D_GOAL = 3;
 
