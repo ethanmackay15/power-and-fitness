@@ -5556,10 +5556,11 @@ async function removeCustomHabit(habit) {
 //  - Plan: pulled from ?type=weeklyTrainingPlan, cached in TRAINING_PLAN_KEY.
 //  - Done-state: { [date]: { [exercise]: { done, focus, updated } } } in
 //    TRAINING_LOG_KEY; each toggle enqueues a setTrainingExercise write.
-//  - Mirror: every toggle recomposes a "[plan] Focus: e1, e2" line in that day's
-//    `exercise` habit note (preserving any manual lines), so the authoritative
-//    freeform training log stays in sync. Mirror is client-side, so localStorage
-//    + the Habits tab update instantly and other devices sync via the Sheet.
+//  - Mirror: picking a workout writes a one-line "[plan] Focus" summary into that
+//    day's `exercise` habit note (e.g. "[plan] Push (Chest)"), preserving any manual
+//    lines. Per-exercise detail stays in the checklist + Training Log, not the note.
+//    Mirror is client-side, so localStorage + the Habits tab update instantly and
+//    other devices sync via the Sheet.
 // ══════════════════════════════════════════════════════════════════════════════
 const TRAINING_PLAN_KEY      = 'training_plan_v1';
 const TRAINING_LOG_KEY       = 'training_log_v1';
@@ -5839,11 +5840,12 @@ function toggleTrainingExercise(exercise) {
 }
 
 // Mirror the chosen workout into the day's `exercise` habit. Selecting a (non-rest)
-// workout checks the exercise habit and writes a "[plan] Focus" line naming it —
-// even before any exercise is ticked. As exercises are checked, they're appended
-// ("[plan] Focus: e1, e2"). Any manual note lines are preserved. Deselecting / Rest
-// removes the [plan] line, and unchecks the habit only if it was a pure auto-entry
-// (no manual note, nothing logged) so a manually-set habit is never clobbered.
+// workout checks the exercise habit and writes a single "[plan] Focus" line naming
+// it (e.g. "[plan] Push (Chest)") — the per-exercise detail lives in the Train tab
+// checklist + Training Log, so the note stays a one-line summary. Any manual note
+// lines are preserved. Deselecting / Rest removes the [plan] line, and unchecks the
+// habit only if it was a pure auto-entry (no manual note, nothing logged) so a
+// manually-set habit is never clobbered.
 function mirrorTrainingToExerciseHabit(date) {
   const data = getTrainingData();
   const dayMap = data[date] || {};
@@ -5858,7 +5860,7 @@ function mirrorTrainingToExerciseHabit(date) {
   const lines = existing.split('\n').filter(l => !l.trim().toLowerCase().startsWith('[plan]'));
   if (isWorkout) {
     const focus = (day && day.focus) || (dayMap[done[0]] && dayMap[done[0]].focus) || 'Workout';
-    lines.push('[plan] ' + focus + (done.length ? ': ' + done.join(', ') : ''));
+    lines.push('[plan] ' + focus);
   }
   const newNote = lines.filter(l => l.trim() !== '').join('\n');
   if (isWorkout) setHabitForDate(date, 'exercise', { done: true, notes: newNote });
