@@ -1154,7 +1154,25 @@
       font-size: 14px; font-family: 'Press Start 2P', monospace;
     }
     .train-box.on { border-color: var(--good); background: var(--good); }
+    .train-ex-name { flex: 1; }
     .train-ex.on .train-ex-name { color: var(--dim); text-decoration: line-through; }
+    .train-ex-added {
+      font-family: 'Press Start 2P', monospace; font-size: 7px; color: var(--warn);
+      border: 1px solid var(--warn); padding: 3px 5px; flex: 0 0 auto; letter-spacing: .04em;
+    }
+    /* Add-an-exercise row at the bottom of the workout checklist */
+    .train-add { display: flex; gap: 8px; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border-soft); }
+    .train-add-input {
+      flex: 1; min-width: 0; background: var(--bg); border: 2px solid var(--cool); color: var(--ink);
+      font-family: 'VT323', monospace; font-size: 19px; padding: 8px 10px;
+    }
+    .train-add-input::placeholder { color: var(--dim); }
+    .train-add-btn {
+      background: var(--hot); border: none; color: var(--bg); cursor: pointer;
+      font-family: 'Press Start 2P', monospace; font-size: 10px; padding: 0 16px;
+      box-shadow: 2px 2px 0 var(--warn); transition: transform .12s, box-shadow .12s;
+    }
+    .train-add-btn:hover { transform: translate(2px,2px); box-shadow: 0 0 0 var(--warn); }
     .train-rest-msg { font-family: 'VT323', monospace; font-size: 20px; color: var(--dim); padding: 8px 2px 2px; }
     .train-empty { font-family: 'VT323', monospace; font-size: 19px; color: var(--dim); text-align: center; padding: 18px 4px; }
     .train-week { display: flex; flex-direction: column; gap: 7px; }
@@ -5673,10 +5691,17 @@ function isRestDay(day) {
   return !exs.length || /^rest$/i.test((day.focus || '').trim());
 }
 
-function doneCountFor(date, day) {
+// Done / total for a date's workout, counting ad-hoc ("added") exercises too, so the
+// week calendar's count matches the day-card checklist.
+function trainCountsFor(date, day) {
   const exs = (day && Array.isArray(day.exercises)) ? day.exercises : [];
   const dmap = getTrainingData()[date] || {};
-  return exs.filter(e => dmap[e] && dmap[e].done).length;
+  const planSet = new Set(exs);
+  const extras = Object.keys(dmap).filter(e => dmap[e] && dmap[e].done && !planSet.has(e));
+  return {
+    done: exs.filter(e => dmap[e] && dmap[e].done).length + extras.length,
+    total: exs.length + extras.length,
+  };
 }
 
 function renderTraining() {
@@ -5722,16 +5747,26 @@ function renderTraining() {
     } else if (isRestDay(day)) {
       body = `<div class="train-rest-msg">Rest day — nothing to log. 🌙</div>`;
     } else {
-      const exs = day.exercises;
-      const doneCount = exs.filter(e => doneMap[e] && doneMap[e].done).length;
-      const rows = exs.map(e => {
+      const exs = day.exercises || [];
+      const planSet = new Set(exs);
+      // Ad-hoc exercises you logged that aren't in the plan template, in insertion order.
+      const extras = Object.keys(doneMap).filter(e => doneMap[e] && doneMap[e].done && !planSet.has(e));
+      const allEx = exs.concat(extras);
+      const doneCount = allEx.filter(e => doneMap[e] && doneMap[e].done).length;
+      const rows = allEx.map(e => {
         const on = doneMap[e] && doneMap[e].done;
+        const extra = !planSet.has(e);
         return `<button class="train-ex ${on ? 'on' : ''}" onclick="toggleTrainingExercise('${attrEsc(e)}')" aria-label="${on ? 'Uncheck ' : 'Check '}${esc(e)}">
           <span class="train-box ${on ? 'on' : ''}">${on ? '✓' : ''}</span>
           <span class="train-ex-name">${esc(e)}</span>
+          ${extra ? '<span class="train-ex-added">added</span>' : ''}
         </button>`;
       }).join('');
-      body = `<div class="train-card-head"><div class="train-day">${esc(day.focus || day.day)}</div><div class="train-count">${doneCount}/${exs.length}</div></div>${rows}`;
+      const addRow = `<div class="train-add">
+        <input id="train-add-input" class="train-add-input" type="text" maxlength="60" placeholder="Add an exercise you did…" onkeydown="if(event.key==='Enter'){event.preventDefault();addTrainingExercise();}" aria-label="Add an exercise">
+        <button class="train-add-btn" onclick="addTrainingExercise()">Add</button>
+      </div>`;
+      body = `<div class="train-card-head"><div class="train-day">${esc(day.focus || day.day)}</div><div class="train-count">${doneCount}/${allEx.length}</div></div>${rows}${addRow}`;
     }
     cardEl.innerHTML = picker + body;
   }
@@ -5747,8 +5782,7 @@ function renderTraining() {
       const deviated = actual && planned && String(actual.day).toLowerCase() !== String(planned.day).toLowerCase();
       const shown = actual || planned;                  // workout the count refers to
       const rest = shown ? isRestDay(shown) : false;
-      const exs = (shown && Array.isArray(shown.exercises)) ? shown.exercises : [];
-      const dc = doneCountFor(date, shown);
+      const { done: dc, total: dt } = trainCountsFor(date, shown);
       const isToday = date === td;
       const isView  = date === trainingViewDate;
       const cls = (isToday ? 'today ' : '') + (isView && !isToday ? 'viewing ' : '') +
@@ -5756,7 +5790,7 @@ function renderTraining() {
       const mid = deviated
         ? `<span class="train-wmid"><span class="train-wf-plan">${esc(planned.focus || planned.day)}</span><span class="train-wf-arrow">→</span><span class="train-wf">${esc(actual.focus || actual.day)}</span></span>`
         : `<span class="train-wmid"><span class="train-wf">${esc(shown ? (shown.focus || shown.day) : '—')}</span></span>`;
-      const badge = (!shown || rest) ? (rest ? '·' : '') : (dc > 0 ? `${dc}/${exs.length}` : '');
+      const badge = (!shown || rest) ? (rest ? '·' : '') : (dc > 0 ? `${dc}/${dt}` : '');
       return `<button class="train-wrow ${cls}" onclick="goToTrainingDate('${date}')">
         <span class="train-dow">${dow}</span>
         ${mid}
@@ -5835,8 +5869,36 @@ function toggleTrainingExercise(exercise) {
   enqueueWrite('setTrainingExercise', { date, focus, exercise, done: willBe ? 'TRUE' : 'FALSE' });
   mirrorTrainingToExerciseHabit(date);
   renderTraining();
-  const habitsPanel = document.getElementById('panel-habits');
-  if (habitsPanel && habitsPanel.classList.contains('active')) renderHabits();
+  refreshHabitsIfVisible();
+}
+
+// Add an ad-hoc exercise (one not in the plan template) to the active workout and
+// log it as done. It shows in the checklist as an "added" row; unchecking removes
+// it. Logged with the selected workout's focus, so it syncs via the Training Log.
+function addTrainingExercise() {
+  const input = document.getElementById('train-add-input');
+  if (!input) return;
+  const name = input.value.trim();
+  const date = trainingViewDate;
+  const day = selectedWorkoutForDate(date);
+  if (!name || !day || isRestDay(day)) { input.value = ''; return; }
+  const focus = day.focus || '';
+  // If it matches a plan exercise (case-insensitive), check that canonical one instead
+  // of creating a near-duplicate ad-hoc row.
+  const match = (day.exercises || []).find(e => e.toLowerCase() === name.toLowerCase());
+  const exName = match || name;
+  const data = getTrainingData();
+  if (!data[date]) data[date] = {};
+  if (!(data[date][exName] && data[date][exName].done)) {
+    data[date][exName] = { done: true, focus, updated: new Date().toISOString() };
+    saveTrainingData(data);
+    enqueueWrite('setTrainingExercise', { date, focus, exercise: exName, done: 'TRUE' });
+    mirrorTrainingToExerciseHabit(date);
+  }
+  renderTraining();
+  refreshHabitsIfVisible();
+  const again = document.getElementById('train-add-input');
+  if (again) again.focus();   // keep focus for rapid entry (re-render replaced the node)
 }
 
 // Mirror the chosen workout into the day's `exercise` habit. Selecting a (non-rest)
