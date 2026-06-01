@@ -354,7 +354,8 @@
     #tab-weight::before  { content: '◆'; display: inline-block; margin-right: 8px; font-size: 13px; vertical-align: -1px; }
     #tab-food::before    { content: '◇'; display: inline-block; margin-right: 8px; font-size: 13px; vertical-align: -1px; }
     #tab-habits::before  { content: '★'; display: inline-block; margin-right: 8px; font-size: 13px; vertical-align: -1px; }
-    #tab-weight.tab-active::before, #tab-food.tab-active::before, #tab-habits.tab-active::before {
+    #tab-train::before   { content: '◈'; display: inline-block; margin-right: 8px; font-size: 13px; vertical-align: -1px; }
+    #tab-weight.tab-active::before, #tab-food.tab-active::before, #tab-habits.tab-active::before, #tab-train.tab-active::before {
       color: var(--warn);
     }
 
@@ -1097,6 +1098,59 @@
       display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
     }
 
+    /* ════ TRAIN TAB ════ */
+    .train-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .train-nav-btn {
+      background: var(--bg2); color: var(--cool); border: 2px solid var(--border);
+      width: 40px; height: 40px; font-family: 'VT323', monospace; font-size: 24px;
+      line-height: 1; cursor: pointer;
+    }
+    .train-nav-btn:hover { color: var(--warn); box-shadow: 2px 2px 0 var(--hot); }
+    .train-nav-date { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--cool); letter-spacing: .04em; }
+    .train-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+    .train-day { font-family: 'VT323', monospace; font-size: 22px; color: var(--hot); letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
+    .train-focus { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--ink); margin-top: 6px; }
+    .train-count { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--good); white-space: nowrap; }
+    .train-ex {
+      display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+      background: transparent; border: none; border-bottom: 1px solid var(--border-soft);
+      padding: 11px 2px; cursor: pointer; font-family: 'VT323', monospace;
+      font-size: 21px; color: var(--ink);
+    }
+    .train-ex:last-child { border-bottom: none; }
+    .train-ex:hover { color: var(--warn); }
+    .train-box {
+      width: 20px; height: 20px; border: 2px solid var(--dim); flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: center; color: var(--bg);
+      font-size: 14px; font-family: 'Press Start 2P', monospace;
+    }
+    .train-box.on { border-color: var(--good); background: var(--good); }
+    .train-ex.on .train-ex-name { color: var(--dim); text-decoration: line-through; }
+    .train-rest-msg { font-family: 'VT323', monospace; font-size: 20px; color: var(--dim); padding: 8px 2px 2px; }
+    .train-empty { font-family: 'VT323', monospace; font-size: 19px; color: var(--dim); text-align: center; padding: 18px 4px; }
+    .train-week { display: flex; flex-direction: column; gap: 7px; }
+    .train-wrow {
+      display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+      background: var(--panel); border: 2px solid var(--border-soft); padding: 11px 12px;
+      cursor: pointer; font-family: 'VT323', monospace;
+    }
+    .train-wrow:hover { border-color: var(--cool); }
+    .train-dow { font-family: 'Press Start 2P', monospace; font-size: 9px; color: var(--dim); width: 28px; flex: 0 0 auto; }
+    .train-wf { font-size: 20px; color: var(--ink); flex: 1; }
+    .train-wbadge { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--good); }
+    .train-chev { color: var(--dim); font-size: 22px; }
+    .train-wrow.today { border-color: var(--hot); background: #241130; box-shadow: 4px 4px 0 var(--border-soft); }
+    .train-wrow.today .train-dow { color: var(--hot); }
+    .train-wrow.rest { opacity: .55; cursor: default; }
+    .train-wrow.rest .train-wf { font-style: italic; color: var(--dim); }
+    .train-wrow.cardio .train-wf { color: var(--cool); }
+    .train-foot {
+      font-family: 'VT323', monospace; font-size: 16px; color: var(--dim);
+      text-align: center; margin-top: 16px; border-top: 1px solid var(--border-soft);
+      padding-top: 11px;
+    }
+    .train-foot b { color: var(--good); }
+
     /* ════ HABITS TAB ════ */
     .habit-nav {
       display: flex; align-items: center; justify-content: center; gap: 18px;
@@ -1735,6 +1789,7 @@
     <button class="tab" id="tab-weight" onclick="switchTab('weight')">Weight</button>
     <button class="tab" id="tab-food"   onclick="switchTab('food')">Food</button>
     <button class="tab tab-active" id="tab-habits" onclick="switchTab('habits')">Habits</button>
+    <button class="tab" id="tab-train"  onclick="switchTab('train')">Train</button>
   </div>
 
   <!-- ════════════════════════════════════════════════
@@ -2086,6 +2141,32 @@
   </div><!-- /panel-habits -->
 
   <!-- ════════════════════════════════════════════════
+       PANEL: Train — Weekly Training Plan + per-exercise check-off
+  ════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-train">
+
+    <!-- Day navigator -->
+    <div class="train-nav">
+      <button class="train-nav-btn" onclick="trainingNavDay(-1)" aria-label="Previous day">‹</button>
+      <span class="train-nav-date" id="train-nav-label">Today</span>
+      <button class="train-nav-btn" onclick="trainingNavDay(1)" aria-label="Next day">›</button>
+    </div>
+
+    <div class="card">
+      <h2>Today</h2>
+      <div id="train-today-card"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>The Week</h2>
+      <div id="train-week" class="train-week"></div>
+    </div>
+
+    <div class="train-foot">Checking an exercise logs it to the <b>Training Log</b> tab and summarizes into your <b>exercise</b> habit note.</div>
+
+  </div><!-- /panel-train -->
+
+  <!-- ════════════════════════════════════════════════
        PANEL: Trends
   ════════════════════════════════════════════════ -->
   <!-- Trends panel removed 2026-05-01: DEXA moved to Weight tab; calorie/weight
@@ -2301,6 +2382,7 @@ function switchTab(tab) {
   if (tab === 'weight') { setTimeout(()=>{ const d=load(); drawWeightChart(d); }, 50); }
   if (tab === 'food')   { populateFoodSelect(); renderFood(); }
   if (tab === 'habits') { renderHabits(); }
+  if (tab === 'train')  { renderTraining(); ensureTrainingLoaded(); }
   // 'trends' branch removed — panel was deleted on 2026-05-01 and the
   // function-existence guard above already short-circuits this case.
   // Keep the helper definitions in place (some panel-trends?.contains('active')
@@ -2459,7 +2541,7 @@ function getQueueStatus() {
 // isn't blocked just because another domain (e.g. food) has stuck writes.
 // Returns { weight: n, food: n, habit: n, dexa: n, journal: n, skip: n }.
 function _pendingByDomain() {
-  const out = { weight: 0, food: 0, habit: 0, dexa: 0, journal: 0, skip: 0 };
+  const out = { weight: 0, food: 0, habit: 0, dexa: 0, journal: 0, skip: 0, training: 0 };
   _readQueue().forEach(it => {
     const k = _coalesceKey(it.op, it.payload);
     if (!k) return;
@@ -2494,6 +2576,7 @@ function _coalesceKey(op, payload) {
     case 'setWeight':
     case 'deleteWeight':                return 'weight:' + payload.date;
     case 'setHabit':                    return 'habit:' + payload.date + '|' + payload.habit;
+    case 'setTrainingExercise':         return 'training:' + payload.date + '|' + payload.exercise;
     case 'setDexa':
     case 'deleteDexa':                  return 'dexa:' + payload.date;
     case 'addJournal':
@@ -2546,6 +2629,7 @@ function _opToPayload(op, payload) {
     case 'setWeight':             return { action: 'sync', entries: [payload] };
     case 'deleteWeight':          return { action: 'delete', date: payload.date };
     case 'setHabit':              return { action: 'setHabit', entry: payload };
+    case 'setTrainingExercise':   return { action: 'setTrainingExercise', entry: payload };
     case 'setDexa':                  return { action: 'setDexa',                   entry: payload };
     case 'deleteDexa':               return { action: 'deleteDexa',                date:  payload.date };
     case 'addJournal':               return { action: 'addJournal',                entry: payload };
@@ -5248,7 +5332,11 @@ function mergeFoodEntries(local, remote) {
 // ─── Habits ──────────────────────────────────────────────────────────────────
 const HABITS_KEY = 'habits_tracker_v1';
 const HABITS_LIST_KEY = 'habits_list_v1';
-const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch', 'vacuums'];
+// Vacuums removed from default tracking 2026-05-31 — folded into the Weekly
+// Training Plan (Thursday "Vacuum"). Historical vacuum entries remain in the
+// Sheet and still render via habitMeta/HABIT_SORT_WEIGHT (same approach used
+// when water was retired 2026-05-13).
+const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch'];
 let habitViewDate = today();
 
 // Countable-habit machinery (water as oz/bottles) was removed 2026-05-05.
@@ -5391,8 +5479,8 @@ function celebrateAllHabitsDone() {
   t.className = 'habit-celebration';
   t.innerHTML = `
     <div class="habit-celebration-emoji">🎉</div>
-    <div class="habit-celebration-title">All four habits done!</div>
-    <div class="habit-celebration-sub">Exercise. Meditation. Stretch. Vacuums. A full stack day.</div>
+    <div class="habit-celebration-title">All three habits done!</div>
+    <div class="habit-celebration-sub">Exercise. Meditation. Stretch. A full stack day.</div>
   `;
   document.body.appendChild(t);
   // Animate in, then fade out
@@ -5427,6 +5515,223 @@ async function removeCustomHabit(habit) {
   saveHabitsData(data);
   renderHabits();
   showToast(`Removed "${habit}"`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TRAIN TAB — Weekly Training Plan (read from Sheet) + per-exercise check-off
+//  (added 2026-05-31)
+//  - Plan: pulled from ?type=weeklyTrainingPlan, cached in TRAINING_PLAN_KEY.
+//  - Done-state: { [date]: { [exercise]: { done, focus, updated } } } in
+//    TRAINING_LOG_KEY; each toggle enqueues a setTrainingExercise write.
+//  - Mirror: every toggle recomposes a "[plan] Focus: e1, e2" line in that day's
+//    `exercise` habit note (preserving any manual lines), so the authoritative
+//    freeform training log stays in sync. Mirror is client-side, so localStorage
+//    + the Habits tab update instantly and other devices sync via the Sheet.
+// ══════════════════════════════════════════════════════════════════════════════
+const TRAINING_PLAN_KEY = 'training_plan_v1';
+const TRAINING_LOG_KEY  = 'training_log_v1';
+let trainingViewDate = today();
+
+function getTrainingPlan() { try { return JSON.parse(localStorage.getItem(TRAINING_PLAN_KEY)) || []; } catch(e) { return []; } }
+function saveTrainingPlan(p) { safeSetItem(TRAINING_PLAN_KEY, JSON.stringify(p)); }
+function getTrainingData() { try { return JSON.parse(localStorage.getItem(TRAINING_LOG_KEY)) || {}; } catch(e) { return {}; } }
+function saveTrainingData(d) { safeSetItem(TRAINING_LOG_KEY, JSON.stringify(d)); }
+
+async function pullTrainingPlanFromSheets() {
+  const url = getSheetsUrl(); if (!url) return null;
+  try {
+    const res = await noCacheFetch(url + '?type=weeklyTrainingPlan');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.days)) return null;
+    return data.days;
+  } catch(e) { return null; }
+}
+
+async function pullTrainingLogFromSheets() {
+  const url = getSheetsUrl(); if (!url) return null;
+  try {
+    const res = await noCacheFetch(url + '?type=trainingLog');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.entries)) return null;
+    data.entries.forEach(e => { if (e.date) e.date = normalizeDate(e.date); });
+    return data.entries.filter(e => e.date && e.exercise);
+  } catch(e) { return null; }
+}
+
+// Merge remote training-log rows into local done-state. When the write queue is
+// idle the Sheet is truth (rebuild from remote); otherwise newer-wins per row so
+// unsynced local check-offs survive a concurrent pull.
+function mergeTrainingLog(remoteEntries) {
+  const idle = (typeof getQueueStatus === 'function' && getQueueStatus() === 'idle');
+  const isDone = r => String(r.done).toUpperCase() === 'TRUE' || r.done === true;
+  if (idle) {
+    const out = {};
+    remoteEntries.forEach(r => {
+      if (!isDone(r)) return;
+      if (!out[r.date]) out[r.date] = {};
+      out[r.date][r.exercise] = { done: true, focus: r.focus || '', updated: r.updated || '' };
+    });
+    saveTrainingData(out);
+    return;
+  }
+  const merged = getTrainingData();
+  const ts = s => { const t = Date.parse(s); return isNaN(t) ? 0 : t; };
+  remoteEntries.forEach(r => {
+    if (!merged[r.date]) merged[r.date] = {};
+    const le = merged[r.date][r.exercise];
+    const re = { done: isDone(r), focus: r.focus || '', updated: r.updated || '' };
+    if (!le) { if (re.done) merged[r.date][r.exercise] = re; }
+    else if (ts(re.updated) > ts(le.updated)) {
+      if (re.done) merged[r.date][r.exercise] = re;
+      else delete merged[r.date][r.exercise];
+    }
+  });
+  saveTrainingData(merged);
+}
+
+async function ensureTrainingLoaded() {
+  const plan = await pullTrainingPlanFromSheets();
+  if (plan && plan.length) saveTrainingPlan(plan);
+  const log = await pullTrainingLogFromSheets();
+  if (log) mergeTrainingLog(log);
+  renderTraining();
+}
+
+// Map any date → its plan day object ({ day, focus, exercises }) by weekday name.
+function planForDate(date) {
+  const plan = getTrainingPlan();
+  if (!plan.length) return null;
+  const wd = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  return plan.find(d => String(d.day).toLowerCase() === wd.toLowerCase()) || null;
+}
+
+// Map weekday-name → the date (YYYY-MM-DD) of that weekday in viewDate's week.
+function weekDatesFor(date) {
+  const dt = new Date(date + 'T12:00:00');
+  const sunday = new Date(dt); sunday.setDate(dt.getDate() - dt.getDay());
+  const out = {};
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(sunday); d.setDate(sunday.getDate() + i);
+    out[d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()] = d.toISOString().slice(0, 10);
+  }
+  return out;
+}
+
+function isRestDay(day) {
+  const exs = (day && Array.isArray(day.exercises)) ? day.exercises : [];
+  return !exs.length || /^rest$/i.test((day.focus || '').trim());
+}
+
+function renderTraining() {
+  if (typeof setHeaderDateLabel === 'function') setHeaderDateLabel(trainingViewDate);
+  const td = today();
+  const navLabel = document.getElementById('train-nav-label');
+  if (navLabel) navLabel.textContent = (trainingViewDate === td) ? 'Today' : fmtDate(trainingViewDate);
+
+  const plan = getTrainingPlan();
+  const cardEl = document.getElementById('train-today-card');
+  const weekEl = document.getElementById('train-week');
+  if (!plan.length) {
+    if (cardEl) cardEl.innerHTML = '<div class="train-empty">Loading plan… if this persists, open the app online once to sync the Weekly Training Plan tab.</div>';
+    if (weekEl) weekEl.innerHTML = '';
+    return;
+  }
+
+  const day = planForDate(trainingViewDate);
+  const doneMap = getTrainingData()[trainingViewDate] || {};
+
+  if (cardEl) {
+    if (!day) {
+      const wd = new Date(trainingViewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+      cardEl.innerHTML = `<div class="train-empty">No plan entry for ${esc(wd)}.</div>`;
+    } else if (isRestDay(day)) {
+      cardEl.innerHTML = `<div class="train-card-head"><div><div class="train-day">${esc(day.day)}</div><div class="train-focus">${esc(day.focus || 'Rest')}</div></div></div><div class="train-rest-msg">Rest day — nothing to log. 🌙</div>`;
+    } else {
+      const exs = day.exercises;
+      const doneCount = exs.filter(e => doneMap[e] && doneMap[e].done).length;
+      const rows = exs.map(e => {
+        const on = doneMap[e] && doneMap[e].done;
+        return `<button class="train-ex ${on ? 'on' : ''}" onclick="toggleTrainingExercise('${attrEsc(e)}')" aria-label="${on ? 'Uncheck ' : 'Check '}${esc(e)}">
+          <span class="train-box ${on ? 'on' : ''}">${on ? '✓' : ''}</span>
+          <span class="train-ex-name">${esc(e)}</span>
+        </button>`;
+      }).join('');
+      cardEl.innerHTML = `<div class="train-card-head"><div><div class="train-day">${esc(day.day)}</div><div class="train-focus">${esc(day.focus || '')}</div></div><div class="train-count">${doneCount}/${exs.length}</div></div>${rows}`;
+    }
+  }
+
+  if (weekEl) {
+    const wdates = weekDatesFor(trainingViewDate);
+    const curWd = new Date(trainingViewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    weekEl.innerHTML = plan.map(d => {
+      const dl = String(d.day).toLowerCase();
+      const rest = isRestDay(d);
+      const exs = (d && Array.isArray(d.exercises)) ? d.exercises : [];
+      const dd = wdates[dl];
+      const dmap = dd ? (getTrainingData()[dd] || {}) : {};
+      const dc = exs.filter(e => dmap[e] && dmap[e].done).length;
+      const cls = (dl === curWd ? 'today ' : '') + (rest ? 'rest ' : '') + (/cardio/i.test(d.focus || '') ? 'cardio' : '');
+      const badge = rest ? '·' : (dc > 0 ? `${dc}/${exs.length}` : '');
+      return `<button class="train-wrow ${cls}" onclick="selectTrainingDay('${attrEsc(dl)}')">
+        <span class="train-dow">${esc(String(d.day).slice(0, 2).toUpperCase())}</span>
+        <span class="train-wf">${esc(d.focus || '')}</span>
+        <span class="train-wbadge">${badge}</span>
+        <span class="train-chev">${rest ? '' : '›'}</span>
+      </button>`;
+    }).join('');
+  }
+}
+
+function trainingNavDay(delta) {
+  const dt = new Date(trainingViewDate + 'T12:00:00');
+  dt.setDate(dt.getDate() + delta);
+  trainingViewDate = dt.toISOString().slice(0, 10);
+  renderTraining();
+}
+
+function selectTrainingDay(weekdayLower) {
+  const wdates = weekDatesFor(trainingViewDate);
+  if (wdates[weekdayLower]) { trainingViewDate = wdates[weekdayLower]; renderTraining(); }
+}
+
+function toggleTrainingExercise(exercise) {
+  const date = trainingViewDate;
+  const day = planForDate(date);
+  const focus = day ? (day.focus || '') : '';
+  const data = getTrainingData();
+  if (!data[date]) data[date] = {};
+  const cur = data[date][exercise] && data[date][exercise].done;
+  const willBe = !cur;
+  if (willBe) data[date][exercise] = { done: true, focus, updated: new Date().toISOString() };
+  else delete data[date][exercise];
+  saveTrainingData(data);
+  enqueueWrite('setTrainingExercise', { date, focus, exercise, done: willBe ? 'TRUE' : 'FALSE' });
+  mirrorTrainingToExerciseHabit(date);
+  renderTraining();
+  const habitsPanel = document.getElementById('panel-habits');
+  if (habitsPanel && habitsPanel.classList.contains('active')) renderHabits();
+}
+
+// Recompose the "[plan] Focus: e1, e2" line in the day's exercise habit note,
+// preserving any other (manual) lines. Done exercises are listed in plan order.
+function mirrorTrainingToExerciseHabit(date) {
+  const data = getTrainingData();
+  const dayMap = data[date] || {};
+  const day = planForDate(date);
+  const order = (day && Array.isArray(day.exercises)) ? day.exercises : [];
+  const done = order.filter(e => dayMap[e] && dayMap[e].done);
+  // Include any done exercises not in the plan (edge case) at the end.
+  Object.keys(dayMap).forEach(e => { if (dayMap[e] && dayMap[e].done && done.indexOf(e) === -1) done.push(e); });
+
+  const existing = (getHabitsForDate(date).exercise && getHabitsForDate(date).exercise.notes) || '';
+  const lines = existing.split('\n').filter(l => !l.trim().toLowerCase().startsWith('[plan]'));
+  if (done.length) {
+    const focus = (day && day.focus) || (dayMap[done[0]] && dayMap[done[0]].focus) || '';
+    lines.push('[plan] ' + (focus ? focus + ': ' : '') + done.join(', '));
+  }
+  const newNote = lines.filter(l => l.trim() !== '').join('\n');
+  if (done.length) setHabitForDate(date, 'exercise', { done: true, notes: newNote });
+  else setHabitForDate(date, 'exercise', { notes: newNote });
 }
 
 // ── Streaks ──────────────────────────────────────────────────────────────────
