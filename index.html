@@ -1126,6 +1126,20 @@
     .train-day { font-family: 'VT323', monospace; font-size: 22px; color: var(--hot); letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
     .train-focus { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--ink); margin-top: 6px; }
     .train-count { font-family: 'Press Start 2P', monospace; font-size: 11px; color: var(--good); white-space: nowrap; }
+    /* Workout picker — selectable on any date (decoupled from the calendar weekday) */
+    .train-chips {
+      display: flex; flex-wrap: wrap; gap: 7px;
+      margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border-soft);
+    }
+    .train-chip {
+      font-family: 'Press Start 2P', monospace; font-size: 9px; letter-spacing: .03em; line-height: 1.3;
+      color: var(--dim); background: var(--panel); border: 2px solid var(--border-soft);
+      padding: 8px 10px; cursor: pointer;
+      transition: color .12s, border-color .12s, box-shadow .12s, transform .12s;
+    }
+    .train-chip:hover { color: var(--cool); border-color: var(--cool); }
+    .train-chip.on { color: var(--bg); background: var(--hot); border-color: var(--hot); box-shadow: 2px 2px 0 var(--warn); }
+    .train-pick-hint { font-family: 'VT323', monospace; font-size: 19px; color: var(--dim); text-align: center; padding: 14px 4px 4px; }
     .train-ex {
       display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
       background: transparent; border: none; border-bottom: 1px solid var(--border-soft);
@@ -1151,12 +1165,16 @@
     }
     .train-wrow:hover { border-color: var(--cool); }
     .train-dow { font-family: 'Press Start 2P', monospace; font-size: 9px; color: var(--dim); width: 28px; flex: 0 0 auto; }
-    .train-wf { font-size: 20px; color: var(--ink); flex: 1; }
+    .train-wmid { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+    .train-wf { font-size: 20px; color: var(--ink); }
+    .train-wf-plan { font-size: 16px; color: var(--dim); }     /* planned baseline when deviating */
+    .train-wf-arrow { font-size: 15px; color: var(--dim); }
     .train-wbadge { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--good); }
     .train-chev { color: var(--dim); font-size: 22px; }
     .train-wrow.today { border-color: var(--hot); background: #241130; box-shadow: 4px 4px 0 var(--border-soft); }
     .train-wrow.today .train-dow { color: var(--hot); }
-    .train-wrow.rest { opacity: .55; cursor: default; }
+    .train-wrow.viewing { border-color: var(--cool); }          /* the date you're currently viewing */
+    .train-wrow.rest { opacity: .55; }
     .train-wrow.rest .train-wf { font-style: italic; color: var(--dim); }
     .train-wrow.cardio .train-wf { color: var(--cool); }
     .train-foot {
@@ -2168,7 +2186,7 @@
     </div>
 
     <div class="card">
-      <h2>Today</h2>
+      <h2 id="train-card-title">Today</h2>
       <div id="train-today-card"></div>
     </div>
 
@@ -5543,14 +5561,17 @@ async function removeCustomHabit(habit) {
 //    freeform training log stays in sync. Mirror is client-side, so localStorage
 //    + the Habits tab update instantly and other devices sync via the Sheet.
 // ══════════════════════════════════════════════════════════════════════════════
-const TRAINING_PLAN_KEY = 'training_plan_v1';
-const TRAINING_LOG_KEY  = 'training_log_v1';
+const TRAINING_PLAN_KEY      = 'training_plan_v1';
+const TRAINING_LOG_KEY       = 'training_log_v1';
+const TRAINING_SELECTION_KEY = 'training_selection_v1';  // { [date]: dayKey } — which workout is assigned to a date
 let trainingViewDate = today();
 
 function getTrainingPlan() { try { return JSON.parse(localStorage.getItem(TRAINING_PLAN_KEY)) || []; } catch(e) { return []; } }
 function saveTrainingPlan(p) { safeSetItem(TRAINING_PLAN_KEY, JSON.stringify(p)); }
 function getTrainingData() { try { return JSON.parse(localStorage.getItem(TRAINING_LOG_KEY)) || {}; } catch(e) { return {}; } }
 function saveTrainingData(d) { safeSetItem(TRAINING_LOG_KEY, JSON.stringify(d)); }
+function getTrainingSelection() { try { return JSON.parse(localStorage.getItem(TRAINING_SELECTION_KEY)) || {}; } catch(e) { return {}; } }
+function saveTrainingSelection(s) { safeSetItem(TRAINING_SELECTION_KEY, JSON.stringify(s)); }
 
 async function pullTrainingPlanFromSheets() {
   const url = getSheetsUrl(); if (!url) return null;
@@ -5612,22 +5633,36 @@ async function ensureTrainingLoaded() {
   renderTraining();
 }
 
-// Map any date → its plan day object ({ day, focus, exercises }) by weekday name.
-function planForDate(date) {
-  const plan = getTrainingPlan();
-  if (!plan.length) return null;
-  const wd = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-  return plan.find(d => String(d.day).toLowerCase() === wd.toLowerCase()) || null;
+// Resolve a plan-day object by its stable key (the `day` field) or by focus text.
+function planDayByKey(key)   { return getTrainingPlan().find(d => String(d.day).toLowerCase() === String(key).toLowerCase()) || null; }
+function planDayByFocus(focus) { return getTrainingPlan().find(d => (d.focus || '') === focus) || null; }
+
+// Which workout is assigned to a date — DECOUPLED from the calendar weekday.
+// Priority: explicit local selection → inferred from any checked-off exercise's
+// stored focus (so it resolves across devices via the Training Log even when the
+// selection map itself hasn't synced) → none (user hasn't picked yet).
+function selectedWorkoutForDate(date) {
+  const sel = getTrainingSelection()[date];
+  if (sel) { const d = planDayByKey(sel); if (d) return d; }
+  const dmap = getTrainingData()[date] || {};
+  for (const ex in dmap) {
+    const f = dmap[ex] && dmap[ex].done && dmap[ex].focus;
+    if (f) { const d = planDayByFocus(f); if (d) return d; }
+  }
+  return null;
 }
 
-// Map weekday-name → the date (YYYY-MM-DD) of that weekday in viewDate's week.
-function weekDatesFor(date) {
+// The 7 dates (Sun→Sat) of the week containing `date`, with weekday abbreviations.
+function weekDatesList(date) {
   const dt = new Date(date + 'T12:00:00');
   const sunday = new Date(dt); sunday.setDate(dt.getDate() - dt.getDay());
-  const out = {};
+  const out = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(sunday); d.setDate(sunday.getDate() + i);
-    out[d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()] = d.toISOString().slice(0, 10);
+    out.push({
+      date: d.toISOString().slice(0, 10),
+      dow: d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2).toUpperCase()
+    });
   }
   return out;
 }
@@ -5637,6 +5672,12 @@ function isRestDay(day) {
   return !exs.length || /^rest$/i.test((day.focus || '').trim());
 }
 
+function doneCountFor(date, day) {
+  const exs = (day && Array.isArray(day.exercises)) ? day.exercises : [];
+  const dmap = getTrainingData()[date] || {};
+  return exs.filter(e => dmap[e] && dmap[e].done).length;
+}
+
 function renderTraining() {
   if (typeof setHeaderDateLabel === 'function') setHeaderDateLabel(trainingViewDate);
   const td = today();
@@ -5644,23 +5685,41 @@ function renderTraining() {
   if (navLabel) navLabel.textContent = (trainingViewDate === td) ? 'Today' : fmtDate(trainingViewDate);
 
   const plan = getTrainingPlan();
-  const cardEl = document.getElementById('train-today-card');
-  const weekEl = document.getElementById('train-week');
+  const titleEl = document.getElementById('train-card-title');
+  const cardEl  = document.getElementById('train-today-card');
+  const weekEl  = document.getElementById('train-week');
+
+  const weekday = new Date(trainingViewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  if (titleEl) titleEl.textContent = (trainingViewDate === td) ? `Today · ${weekday}` : weekday;
+
   if (!plan.length) {
     if (cardEl) cardEl.innerHTML = '<div class="train-empty">Loading plan… if this persists, open the app online once to sync the Weekly Training Plan tab.</div>';
     if (weekEl) weekEl.innerHTML = '';
     return;
   }
 
-  const day = planForDate(trainingViewDate);
+  const day = selectedWorkoutForDate(trainingViewDate);
   const doneMap = getTrainingData()[trainingViewDate] || {};
 
+  // Plan indexed by weekday name — used by the merged week calendar below to show
+  // each date's PLANNED workout as the baseline.
+  const WD_ORDER = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const byWeekday = {};
+  plan.forEach(d => { byWeekday[String(d.day).toLowerCase()] = d; });
+
   if (cardEl) {
+    // Workout picker — every plan workout is selectable on any date.
+    const chips = plan.map(d => {
+      const on = day && String(day.day).toLowerCase() === String(d.day).toLowerCase();
+      return `<button class="train-chip ${on ? 'on' : ''}" onclick="selectTrainingWorkout('${attrEsc(String(d.day))}')">${esc(d.focus || d.day)}</button>`;
+    }).join('');
+    const picker = `<div class="train-chips">${chips}</div>`;
+
+    let body;
     if (!day) {
-      const wd = new Date(trainingViewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-      cardEl.innerHTML = `<div class="train-empty">No plan entry for ${esc(wd)}.</div>`;
+      body = `<div class="train-pick-hint">Pick ${trainingViewDate === td ? "today's" : "this day's"} workout above.</div>`;
     } else if (isRestDay(day)) {
-      cardEl.innerHTML = `<div class="train-card-head"><div><div class="train-day">${esc(day.day)}</div><div class="train-focus">${esc(day.focus || 'Rest')}</div></div></div><div class="train-rest-msg">Rest day — nothing to log. 🌙</div>`;
+      body = `<div class="train-rest-msg">Rest day — nothing to log. 🌙</div>`;
     } else {
       const exs = day.exercises;
       const doneCount = exs.filter(e => doneMap[e] && doneMap[e].done).length;
@@ -5671,27 +5730,37 @@ function renderTraining() {
           <span class="train-ex-name">${esc(e)}</span>
         </button>`;
       }).join('');
-      cardEl.innerHTML = `<div class="train-card-head"><div><div class="train-day">${esc(day.day)}</div><div class="train-focus">${esc(day.focus || '')}</div></div><div class="train-count">${doneCount}/${exs.length}</div></div>${rows}`;
+      body = `<div class="train-card-head"><div class="train-day">${esc(day.focus || day.day)}</div><div class="train-count">${doneCount}/${exs.length}</div></div>${rows}`;
     }
+    cardEl.innerHTML = picker + body;
   }
 
+  // Merged week calendar: each date shows its PLANNED workout as the baseline; when
+  // you've picked/done something else, the actual is shown after a "→" with its
+  // check-off count. Real today is anchored (pink); the viewed date gets a cool
+  // outline. Tapping a row navigates to that date — picking stays in the chips.
   if (weekEl) {
-    const wdates = weekDatesFor(trainingViewDate);
-    const curWd = new Date(trainingViewDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    weekEl.innerHTML = plan.map(d => {
-      const dl = String(d.day).toLowerCase();
-      const rest = isRestDay(d);
-      const exs = (d && Array.isArray(d.exercises)) ? d.exercises : [];
-      const dd = wdates[dl];
-      const dmap = dd ? (getTrainingData()[dd] || {}) : {};
-      const dc = exs.filter(e => dmap[e] && dmap[e].done).length;
-      const cls = (dl === curWd ? 'today ' : '') + (rest ? 'rest ' : '') + (/cardio/i.test(d.focus || '') ? 'cardio' : '');
-      const badge = rest ? '·' : (dc > 0 ? `${dc}/${exs.length}` : '');
-      return `<button class="train-wrow ${cls}" onclick="selectTrainingDay('${attrEsc(dl)}')">
-        <span class="train-dow">${esc(String(d.day).slice(0, 2).toUpperCase())}</span>
-        <span class="train-wf">${esc(d.focus || '')}</span>
+    weekEl.innerHTML = weekDatesList(trainingViewDate).map(({ date, dow }, i) => {
+      const planned = byWeekday[WD_ORDER[i]] || null;
+      const actual = selectedWorkoutForDate(date);
+      const deviated = actual && planned && String(actual.day).toLowerCase() !== String(planned.day).toLowerCase();
+      const shown = actual || planned;                  // workout the count refers to
+      const rest = shown ? isRestDay(shown) : false;
+      const exs = (shown && Array.isArray(shown.exercises)) ? shown.exercises : [];
+      const dc = doneCountFor(date, shown);
+      const isToday = date === td;
+      const isView  = date === trainingViewDate;
+      const cls = (isToday ? 'today ' : '') + (isView && !isToday ? 'viewing ' : '') +
+                  (rest ? 'rest ' : '') + (/cardio/i.test((shown && shown.focus) || '') ? 'cardio' : '');
+      const mid = deviated
+        ? `<span class="train-wmid"><span class="train-wf-plan">${esc(planned.focus || planned.day)}</span><span class="train-wf-arrow">→</span><span class="train-wf">${esc(actual.focus || actual.day)}</span></span>`
+        : `<span class="train-wmid"><span class="train-wf">${esc(shown ? (shown.focus || shown.day) : '—')}</span></span>`;
+      const badge = (!shown || rest) ? (rest ? '·' : '') : (dc > 0 ? `${dc}/${exs.length}` : '');
+      return `<button class="train-wrow ${cls}" onclick="goToTrainingDate('${date}')">
+        <span class="train-dow">${dow}</span>
+        ${mid}
         <span class="train-wbadge">${badge}</span>
-        <span class="train-chev">${rest ? '' : '›'}</span>
+        <span class="train-chev">${shown && !rest ? '›' : ''}</span>
       </button>`;
     }).join('');
   }
@@ -5704,14 +5773,56 @@ function trainingNavDay(delta) {
   renderTraining();
 }
 
-function selectTrainingDay(weekdayLower) {
-  const wdates = weekDatesFor(trainingViewDate);
-  if (wdates[weekdayLower]) { trainingViewDate = wdates[weekdayLower]; renderTraining(); }
+function goToTrainingDate(date) { trainingViewDate = date; renderTraining(); }
+
+// Assign a workout to the active date. Re-tapping the active workout clears the
+// selection (only when nothing's checked, so logged work is never lost silently).
+// Switching to a different workout clears any check-offs that don't belong to the
+// new one, so the day reflects exactly the workout you chose.
+function selectTrainingWorkout(dayKey) {
+  const date = trainingViewDate;
+  const cur = selectedWorkoutForDate(date);
+  const sel = getTrainingSelection();
+  const data = getTrainingData();
+  const dmap = data[date] || {};
+  const doneNow = Object.keys(dmap).filter(e => dmap[e] && dmap[e].done).length;
+
+  if (cur && String(cur.day).toLowerCase() === String(dayKey).toLowerCase()) {
+    if (doneNow === 0) {
+      delete sel[date]; saveTrainingSelection(sel);
+      mirrorTrainingToExerciseHabit(date);
+      renderTraining();
+      refreshHabitsIfVisible();
+    }
+    return;
+  }
+
+  const newDay = planDayByKey(dayKey);
+  const newExs = (newDay && Array.isArray(newDay.exercises)) ? newDay.exercises : [];
+  Object.keys(dmap).forEach(ex => {
+    if (dmap[ex] && dmap[ex].done && newExs.indexOf(ex) === -1) {
+      const focus = dmap[ex].focus || '';
+      delete dmap[ex];
+      enqueueWrite('setTrainingExercise', { date, focus, exercise: ex, done: 'FALSE' });
+    }
+  });
+  data[date] = dmap; saveTrainingData(data);
+
+  sel[date] = newDay ? newDay.day : dayKey;
+  saveTrainingSelection(sel);
+  mirrorTrainingToExerciseHabit(date);
+  renderTraining();
+  refreshHabitsIfVisible();
+}
+
+function refreshHabitsIfVisible() {
+  const habitsPanel = document.getElementById('panel-habits');
+  if (habitsPanel && habitsPanel.classList.contains('active')) renderHabits();
 }
 
 function toggleTrainingExercise(exercise) {
   const date = trainingViewDate;
-  const day = planForDate(date);
+  const day = selectedWorkoutForDate(date);
   const focus = day ? (day.focus || '') : '';
   const data = getTrainingData();
   if (!data[date]) data[date] = {};
@@ -5727,12 +5838,17 @@ function toggleTrainingExercise(exercise) {
   if (habitsPanel && habitsPanel.classList.contains('active')) renderHabits();
 }
 
-// Recompose the "[plan] Focus: e1, e2" line in the day's exercise habit note,
-// preserving any other (manual) lines. Done exercises are listed in plan order.
+// Mirror the chosen workout into the day's `exercise` habit. Selecting a (non-rest)
+// workout checks the exercise habit and writes a "[plan] Focus" line naming it —
+// even before any exercise is ticked. As exercises are checked, they're appended
+// ("[plan] Focus: e1, e2"). Any manual note lines are preserved. Deselecting / Rest
+// removes the [plan] line, and unchecks the habit only if it was a pure auto-entry
+// (no manual note, nothing logged) so a manually-set habit is never clobbered.
 function mirrorTrainingToExerciseHabit(date) {
   const data = getTrainingData();
   const dayMap = data[date] || {};
-  const day = planForDate(date);
+  const day = selectedWorkoutForDate(date);
+  const isWorkout = !!day && !isRestDay(day);
   const order = (day && Array.isArray(day.exercises)) ? day.exercises : [];
   const done = order.filter(e => dayMap[e] && dayMap[e].done);
   // Include any done exercises not in the plan (edge case) at the end.
@@ -5740,12 +5856,13 @@ function mirrorTrainingToExerciseHabit(date) {
 
   const existing = (getHabitsForDate(date).exercise && getHabitsForDate(date).exercise.notes) || '';
   const lines = existing.split('\n').filter(l => !l.trim().toLowerCase().startsWith('[plan]'));
-  if (done.length) {
-    const focus = (day && day.focus) || (dayMap[done[0]] && dayMap[done[0]].focus) || '';
-    lines.push('[plan] ' + (focus ? focus + ': ' : '') + done.join(', '));
+  if (isWorkout) {
+    const focus = (day && day.focus) || (dayMap[done[0]] && dayMap[done[0]].focus) || 'Workout';
+    lines.push('[plan] ' + focus + (done.length ? ': ' + done.join(', ') : ''));
   }
   const newNote = lines.filter(l => l.trim() !== '').join('\n');
-  if (done.length) setHabitForDate(date, 'exercise', { done: true, notes: newNote });
+  if (isWorkout) setHabitForDate(date, 'exercise', { done: true, notes: newNote });
+  else if (!newNote && !done.length) setHabitForDate(date, 'exercise', { done: false, notes: '' });
   else setHabitForDate(date, 'exercise', { notes: newNote });
 }
 
