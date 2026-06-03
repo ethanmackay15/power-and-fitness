@@ -3801,24 +3801,52 @@ function ensureTodayMealPlan() {
   // the freshest available plan. The boot seed / next render re-calls this once ready.
   if (!_mealPlanSeedReady) return;
   const td = today();
-  if (!getFoodInitDates().has(td)) {
-    // First time seeing this date — create plan entries locally AND enqueue them.
-    // ARCHITECTURAL FIX (2026-04-30): the Phase 2 decision to NOT enqueue plan
-    // entries was wrong — once the merge logic switched to overwrite-when-idle,
-    // local plan entries get wiped on the next refresh if the sheet doesn't have
-    // them. Solution: enqueue each plan entry on creation so it's pushed to the
-    // sheet, and the in-flight queue keeps the merge in non-idle (preserve-local)
-    // mode during the brief window between autopopulate and queue flush.
-    // Idempotent across devices: deterministic IDs mean two devices autopopulating
-    // produce upserts that no-op against each other.
-    markFoodDateInitialized(td);
-    const existing = getFoodEntries();
-    const hasExisting = existing.some(e => e.date === td);
-    if (!hasExisting) {
-      const planEntries = createPlanEntries(td);
-      saveFoodEntriesDB([...existing, ...planEntries]);
-      planEntries.forEach(e => enqueueWrite('addFood', e));
-    }
+  if (getFoodInitDates().has(td)) return;  // already seeded on THIS device today
+  // First time seeing this date on this device — create the missing plan entries
+  // locally AND enqueue them.
+  // ARCHITECTURAL FIX (2026-04-30): the Phase 2 decision to NOT enqueue plan
+  // entries was wrong — once the merge logic switched to overwrite-when-idle,
+  // local plan entries get wiped on the next refresh if the sheet doesn't have
+  // them. Solution: enqueue each plan entry on creation so it's pushed to the
+  // sheet, and the in-flight queue keeps the merge in non-idle (preserve-local)
+  // mode during the brief window between autopopulate and queue flush.
+  // Idempotent across devices: deterministic IDs mean two devices autopopulating
+  // produce upserts that no-op against each other.
+  //
+  // 2026-06-02 FIX — partial-seed-never-completes. The old guard was
+  // `const hasExisting = existing.some(e => e.date === td); if (!hasExisting) {…}`
+  // — all-or-nothing: it seeded ONLY when the day had zero rows. When the seeding
+  // device's write queue died mid-flush (today: 21 of 34 plan rows reached the
+  // Sheet, cut off exactly after the first Dinner item — the FIFO-stop-on-failure
+  // signature), every OTHER device pulled that partial set, saw SOME rows for
+  // today, and concluded "already populated" — so the missing 13 items (rest of
+  // Dinner + all of Supper + the autopop Snacks) never got backfilled anywhere.
+  // Same CLASS as the 5/27 partial-populate-then-lock bug, different vector
+  // (queue death after a full local seed, not stale-cache seeding).
+  //
+  // Fix: seed by DIFF, not all-or-nothing. Compute the full expected autopop set
+  // for today (createPlanEntries — keeps the autopop-flag filter + macros as the
+  // single source of truth) and enqueue+save only the plan items not already
+  // present. Deterministic IDs make this idempotent — items already on the Sheet
+  // are skipped, genuinely-missing ones are filled. On a truly fresh day nothing
+  // is present, so `missing` is the whole plan and behavior is identical to before.
+  //
+  // Deletion safety: this block runs at most ONCE per device per day (the
+  // getFoodInitDates gate above), so an autopop row the user deletes LATER in the
+  // day is never resurrected on the device that deleted it. Residual edge: delete
+  // an autopop item on device A, then open a FRESH device B the same day → B
+  // re-adds it, because the Sheet carries no deletion tombstone to distinguish
+  // "deleted" from "never written." Rare and acceptable — the supported way to
+  // suppress an item is the Sheet's "Autopopulate?" flag, not per-day deletion —
+  // and strictly preferable to the daily plan silently half-loading. A durable
+  // cross-device tombstone would close it if it ever bites.
+  markFoodDateInitialized(td);
+  const existing   = getFoodEntries();
+  const presentIds = new Set(existing.filter(e => e.date === td).map(e => e.id));
+  const missing    = createPlanEntries(td).filter(e => !presentIds.has(e.id));
+  if (missing.length) {
+    saveFoodEntriesDB([...existing, ...missing]);
+    missing.forEach(e => enqueueWrite('addFood', e));
   }
 }
 
