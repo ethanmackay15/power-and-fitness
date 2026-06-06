@@ -72,6 +72,34 @@
       --good:#3aff8a; --bad:#ff5e3a; --orange:#ff9148;
     }
 
+    /* ───── "Treat Day" theme — Saturdays from 2026-06-13 onward (slow-carb
+       experiment treat days). Overrides whatever palette is active; defined AFTER
+       the palette blocks so body.sat wins on equal specificity. Toggled by JS. ───── */
+    body.sat {
+      --bg:#2a0b22; --bg2:#3d1230; --panel:#52183f;
+      --border:#ff5e9c; --border-soft:#a83d72;
+      --ink:#fff0f7; --dim:#f0a8cc;
+      --hot:#ff3e94; --cool:#ffd23f; --warn:#ffd23f;
+      --good:#6dffb8; --bad:#ff5577; --orange:#ff9148;
+    }
+    #sat-banner {
+      display: none;
+      background: linear-gradient(135deg, var(--orange), var(--hot));
+      color: #fff; text-align: center;
+      padding: 16px 18px; margin-bottom: 22px;
+      border: 3px solid var(--warn);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px; line-height: 1.4; letter-spacing: 1px;
+      text-shadow: 2px 2px 0 rgba(0,0,0,.45);
+      box-shadow: 6px 6px 0 var(--warn);
+      animation: satGlow 1.8s ease-in-out infinite;
+    }
+    body.sat #sat-banner { display: block; }
+    @keyframes satGlow {
+      0%,100% { box-shadow: 6px 6px 0 var(--warn), 0 0 0 rgba(255,209,63,0); }
+      50%     { box-shadow: 6px 6px 0 var(--warn), 0 0 26px rgba(255,209,63,.7); }
+    }
+
     * { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
@@ -770,25 +798,9 @@
       line-height: 1.15;
     }
     .mtv-current { color: var(--warn); display: block; }
-    .mtv-target { color: var(--dim); font-size: 10px; font-weight: normal; display: block; margin-top: 4px; white-space: nowrap; }
     .macro-top-item:nth-child(2) .mtv-current { color: var(--bad); }
     .macro-top-item:nth-child(3) .mtv-current { color: var(--orange); }
     .macro-top-item:nth-child(4) .mtv-current { color: var(--good); }
-    .macro-top-bar-track {
-      height: 10px;
-      background: var(--bg);
-      border: 2px solid var(--border);
-      position: relative; overflow: hidden;
-    }
-    .macro-top-bar-fill {
-      height: 100%;
-      background: var(--warn);
-      transition: width .3s ease;
-    }
-    .mtb-cal { background: var(--warn); }
-    .mtb-p   { background: var(--bad); }
-    .mtb-f   { background: var(--orange); }
-    .mtb-c   { background: var(--good); }
 
     /* Food add form */
     #food-add-card .card-title::before { content: '+ '; color: var(--warn); }
@@ -1771,6 +1783,12 @@
       } catch(e){}
       applyPalette(savedPalette);
       applyScanlines(savedScan);
+      // Treat Day theme — Saturdays from 2026-06-13 onward (slow-carb experiment
+      // treat days). Dormant today (6/6) since slow-carb starts 6/7.
+      var TREAT_DAY_START = '2026-06-13';
+      var laToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      var isTreatToday = laToday >= TREAT_DAY_START && new Date(laToday + 'T12:00:00').getDay() === 6;
+      document.body.classList.toggle('sat', isTreatToday);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
     else wire();
@@ -1785,6 +1803,8 @@
       <span id="header-sync-msg">…</span>
     </div>
   </div>
+
+  <div id="sat-banner">🎉 TREAT DAY 🎉</div>
 
   <!-- Bottom Tab Navigation (fixed) -->
   <div class="tabs">
@@ -1810,23 +1830,19 @@
     <div class="macro-top-bar food-macro-summary" id="macro-top-bar">
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#3b82f6"><span class="mtl-icon">🔥</span></div>
-        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span> <span class="mtv-target" id="mtv-cal-target">/ 2408</span></div>
-        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-cal" id="mtb-cal-fill" style="width:0%"></div></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span></div>
       </div>
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#ef4444">P</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span> <span class="mtv-target" id="mtv-p-target">/ 233</span></div>
-        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-p" id="mtb-p-fill" style="width:0%"></div></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span></div>
       </div>
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#f59e0b">F</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span> <span class="mtv-target" id="mtv-f-target">/ 58</span></div>
-        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-f" id="mtb-f-fill" style="width:0%"></div></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span></div>
       </div>
       <div class="macro-top-item">
         <div class="macro-top-label" style="color:#10b981">C</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span> <span class="mtv-target" id="mtv-c-target">/ 301</span></div>
-        <div class="macro-top-bar-track"><div class="macro-top-bar-fill mtb-c" id="mtb-c-fill" style="width:0%"></div></div>
+        <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span></div>
       </div>
     </div>
     <!-- Hidden elements for backward compatibility -->
@@ -2295,6 +2311,10 @@ const LAST_SYNC_KEY   = 'cut_tracker_last_sync';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+// Treat days = Saturdays from 2026-06-13 onward (slow-carb experiment treat days;
+// nothing before counts — the cut had no cheat days). Used for chart/table markers.
+const TREAT_DAY_START = '2026-06-13';
+const isTreatDay = d => d >= TREAT_DAY_START && new Date(d + 'T12:00:00').getDay() === 6;
 const daysBetween = (a, b) => Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 86400000);
 const addDays = (d, n) => { const dt = new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
 const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
@@ -3194,7 +3214,7 @@ function drawWeightChart(data) {
 
   // Daily weight dots — uniform color (Saturday treat-day theme removed).
   const dailyDots = entries.map(e => ({ x:e.date, y:e.weight }));
-  const dotColors = entries.map(_ => dotColor);
+  const dotColors = entries.map(e => isTreatDay(e.date) ? '#ff7e3a' : dotColor);
 
   // 7-day rolling average line
   const avgPts = [];
@@ -3273,7 +3293,7 @@ function drawWeightChart(data) {
           cornerRadius: 0,
           displayColors: false,
           callbacks: {
-            title: ctx => ctx[0] ? fmtDate(ctx[0].raw.x) : '',
+            title: ctx => ctx[0] ? fmtDate(ctx[0].raw.x) + (isTreatDay(ctx[0].raw.x) ? ' 🎉' : '') : '',
             label: ctx => {
               if (ctx.dataset.label === 'Goal Pace') return ' Goal: ' + ctx.raw.y.toFixed(1) + ' lbs';
               return ' ' + ctx.raw.y.toFixed(1) + ' lbs';
@@ -3401,7 +3421,7 @@ function renderHistory(data) {
     const delta=prior?e.weight-prior.weight:null;
     const dStr=delta!==null?`<span style="color:${delta<=0?'#10b981':'#f43f5e'}">${delta>0?'+':''}${delta.toFixed(1)}</span>`:'—';
     html+=`<tr>
-      <td id="date-${e.date}">${fmtDate(e.date)}</td>
+      <td id="date-${e.date}">${fmtDate(e.date)}${isTreatDay(e.date) ? ' 🎉' : ''}</td>
       <td><strong>${e.weight}</strong> lbs</td>
       <td>${dStr}</td>
       <td>${avg?avg.toFixed(1)+' lbs':'—'}</td>
@@ -3649,7 +3669,7 @@ async function syncOnVisibility(forceEvenIfHidden) {
     // resume) never picked up new foods added to the sheet. 2026-05-02: added
     // pullFoodLibraryFromSheets so the sync badge actually refreshes it.
     const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, _sleep] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets(), pullWhoopSleepFromSheets()
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets(), pullGhSleepFromSheets()
     ]);
     if (remote && pending.weight === 0) {
       const local = load();
@@ -4118,6 +4138,63 @@ async function pullWhoopSleepFromSheets() {
     });
     const dedup = Object.keys(byDate).map(d => ({ date: d, performance: byDate[d] }));
     safeSetItem(WHOOP_SLEEP_KEY, JSON.stringify(dedup));
+    return dedup;
+  } catch(e) { return null; }
+}
+
+// ── Google Health Sleep (read-only, for nightly check-in streak grading) ──────
+// Stage 2 (2026-06-06): the nightly check-in grades sleep on Google Health
+// (Fitbit) HOURS ASLEEP, replacing WHOOP's sleep-performance %, which Google
+// Health doesn't provide. WHOOP is being retired as the worn device; this is the
+// in-app consumer repoint. GH `?type=ghSleep` entry convention: `date` is the
+// night-of date (went to bed that evening, woke the next morning), so the sleep
+// that ended on the morning of day d has entry.date == d-1 — the same offset the
+// check-in already applies (cycleDate = date - 1). Naps are filtered out.
+const GH_SLEEP_KEY = 'gh_sleep_v1';
+
+function getGhSleepByDate() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(GH_SLEEP_KEY)) || [];
+    const out = {};
+    arr.forEach(e => { if (e && e.date) out[e.date] = e.asleep_min; });
+    return out;
+  } catch(e) { return {}; }
+}
+
+async function pullGhSleepFromSheets() {
+  const url = getSheetsUrl(); if (!url) return null;
+  try {
+    const res  = await noCacheFetch(url + '?type=ghSleep');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.entries)) return null;
+    // Project to the minimal shape used by the nightly check-in. Filter out naps
+    // (only the main overnight counts). Keep last 90 days to bound localStorage.
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+    const projected = [];
+    data.entries.forEach(e => {
+      if (!e || e.nap === true) return;
+      const dt = e.date ? new Date(e.date) : null;
+      if (!dt || isNaN(dt)) return;
+      if (dt < cutoff) return;
+      // asleep_min = total minutes actually asleep (in-bed minus awake). Fall back
+      // to summing stage minutes if an older row left the field blank.
+      let mins = (typeof e.asleep_min === 'number') ? e.asleep_min : null;
+      if (mins == null) {
+        const sum = (Number(e.light_min)||0) + (Number(e.rem_min)||0) + (Number(e.deep_min)||0);
+        mins = sum > 0 ? sum : null;
+      }
+      if (mins == null) return;
+      projected.push({ date: dt.toISOString().slice(0, 10), asleep_min: mins });
+    });
+    // Dedup by date — keep the longest sleep if multiple rows share a date.
+    const byDate = {};
+    projected.forEach(e => {
+      if (byDate[e.date] == null || e.asleep_min > byDate[e.date]) {
+        byDate[e.date] = e.asleep_min;
+      }
+    });
+    const dedup = Object.keys(byDate).map(d => ({ date: d, asleep_min: byDate[d] }));
+    safeSetItem(GH_SLEEP_KEY, JSON.stringify(dedup));
     return dedup;
   } catch(e) { return null; }
 }
@@ -4830,22 +4907,10 @@ function renderFood() {
   setVal('val-carbs',   Math.round(totC));
   setVal('val-fat',     Math.round(totF));
 
-  // Update target labels and progress bars. App Review #2's "(+N) over-target"
-  // chip was reverted 2026-05-22 per Ethan ("don't like the difference
-  // calculations in the macros chips"). Bar fill stays clamped to 100% (the
-  // pre-#2 behavior).
-  setVal('mtv-cal-target', '/ ' + targets.cal);
-  setVal('mtv-p-target',   '/ ' + targets.protein);
-  setVal('mtv-f-target',   '/ ' + targets.fat);
-  setVal('mtv-c-target',   '/ ' + targets.carbs);
-  const setBar = (id, val, target) => {
-    const el = document.getElementById(id);
-    if (el) el.style.width = Math.min(100, Math.max(0, (val / target) * 100)).toFixed(1) + '%';
-  };
-  setBar('mtb-cal-fill', totCal, targets.cal);
-  setBar('mtb-p-fill',   totP,   targets.protein);
-  setBar('mtb-f-fill',   totF,   targets.fat);
-  setBar('mtb-c-fill',   totC,   targets.carbs);
+  // Macro top bar shows running totals only. Target denominators AND progress
+  // bars were removed from the UI 2026-06-06 per Ethan — eat-to-hunger mentality
+  // for the slow-carb experiment; the running totals (mtv-current) stay. (App
+  // Review #2's "(+N) over-target" chip was reverted 2026-05-22.)
 
   // Legacy chips (hidden, but keep for compat)
   const planTotals = MEAL_PLAN_TEMPLATE.reduce((s, e) => ({
@@ -5967,13 +6032,15 @@ function calcTotal7(habit) {
 // Daily process-adherence verdict, switches framing to "Tonight" at 8pm local.
 // Three criteria: calories under target, exercise as a rolling 4-of-last-7
 // check (so rest days don't break a perfect day), last night's sleep
-// performance >= NRC_SLEEP_THRESHOLD. Skip days drop the calorie criterion.
-// Missing WHOOP sleep data doesn't punish (shown as "—" and treated as OK so
-// a data gap can't break a streak). Confetti fires once per graded day.
+// minutes-asleep >= NRC_SLEEP_MIN_THRESHOLD. Skip days drop the calorie criterion.
+// Missing Google Health (Fitbit) sleep data doesn't punish (shown as "—" and
+// treated as OK so a data gap can't break a streak). Confetti fires once per day.
 // ═══════════════════════════════════════════════════════════════════════════
 const NRC_LAST_ANIMATED_KEY = 'nightly_review_last_animated_v1';
 const NRC_REVIEW_HOUR       = 20;   // 8pm local — switches "Today" framing on
-const NRC_SLEEP_THRESHOLD   = 75;   // WHOOP sleep performance % required
+const NRC_SLEEP_MIN_THRESHOLD = 420; // minutes asleep required (7h) — Google Health
+                                     // (Fitbit) hours-asleep; replaced WHOOP perf %
+                                     // in Stage 2 (2026-06-06). Tunable to taste.
 const NRC_EXERCISE_WINDOW   = 7;    // rolling window (days) for exercise check
 const NRC_EXERCISE_TARGET   = 4;    // required exercises within the window
 const NRC_MILESTONES        = [3, 7, 14, 30]; // streak lengths that bump animation
@@ -6019,7 +6086,7 @@ function nrcBuildContext() {
     ctx.skipSet = (typeof getSkipDates === 'function') ? getSkipDates() : new Set();
   } catch(e) { ctx.skipSet = new Set(); }
   try {
-    ctx.sleepByDate = (typeof getWhoopSleepByDate === 'function') ? getWhoopSleepByDate() : {};
+    ctx.sleepByDate = (typeof getGhSleepByDate === 'function') ? getGhSleepByDate() : {};
   } catch(e) { ctx.sleepByDate = {}; }
   return ctx;
 }
@@ -6062,18 +6129,19 @@ function nrcGradeDay(date, ctx) {
   const todayDone  = !!(todayHabit && todayHabit.done);
   const todayNote  = (todayHabit && todayHabit.notes) ? String(todayHabit.notes) : '';
 
-  // Sleep — last night's sleep credited to date `date` (= WHOOP cycle date - 1)
-  let sleepPerf = null;
+  // Sleep — last night's sleep credited to date `date` (= GH night-of date,
+  // i.e. date - 1). Graded on Google Health minutes-asleep (Stage 2, 2026-06-06).
+  let sleepMin = null;
   try {
     const d = new Date(date + 'T12:00:00');
     d.setDate(d.getDate() - 1);
     const cycleDate = d.toISOString().slice(0, 10);
     const v = ctx.sleepByDate[cycleDate];
-    if (typeof v === 'number') sleepPerf = v;
+    if (typeof v === 'number') sleepMin = v;
   } catch(e) {}
-  const sleepPresent = sleepPerf != null;
+  const sleepPresent = sleepMin != null;
   // Data-gap rule: missing sleep => treat as OK (don't punish for sync gaps).
-  const sleepOk = !sleepPresent || sleepPerf >= NRC_SLEEP_THRESHOLD;
+  const sleepOk = !sleepPresent || sleepMin >= NRC_SLEEP_MIN_THRESHOLD;
 
   let required, met;
   if (isSkip) {
@@ -6095,7 +6163,7 @@ function nrcGradeDay(date, ctx) {
   return {
     cal:      { ok: calOk,    total: calTotal, target: calTarget, present: calPresent, pending: calPending },
     exercise: { ok: exOk,     count: exCount,  window: NRC_EXERCISE_WINDOW, target: NRC_EXERCISE_TARGET, todayDone, todayNote },
-    sleep:    { ok: sleepOk,  perf: sleepPerf, present: sleepPresent },
+    sleep:    { ok: sleepOk,  min: sleepMin, present: sleepPresent },
     isSkip,
     requiredCount: required,
     metCount: met,
@@ -6281,18 +6349,20 @@ function renderNightlyCheckIn() {
   {
     const s = grade.sleep;
     let markCls, markChar, valueText;
+    const fmtSleep = (m) => `${Math.floor(m/60)}h ${Math.round(m%60)}m`;
+    const thr = `${(NRC_SLEEP_MIN_THRESHOLD/60).toFixed(1).replace(/\.0$/,'')}h`;
     if (!s.present) {
       markCls = 'pending';
       markChar = '—';
-      valueText = '<em style="color:var(--muted)">No WHOOP data</em>';
+      valueText = '<em style="color:var(--muted)">No Fitbit data</em>';
     } else if (s.ok) {
       markCls = 'ok';
       markChar = '✓';
-      valueText = `${Math.round(s.perf)}% <span class="nrc-delta under">(≥ ${NRC_SLEEP_THRESHOLD}%)</span>`;
+      valueText = `${fmtSleep(s.min)} <span class="nrc-delta under">(≥ ${thr})</span>`;
     } else {
       markCls = 'miss';
       markChar = '✗';
-      valueText = `${Math.round(s.perf)}% <span class="nrc-delta over">(target ${NRC_SLEEP_THRESHOLD}%)</span>`;
+      valueText = `${fmtSleep(s.min)} <span class="nrc-delta over">(target ${thr})</span>`;
     }
     rowsHtml.push(`
       <div class="nrc-row">
@@ -7109,11 +7179,12 @@ function mergeJournalEntries(local, remote) {
   if (sheetsUrl) {
     updateSyncUI('yellow','Connecting to Google Sheets...');
     // Pull weight, food entries, food library, habits, DEXA, skip dates, and
-    // WHOOP sleep in parallel. WHOOP sleep is read-only — used by the nightly
-    // check-in to grade sleep performance against the perfect-day criteria.
+    // Google Health (Fitbit) sleep in parallel. GH sleep is read-only — used by
+    // the nightly check-in to grade hours-asleep against the perfect-day criteria
+    // (replaced WHOOP sleep in Stage 2, 2026-06-06).
     const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, _sleep] = await Promise.all([
       pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(),
-      pullDexaFromSheets(), pullSkipDatesFromSheets(), pullWhoopSleepFromSheets()
+      pullDexaFromSheets(), pullSkipDatesFromSheets(), pullGhSleepFromSheets()
     ]);
     if (remote) {
       const local = load();
