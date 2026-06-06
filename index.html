@@ -2058,7 +2058,7 @@
         <span class="bc-col-h">Lean</span>
         <span class="bc-col-h">Fat</span>
       </div>
-      <!-- Two most-recent DEXA scans — injected by renderDexaSection (oldest first) -->
+      <!-- All DEXA scans since the 3/21 cut-baseline — injected by renderDexaSection (oldest first) -->
       <div id="bc-scan-rows"></div>
       <div class="bc-rule"></div>
       <!-- Targets (static). 15% assumes lean ~149, 12% lean 152 — see CSS note. -->
@@ -2219,7 +2219,8 @@ function projectedGoalDate() {
 // ─── DEXA scan history ───────────────────────────────────────────────────────
 const DEXA_KEY = 'dexa_scans_v1';
 // DEXA scan history — the code-maintained source of truth for the Body Composition
-// table (renderDexaSection reads DEXA_SEED.slice(-2) for the two most-recent rows).
+// table (renderDexaSection shows ALL scans on/after the 3/21 cut-baseline — the full
+// cut progression with the baseline pinned; new scans appear as they're appended).
 // As of 2026-05-25 there is no in-app "Add scan" button: when Ethan gets a new DEXA,
 // append one {date,bf,total,fat,lean,bmc} row below (keep ascending by date) — that
 // single edit is all that's needed to update the table.
@@ -2235,7 +2236,8 @@ const DEXA_SEED = [
   {date:'2025-12-20', bf:16.5, total:181.8, fat:30.1, lean:143.9, bmc:7.8},
   {date:'2026-01-31', bf:18.4, total:181.5, fat:33.4, lean:140.4, bmc:7.7},
   {date:'2026-03-21', bf:19.3, total:190.2, fat:36.7, lean:145.8, bmc:7.7},
-  {date:'2026-05-15', bf:18.4, total:187.9, fat:34.5, lean:145.6, bmc:7.7}
+  {date:'2026-05-15', bf:18.4, total:187.9, fat:34.5, lean:145.6, bmc:7.7},
+  {date:'2026-06-06', bf:17.9, total:188.2, fat:33.7, lean:146.7, bmc:7.7}
 ];
 function getDexaScans() {
   try {
@@ -6645,7 +6647,7 @@ function renderTrends() {
 
 function renderDexaSection() {
   // 2026-05-25: DEXA small-multiples charts retired (drawDexaChart kept below as
-  // dead code). Now renders the two most-recent scans as Weight/Lean/Fat rows in
+  // dead code). Now renders all scans since the 3/21 cut-baseline as Weight/Lean/Fat rows in
   // the Body Composition table, above the static 15%/12% target rows. Data-driven,
   // so adding/editing a scan via "+ Add scan" refreshes these rows on next render.
   const host = document.getElementById('bc-scan-rows');
@@ -6654,7 +6656,9 @@ function renderDexaSection() {
   // Ethan shares new results and we append a line to DEXA_SEED). Read straight from
   // the constant, NOT getDexaScans(), so a code edit deterministically updates the
   // table regardless of localStorage/sheet-sync state on an existing install.
-  const recent = DEXA_SEED.slice(-2); // ascending by date → [older, newest]
+  // Show ALL scans on/after the 3/21 cut-baseline (baseline pinned; grows as new
+  // scans are appended — 6/27 etc.). Pre-cut scans (≤1/31) stay out of the table.
+  const recent = DEXA_SEED.filter(s => s.date >= '2026-03-21');
   const num = (v, p) => (v == null || isNaN(Number(v))) ? '—' : Number(v).toFixed(p);
   host.innerHTML = recent.map(s => {
     const when = new Date(s.date + 'T12:00:00')
