@@ -802,6 +802,41 @@
     .macro-top-item:nth-child(3) .mtv-current { color: var(--orange); }
     .macro-top-item:nth-child(4) .mtv-current { color: var(--good); }
 
+    /* Daily-totals reveal disclosure — totals hidden by default (slow-carb
+       eat-to-hunger; checkable but not fixate-able). The toggle button matches
+       a single macro-top-item cell; the bar expands below it when tapped. */
+    .macro-reveal { margin-bottom: 22px; }
+    .macro-reveal-toggle {
+      width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg2);
+      border: 3px solid var(--border);
+      box-shadow: 4px 4px 0 var(--hot);
+      padding: 12px 14px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .macro-reveal-toggle .mrt-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px; letter-spacing: .08em;
+      color: var(--dim);
+    }
+    .macro-reveal-toggle .mrt-hint {
+      font-family: 'VT323', monospace;
+      font-size: 16px; color: var(--muted);
+      margin-left: auto;
+    }
+    .macro-reveal-toggle .mrt-chevron {
+      font-size: 12px; color: var(--dim);
+      transition: transform .15s ease;
+    }
+    .macro-reveal-toggle[aria-expanded="true"] .mrt-chevron { transform: rotate(90deg); }
+    /* Bar lives inside the disclosure now — drop its own bottom margin, add a gap
+       above so it sits just under the toggle when revealed. */
+    .macro-reveal .macro-top-bar { margin-bottom: 0; margin-top: 12px; }
+    /* ID + [hidden] beats the .macro-top-bar { display:grid } rule on specificity. */
+    #macro-top-bar[hidden] { display: none; }
+
     /* Food add form */
     #food-add-card .card-title::before { content: '+ '; color: var(--warn); }
     #food-search {
@@ -1826,23 +1861,35 @@
       <button class="food-nav-btn" onclick="foodNavDay(1)" aria-label="Next day">›</button>
     </div>
 
-    <!-- MacroFactor-style macro top bar -->
-    <div class="macro-top-bar food-macro-summary" id="macro-top-bar">
-      <div class="macro-top-item">
-        <div class="macro-top-label" style="color:#3b82f6"><span class="mtl-icon">🔥</span></div>
-        <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span></div>
-      </div>
-      <div class="macro-top-item">
-        <div class="macro-top-label" style="color:#ef4444">P</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span></div>
-      </div>
-      <div class="macro-top-item">
-        <div class="macro-top-label" style="color:#f59e0b">F</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span></div>
-      </div>
-      <div class="macro-top-item">
-        <div class="macro-top-label" style="color:#10b981">C</div>
-        <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span></div>
+    <!-- Daily totals — hidden by default, tap to peek. Slow-carb = eat-to-hunger;
+         keep the numbers checkable for the experiment but out of sight so they're
+         not something to fixate on. (Denominators/targets removed 6/06; reveal
+         disclosure added 6/07.) -->
+    <div class="macro-reveal food-macro-summary" id="macro-reveal">
+      <button type="button" class="macro-reveal-toggle" id="macro-reveal-toggle"
+              onclick="toggleMacroReveal()" aria-expanded="false" aria-controls="macro-top-bar">
+        <span class="mrt-label">Daily totals</span>
+        <span class="mrt-hint" id="macro-reveal-hint">hidden · tap to peek</span>
+        <span class="mrt-chevron" id="macro-reveal-chevron">▸</span>
+      </button>
+      <!-- MacroFactor-style macro top bar -->
+      <div class="macro-top-bar" id="macro-top-bar" hidden>
+        <div class="macro-top-item">
+          <div class="macro-top-label" style="color:#3b82f6"><span class="mtl-icon">🔥</span></div>
+          <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span></div>
+        </div>
+        <div class="macro-top-item">
+          <div class="macro-top-label" style="color:#ef4444">P</div>
+          <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span></div>
+        </div>
+        <div class="macro-top-item">
+          <div class="macro-top-label" style="color:#f59e0b">F</div>
+          <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span></div>
+        </div>
+        <div class="macro-top-item">
+          <div class="macro-top-label" style="color:#10b981">C</div>
+          <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span></div>
+        </div>
       </div>
     </div>
     <!-- Hidden elements for backward compatibility -->
@@ -2404,7 +2451,7 @@ function switchTab(tab) {
   tabEl.classList.add('tab-active');
   panelEl.classList.add('active');
   if (tab === 'weight') { setTimeout(()=>{ const d=load(); drawWeightChart(d); }, 50); }
-  if (tab === 'food')   { populateFoodSelect(); renderFood(); }
+  if (tab === 'food')   { macrosRevealed = false; populateFoodSelect(); renderFood(); }
   if (tab === 'habits') { renderHabits(); }
   if (tab === 'train')  { renderTraining(); ensureTrainingLoaded(); }
   // 'trends' branch removed — panel was deleted on 2026-05-01 and the
@@ -4568,6 +4615,8 @@ function foodNavDay(dir) {
   // Clear search filter when switching days
   const searchEl = document.getElementById('food-search');
   if (searchEl) searchEl.value = '';
+  // Each day starts with totals hidden — don't carry a peek across days.
+  macrosRevealed = false;
   renderFood();
 }
 
@@ -4826,6 +4875,26 @@ function saveFoodTime(id) {
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────
+// ── Daily-totals reveal (slow-carb: eat-to-hunger, don't fixate) ──────────────
+// Totals start HIDDEN on every fresh visit to the Food tab and on each day-nav,
+// so opening the tab never anchors Ethan on a calorie/macro number. The flag is
+// NOT reset inside renderFood(), so a reveal survives logging a 5th/6th meal —
+// the bar updates live while peeking instead of snapping shut mid-check.
+let macrosRevealed = false;
+function applyMacroReveal() {
+  const bar    = document.getElementById('macro-top-bar');
+  const toggle = document.getElementById('macro-reveal-toggle');
+  const hint   = document.getElementById('macro-reveal-hint');
+  if (!bar || !toggle) return;
+  bar.hidden = !macrosRevealed;
+  toggle.setAttribute('aria-expanded', macrosRevealed ? 'true' : 'false');
+  if (hint) hint.textContent = macrosRevealed ? 'tap to hide' : 'hidden · tap to peek';
+}
+function toggleMacroReveal() {
+  macrosRevealed = !macrosRevealed;
+  applyMacroReveal();
+}
+
 function renderFood() {
   // 2026-05-16: keep the global header date in sync with whichever day the
   // user is viewing in the Food tab (was previously frozen on today's date).
@@ -4911,6 +4980,9 @@ function renderFood() {
   setVal('val-protein', Math.round(totP));
   setVal('val-carbs',   Math.round(totC));
   setVal('val-fat',     Math.round(totF));
+  // Keep the bar's visibility matched to the reveal flag (don't change the flag —
+  // see toggleMacroReveal: a peek survives logging another meal).
+  applyMacroReveal();
 
   // Macro top bar shows running totals only. Target denominators AND progress
   // bars were removed from the UI 2026-06-06 per Ethan — eat-to-hunger mentality
