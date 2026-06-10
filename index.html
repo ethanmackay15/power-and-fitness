@@ -1804,6 +1804,21 @@
       var on = !document.body.classList.contains('scanlines');
       applyScanlines(on);
     };
+    // Treat Day theme — Saturdays from 2026-06-13 onward (slow-carb experiment
+    // treat days). Single source of truth for the start date lives on window so
+    // the main script's TREAT_DAY_START (chart/table markers) can't drift from
+    // the theme's (2026-06-09 consolidation — they were two constants).
+    // MUST be assigned here at parse time, NOT inside wire(): wire() defers to
+    // DOMContentLoaded, but the main script block reads window.TREAT_DAY_START
+    // synchronously during parse, before DOMContentLoaded fires (QC catch,
+    // 2026-06-09). applyTreatDayTheme is global so the day-rollover handler can
+    // re-evaluate it when the resident PWA crosses midnight into/out of a Saturday.
+    window.TREAT_DAY_START = '2026-06-13';
+    window.applyTreatDayTheme = function() {
+      var laToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      var isTreatToday = laToday >= window.TREAT_DAY_START && new Date(laToday + 'T12:00:00').getDay() === 6;
+      document.body.classList.toggle('sat', isTreatToday);
+    };
     // Wire palette swatch clicks once DOM is ready
     function wire() {
       document.querySelectorAll('.palette-swatch').forEach(function(el){
@@ -1818,12 +1833,9 @@
       } catch(e){}
       applyPalette(savedPalette);
       applyScanlines(savedScan);
-      // Treat Day theme — Saturdays from 2026-06-13 onward (slow-carb experiment
-      // treat days). Dormant today (6/6) since slow-carb starts 6/7.
-      var TREAT_DAY_START = '2026-06-13';
-      var laToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-      var isTreatToday = laToday >= TREAT_DAY_START && new Date(laToday + 'T12:00:00').getDay() === 6;
-      document.body.classList.toggle('sat', isTreatToday);
+      // Apply the treat-day theme (defined at parse time above) once the body
+      // class list is safe to touch alongside the palette/scanline classes.
+      window.applyTreatDayTheme();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
     else wire();
@@ -1928,6 +1940,11 @@
           <option>Lunch</option>
           <option>Dinner</option>
           <option>Supper</option>
+          <!-- Snack restored 2026-06-09 (was retired with the old plan's snack
+               block) — Ethan now eats a 5th small meal and needs a home for it.
+               Render order/time support never left: MEAL_CHRONO_ORDER and
+               MEAL_TIMES both still carry 'Snack' (8:00 PM). -->
+          <option>Snack</option>
           <option>Pre-Sleep</option>
         </select>
         <button class="btn" onclick="logFood()" style="flex-shrink:0;padding:9px 20px;width:auto">Add</button>
@@ -2251,11 +2268,14 @@
 const CFG = {
   startDate:    '2026-03-15',
   startWeight:  190.8,
-  goalWeight:   174,
+  // 2026-06-09: goal updated 174 → 181.5. The 12%-BF goal decided 5/25 is
+  // ~181–182 lb on a 152-lb lean target (goal = FFM / 0.88); 174 was the
+  // zero-lean-gain FLOOR, not the goal, and was misleading anyone editing here.
+  goalWeight:   181.5,
   goalRate:     0.65,
   bfTarget:     12,
-  lastDexaDate: '2026-05-15',
-  nextDexaDate: '2026-06-06'
+  lastDexaDate: '2026-06-06',
+  nextDexaDate: '2026-06-27'   // moved back from 7/11 at Ethan's direction, 2026-06-09
 };
 // Helper: weeks to reach goalWeight at goalRate (used for drawing goal pace line only)
 function projectedGoalDate() {
@@ -2362,7 +2382,8 @@ const LAST_SYNC_KEY   = 'cut_tracker_last_sync';
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 // Treat days = Saturdays from 2026-06-13 onward (slow-carb experiment treat days;
 // nothing before counts — the cut had no cheat days). Used for chart/table markers.
-const TREAT_DAY_START = '2026-06-13';
+// Reads the theme block's window constant so the two can't drift (2026-06-09).
+const TREAT_DAY_START = window.TREAT_DAY_START || '2026-06-13';
 const isTreatDay = d => d >= TREAT_DAY_START && new Date(d + 'T12:00:00').getDay() === 6;
 const daysBetween = (a, b) => Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 86400000);
 const addDays = (d, n) => { const dt = new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
@@ -2575,6 +2596,13 @@ async function sheetsGetJson(url, params) {
 
 // ─── Queue state ─────────────────────────────────────────────────────────────
 const PENDING_WRITES_KEY = 'pending_writes_v1';
+// Dead-letter list — writes that exhausted QUEUE_MAX_ATTEMPTS. 2026-06-09 fix:
+// flushQueue used to `break` on a maxed-out HEAD item, which let one poisoned
+// write (malformed payload, an action the deployed script doesn't know) freeze
+// every write queued behind it forever — the 5/27 + 6/02 incident signature.
+// Maxed items now move here so the rest of the queue keeps flowing; they stay
+// inspectable/retryable via window.__queue.deadLetter()/retryDead().
+const DEAD_WRITES_KEY = 'pending_writes_dead_v1';
 const QUEUE_MAX_ATTEMPTS = 10;
 const QUEUE_FLUSH_DEBOUNCE_MS = 5000;
 const QUEUE_MAX_BACKOFF_MS = 30000;
@@ -2601,10 +2629,18 @@ function _readQueue() {
 }
 function _writeQueue(q) { safeSetItem(PENDING_WRITES_KEY, JSON.stringify(q)); }
 
+function _readDeadLetter() {
+  try { return JSON.parse(localStorage.getItem(DEAD_WRITES_KEY)) || []; }
+  catch (e) { return []; }
+}
+function _writeDeadLetter(q) { safeSetItem(DEAD_WRITES_KEY, JSON.stringify(q)); }
+
 function getQueueStatus() {
+  // Maxed-out items now live in the dead-letter list (not the queue), so
+  // 'error' is driven by that list; the live queue is only ever pending/idle.
+  if (_readDeadLetter().length > 0) return 'error';
   const q = _readQueue();
   if (q.length === 0) return 'idle';
-  if (q.some(it => (it.attempt || 0) >= QUEUE_MAX_ATTEMPTS)) return 'error';
   return 'pending';
 }
 
@@ -2654,6 +2690,7 @@ function _coalesceKey(op, payload) {
     case 'updateJournal':
     case 'deleteJournal':               return 'journal:' + payload.timestamp;
     case 'setSkipDay':                  return 'skip:' + payload.date;
+    case 'addFoodToLibrary':            return 'foodlib:' + payload.id;
     default:                            return null;
   }
 }
@@ -2707,6 +2744,7 @@ function _opToPayload(op, payload) {
     case 'updateJournal':            return { action: 'updateJournal',             entry: payload };
     case 'deleteJournal':            return { action: 'deleteJournal',             timestamp: payload.timestamp };
     case 'setSkipDay':               return { action: 'setSkipDay',                entry: payload };
+    case 'addFoodToLibrary':         return { action: 'addFoodToLibrary',          food:  payload };
     default: throw new Error('Unknown queue op: ' + op);
   }
 }
@@ -2727,7 +2765,15 @@ async function flushQueue() {
       const q = _readQueue();
       if (q.length === 0) break;
       const item = q[0];
-      if ((item.attempt || 0) >= QUEUE_MAX_ATTEMPTS) break;
+      if ((item.attempt || 0) >= QUEUE_MAX_ATTEMPTS) {
+        // 2026-06-09: dead-letter instead of break. Breaking here let one
+        // permanently-failing head item block every write behind it (head-of-
+        // line blocking — the 5/27/6/02 data-loss class). Move it aside, keep
+        // its lastError for inspection, and continue with the next item.
+        _writeDeadLetter([..._readDeadLetter(), item]);
+        _writeQueue(q.filter(it => it.id !== item.id));
+        continue;
+      }
       try {
         const body = _opToPayload(item.op, item.payload);
         await sheetsPostJson(url, body);
@@ -2771,7 +2817,7 @@ function _updateQueueStatusUI() {
     el.textContent =
       status === 'idle'    ? '✓ Synced'
     : status === 'pending' ? '⟳ Syncing (' + q.length + ')'
-                           : '⚠ Sync error (' + q.length + ')';
+                           : '⚠ Sync error (' + _readDeadLetter().length + ' failed)';
   }
 
   // 2) Global header sync badge — reflect queue activity so the user sees
@@ -2782,8 +2828,9 @@ function _updateQueueStatusUI() {
     if (status === 'pending') {
       updateSyncUI('yellow', 'Saving (' + q.length + ')…');
     } else if (status === 'error') {
-      const failedCount = q.filter(it => (it.attempt || 0) >= QUEUE_MAX_ATTEMPTS).length;
-      updateSyncUI('red', 'Sync error — ' + failedCount + ' failed');
+      // Failed writes live in the dead-letter list (2026-06-09); the live queue
+      // keeps flowing past them, so count failures from there.
+      updateSyncUI('red', 'Sync error — ' + _readDeadLetter().length + ' failed');
     } else {
       // idle: only refresh badge if it currently shows a queue-driven message.
       // 2026-05-02: switched from sync-badge-msg (now removed with the in-tab
@@ -2822,6 +2869,18 @@ if (typeof window !== 'undefined') {
     status:  getQueueStatus,
     enqueue: enqueueWrite,
     clear:   () => { _writeQueue([]); _updateQueueStatusUI(); },
+    // Dead-letter helpers (2026-06-09): inspect / retry / discard writes that
+    // exhausted their attempts. retryDead re-enqueues with a fresh attempt
+    // counter (useful after fixing the backend, e.g. a redeploy that restored
+    // a missing action); clearDead discards them for good.
+    deadLetter: _readDeadLetter,
+    retryDead:  () => {
+      const dead = _readDeadLetter();
+      _writeDeadLetter([]);
+      dead.forEach(it => enqueueWrite(it.op, it.payload));
+      return dead.length;
+    },
+    clearDead:  () => { _writeDeadLetter([]); _updateQueueStatusUI(); },
   };
 }
 // On load, if anything is already pending, attempt a flush after a beat.
@@ -3700,7 +3759,41 @@ async function manualForceRefresh() {
 // in-flight promise rather than running duplicate Promise.all + merge work.
 let _syncInFlight = null;
 
+// ─── Day rollover ────────────────────────────────────────────────────────────
+// 2026-06-09 fix: iOS keeps the PWA's JS context resident overnight, so the
+// per-tab view dates (foodCurrentDate / habitViewDate / trainingViewDate) —
+// each initialized once at script eval — still pointed at YESTERDAY after an
+// overnight resume. Consequences: the morning journal note filed under
+// yesterday (addJournalNote deliberately uses habitViewDate), food logged to
+// yesterday, no autopop for the new day until a manual reload, and the
+// treat-day theme stuck on the previous day's state. Called from the top of
+// syncOnVisibility — which fires on every visibilitychange and on the 60s
+// background poll — so the first interaction of a new day re-anchors all view
+// state before any write can target the stale date. Scrolling back to a prior
+// day within a session still works exactly as before; this only resets when
+// the calendar day actually changes.
+let _lastSeenDay = today();
+function handleDayRollover() {
+  const td = today();
+  if (td === _lastSeenDay) return false;
+  _lastSeenDay = td;
+  foodCurrentDate  = td;
+  habitViewDate    = td;
+  trainingViewDate = td;
+  setHeaderDateLabel(td);
+  if (typeof window.applyTreatDayTheme === 'function') window.applyTreatDayTheme();
+  // Autopop the new day's plan. No-ops harmlessly if the boot seed gate
+  // (_mealPlanSeedReady) hasn't opened yet — the boot path covers that case.
+  ensureTodayMealPlan();
+  // Re-render whichever tab is visible so the UI reflects the new day.
+  if (document.getElementById('panel-food')?.classList.contains('active'))   renderFood();
+  if (document.getElementById('panel-habits')?.classList.contains('active')) renderHabits();
+  if (document.getElementById('panel-train')?.classList.contains('active'))  renderTraining();
+  return true;
+}
+
 async function syncOnVisibility(forceEvenIfHidden) {
+  handleDayRollover();
   const sheetsUrl = getSheetsUrl();
   if (!sheetsUrl) return;
   if (!forceEvenIfHidden && document.hidden) return;
@@ -3991,7 +4084,9 @@ let FOOD_DB = [
 // All four targets (cal, protein, carbs, fat) derive from the raw Sheet plan
 // totals. These defaults are the fallback used only when the raw plan totals
 // haven't loaded yet — kept in sync with the current Sheet plan as a safety net.
-const FOOD_TARGET_DEFAULTS = { cal:2408, protein:234, carbs:301, fat:58 };
+// 2026-06-09: updated from the pre-slow-carb 2408/234/301/58 to the live
+// slow-carb template totals (?type=mealplan planTemplate sum as of 6/09).
+const FOOD_TARGET_DEFAULTS = { cal:2196, protein:243, carbs:229, fat:69 };
 
 // Pulled from the live (un-sanitized) mealplan endpoint and persisted so the
 // macro targets always match what's in the Sheet plan — including any items
@@ -4256,47 +4351,59 @@ async function pullGhSleepFromSheets() {
 // ── Meal Plan Template ────────────────────────────────────────────────────────
 // Exact daily quantities from your Daily Meal Plan spreadsheet.
 // These are pre-populated on every new day automatically.
-// Last synced from spreadsheet: 2026-05-17 (Breakfast revision — Egg Whites +
-// Greek Yogurt removed, Cottage Cheese (1.5%, TJ's) added, Eggs bumped 2→3).
+// Last synced from spreadsheet: 2026-06-09 (full slow-carb plan — 2,196 cal /
+// 243g protein; ALA 300mg in Breakfast/Lunch/Supper + the Pre-Sleep stack).
+// 2026-06-09 BUGFIX: this fallback was still the pre-slow-carb 5/17 plan
+// (Cottage Cheese, Apple, Chicken Breast & Ribs). If the offline/slow-network
+// fallback seed fired, it autopopulated foods BANNED on the current protocol.
 // Mirrors what Apps Script `getMealPlan()` returns from the "Daily Meal Plan"
 // tab — keep this in sync so first-load (no cache) and offline scenarios
 // autopopulate the right plan. The Sheets fetch overwrites this on every load.
 // food_ids must match Sheets format: nameSlug-sectionSlug.
 let MEAL_PLAN_TEMPLATE = [
   // Breakfast
-  { food_id:'eggs-b',                       food_name:'Eggs',                       meal:'Breakfast', qty:3,       unit:'eggs',   calories:210, protein:19.5, carbs:0,    fat:15   },
-  { food_id:'broccoli-b',                   food_name:'Broccoli',                   meal:'Breakfast', qty:159.375, unit:'grams',  calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
-  { food_id:'salsa-b',                      food_name:'Salsa',                      meal:'Breakfast', qty:4,       unit:'tbsp',   calories:20,  protein:0,    carbs:4,    fat:0    },
-  { food_id:'red-lentils-b',                food_name:'Red Lentils',                meal:'Breakfast', qty:0.25,    unit:'cups',   calories:180, protein:12,   carbs:32,   fat:1    },
-  { food_id:'cottage-cheese-1-5-tj-s-b',    food_name:"Cottage Cheese (1.5%, TJ's)",meal:'Breakfast', qty:185.32,  unit:'grams',  calories:148, protein:21.3, carbs:8.2,  fat:3.3  },
-  { food_id:'fish-pills-b',                 food_name:'Fish Pills',                 meal:'Breakfast', qty:1,       unit:'pill',   calories:15,  protein:0,    carbs:0,    fat:1.5  },
-  { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',               meal:'Breakfast', qty:1,       unit:'scoop',  calories:15,  protein:1,    carbs:3,    fat:0.5  },
+  { food_id:'alpha-lipoic-acid-300-mg-b',   food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'eggs-b',                       food_name:'Eggs',                                   meal:'Breakfast', qty:2,       unit:'eggs',    calories:140, protein:13,   carbs:0,    fat:10   },
+  { food_id:'egg-whites-tj-s-b',            food_name:'Egg Whites (TJ’s)',                      meal:'Breakfast', qty:200.1,   unit:'g',       calories:109, protein:21.8, carbs:0,    fat:0    },
+  { food_id:'broccoli-b',                   food_name:'Broccoli',                               meal:'Breakfast', qty:159.375, unit:'grams',   calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
+  { food_id:'salsa-b',                      food_name:'Salsa',                                  meal:'Breakfast', qty:6,       unit:'tbsp',    calories:30,  protein:0,    carbs:6,    fat:0    },
+  { food_id:'red-lentils-b',                food_name:'Red Lentils',                            meal:'Breakfast', qty:0.25,    unit:'cups',    calories:180, protein:12,   carbs:32,   fat:1    },
+  { food_id:'cinnamon-b',                   food_name:'Cinnamon',                               meal:'Breakfast', qty:0.5,     unit:'tsp',     calories:3,   protein:0,    carbs:1,    fat:0    },
+  { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',                           meal:'Breakfast', qty:1,       unit:'scoop',   calories:15,  protein:1,    carbs:3,    fat:0.5  },
+  { food_id:'fish-oil-710-mg-epa-290--b',   food_name:'Fish Oil (710 mg EPA, 290 mg DHA)',      meal:'Breakfast', qty:1,       unit:'pill',    calories:15,  protein:0,    carbs:0,    fat:1.5  },
+  { food_id:'salt-b',                       food_name:'Salt',                                   meal:'Breakfast', qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'creatine-b',                   food_name:'Creatine',                               meal:'Breakfast', qty:5,       unit:'grams',   calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'vitamin-c-1-000-mg-b',         food_name:'Vitamin C (1,000 mg)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'vitamin-d-5-000-iu-b',         food_name:'Vitamin D (5,000 IU)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'niacinamide-500-mg-b',         food_name:'Niacinamide (500 mg)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'centrum-multivitamin-for-b',   food_name:'Centrum Multivitamin for Men',           meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'finasteride-1-mg-b',           food_name:'Finasteride (1 mg)',                     meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
   // Lunch
-  { food_id:'chicken-breast-and-ribs-l',    food_name:'Chicken Breast and Ribs',    meal:'Lunch',     qty:224,     unit:'grams',  calories:260, protein:48,   carbs:0,    fat:6    },
-  { food_id:'brussell-sprouts-l',           food_name:'Brussell Sprouts',           meal:'Lunch',     qty:141.95,  unit:'grams',  calories:58,  protein:5,    carbs:13.4, fat:0    },
-  { food_id:'pinto-beans-l',                food_name:'Pinto Beans',                meal:'Lunch',     qty:0.5,     unit:'cups',   calories:160, protein:14,   carbs:42,   fat:2    },
-  { food_id:'avocado-l',                    food_name:'Avocado',                    meal:'Lunch',     qty:90,      unit:'grams',  calories:144, protein:1.8,  carbs:7.2,  fat:14.4 },
+  { food_id:'alpha-lipoic-acid-300-mg-l',   food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Lunch',     qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'chicken-thighs-boneless--l',   food_name:'Chicken Thighs (Boneless, Skinless)',    meal:'Lunch',     qty:224,     unit:'grams',   calories:320, protein:44,   carbs:0,    fat:16   },
+  { food_id:'brussell-sprouts-l',           food_name:'Brussell Sprouts',                       meal:'Lunch',     qty:141.95,  unit:'grams',   calories:58,  protein:5,    carbs:13.4, fat:0    },
+  { food_id:'pinto-beans-l',                food_name:'Pinto Beans',                            meal:'Lunch',     qty:0.5,     unit:'cups',    calories:160, protein:14,   carbs:42,   fat:2    },
+  { food_id:'avocado-l',                    food_name:'Avocado',                                meal:'Lunch',     qty:90,      unit:'grams',   calories:144, protein:1.8,  carbs:7.2,  fat:14.4 },
+  { food_id:'chili-lime-seasoning-l',       food_name:'Chili Lime Seasoning',                   meal:'Lunch',     qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
   // Dinner
-  { food_id:'broccoli-d',                   food_name:'Broccoli',                   meal:'Dinner',    qty:212.5,   unit:'grams',  calories:50,  protein:5,    carbs:10,   fat:0    },
-  { food_id:'black-beans-d',                food_name:'Black Beans',                meal:'Dinner',    qty:0.5,     unit:'cups',   calories:160, protein:16,   carbs:44,   fat:2    },
-  { food_id:'beef-96-4-d',                  food_name:'Beef (96/4)',                meal:'Dinner',    qty:224,     unit:'grams',  calories:280, protein:48,   carbs:0,    fat:9    },
+  { food_id:'beef-96-4-d',                  food_name:'Beef (96/4)',                            meal:'Dinner',    qty:224,     unit:'grams',   calories:280, protein:48,   carbs:0,    fat:9    },
+  { food_id:'broccoli-d',                   food_name:'Broccoli',                               meal:'Dinner',    qty:212.5,   unit:'grams',   calories:50,  protein:5,    carbs:10,   fat:0    },
+  { food_id:'black-beans-d',                food_name:'Black Beans',                            meal:'Dinner',    qty:0.5,     unit:'cups',    calories:160, protein:16,   carbs:44,   fat:2    },
+  { food_id:'montreal-seasoning-d',         food_name:'Montreal Seasoning',                     meal:'Dinner',    qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
   // Supper
-  { food_id:'spinach-es',                   food_name:'Spinach',                    meal:'Supper',    qty:6,       unit:'cups',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
-  { food_id:'carrots-es',                   food_name:'Carrots',                    meal:'Supper',    qty:149.6,   unit:'grams',  calories:53,  protein:0,    carbs:12.3, fat:0    },
-  { food_id:'apple-gala-es',                food_name:'Apple (Gala)',               meal:'Supper',    qty:249.916, unit:'g',      calories:142, protein:0.6,  carbs:34.1, fat:0.3  },
-  { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',          meal:'Supper',    qty:1,       unit:'tin',    calories:170, protein:17,   carbs:0,    fat:11   },
-  { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                 meal:'Supper',    qty:0.5,     unit:'cups',   calories:10,  protein:0,    carbs:2,    fat:0    },
-  { food_id:'mustard-es',                   food_name:'Mustard',                    meal:'Supper',    qty:3,       unit:'tbsp',   calories:15,  protein:0,    carbs:12,   fat:0    },
-  // Pre-Sleep — 2026-06-07: the old "Snack" block (Trident + Spinach + Carrots +
-  // Apple + Mustard) was renamed to "Pre-Sleep" in the Sheet's Daily Meal Plan and
-  // its contents swapped to the bedtime supplement stack (ALA + Mag L-Threonate +
-  // Niacinamide, 0-macro pills). Values mirror the live Sheet's mealplan endpoint
-  // (?type=mealplan, planTemplate field) as of 2026-06-07. The Sheets fetch
-  // overwrites this on every load — keeping the fallback in sync is a nice-to-have,
-  // not a correctness requirement. Historical "Snack" food entries are untouched.
-  { food_id:'alpha-lipoic-acid-300-mg-pre', food_name:'Alpha Lipoic Acid (300 mg)', meal:'Pre-Sleep', qty:1,       unit:'pill',   calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'magnesium-l-threonate-14-pre', food_name:'Magnesium L-Threonate (144 mg)', meal:'Pre-Sleep', qty:3,   unit:'pills',  calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'niacinamide-500-mg-pre',       food_name:'Niacinamide (500 mg)',       meal:'Pre-Sleep', qty:1,       unit:'pill',   calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'alpha-lipoic-acid-300-mg-es',  food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'spinach-es',                   food_name:'Spinach',                                meal:'Supper',    qty:6,       unit:'cups',    calories:30,  protein:3,    carbs:4.5,  fat:0    },
+  { food_id:'black-beans-es',               food_name:'Black Beans',                            meal:'Supper',    qty:0.5,     unit:'cups',    calories:160, protein:16,   carbs:44,   fat:2    },
+  { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',                      meal:'Supper',    qty:1,       unit:'tin',     calories:170, protein:17,   carbs:0,    fat:11   },
+  { food_id:'egg-whites-tj-s-es',           food_name:'Egg Whites (TJ’s)',                      meal:'Supper',    qty:200.1,   unit:'g',       calories:109, protein:21.8, carbs:0,    fat:0    },
+  { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                             meal:'Supper',    qty:0.5,     unit:'cups',    calories:10,  protein:0,    carbs:2,    fat:0    },
+  { food_id:'mustard-es',                   food_name:'Mustard',                                meal:'Supper',    qty:3,       unit:'tbsp',    calories:15,  protein:0,    carbs:12,   fat:0    },
+  // Pre-Sleep — the bedtime supplement stack (0-macro pills). The 4th ALA dose
+  // lives here deliberately — matches Ferriss's PAGG schedule (4th dose prior
+  // to bed), confirmed by Ethan 2026-06-09.
+  { food_id:'alpha-lipoic-acid-300-mg-pre', food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Pre-Sleep', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'magnesium-l-threonate-14-pre', food_name:'Magnesium L-Threonate (144 mg)',         meal:'Pre-Sleep', qty:3,       unit:'pills',   calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'niacinamide-500-mg-pre',       food_name:'Niacinamide (500 mg)',                   meal:'Pre-Sleep', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
 ];
 
 // 2026-05-17: removed `REMOVED_PLAN_FOODS` Set, `REMOVED_PLAN_FOOD_PREFIXES`
@@ -4328,6 +4435,9 @@ const SUPPER_FOOD_IDS = new Set([
   // Canonical forms (what Apps Script generates today)
   'spinach-es','carrots-es','apple-gala-es','apple-envy-es','sardines-es',
   'sardines-140cal-es','sardines-170cal-es','sauerkraut-es','mustard-es',
+  // Slow-carb plan additions (2026-06-09) — so the outdated-deploy Dinner→Supper
+  // repair keeps covering the current Supper block.
+  'alpha-lipoic-acid-300-mg-es','black-beans-es','egg-whites-tj-s-es',
   // Legacy double-dash forms (from older hardcoded templates) — kept for backward compat
   'apple--gala--es','apple--envy--es','sardines--140cal--es','sardines--170cal--es'
 ]);
@@ -4627,7 +4737,10 @@ function autoDetectMeal() {
   if (h < 14) return 'Lunch';
   if (h < 17) return 'Dinner';   // 2–5pm  (Dinner is at 2:30 PM)
   if (h < 20) return 'Supper';   // 5–8pm  (Supper is at 7:00 PM)
-  return 'Pre-Sleep';            // 8pm+   (Pre-Sleep is at 9:00 PM; replaced "Snack" 2026-06-07)
+  return 'Snack';                // 8pm+ — a MANUAL evening add is almost always
+                                 // the 5th small meal (Snack restored 2026-06-09),
+                                 // not the Pre-Sleep supplement block, which is
+                                 // autopopulated. Pre-Sleep stays selectable.
 }
 
 // All foods sorted alphabetically — built once, filtered on search
@@ -4815,20 +4928,27 @@ function saveFoodEdit(id) {
   const idx = entries.findIndex(e => e.id === id);
   if (idx === -1) return;
   const old = entries[idx];
-  const food = getAllFoods().find(f => f.name === old.food_name);
+  // 2026-06-09 fix: rescale from the ENTRY's own stored macros, not the current
+  // library. Looking the food up by name repriced history at today's per-serving
+  // values — editing the qty of a pre-cutover entry (e.g. Sardines 140→170 cal,
+  // Eggs 3→2 across the 6/07 slow-carb template change) silently rewrote what
+  // was actually eaten. The library is only the fallback when the entry has no
+  // usable qty to scale from.
   let cal, p, c, f;
-  if (food) {
+  if (Number(old.qty) > 0 && Number.isFinite(Number(old.calories))) {
+    const scl = newQty / old.qty;
+    cal = Math.round(old.calories * scl);
+    p = +(old.protein * scl).toFixed(1);
+    c = +(old.carbs * scl).toFixed(1);
+    f = +(old.fat * scl).toFixed(1);
+  } else {
+    const food = getAllFoods().find(x => x.name === old.food_name);
+    if (!food) { showToast('Can\'t rescale this entry'); return; }
     const r = newQty / food.serving;
     cal = Math.round(food.cal * r);
     p = +(food.p * r).toFixed(1);
     c = +(food.c * r).toFixed(1);
     f = +(food.f * r).toFixed(1);
-  } else {
-    const scl = old.qty > 0 ? newQty / old.qty : 1;
-    cal = Math.round(old.calories * scl);
-    p = +(old.protein * scl).toFixed(1);
-    c = +(old.carbs * scl).toFixed(1);
-    f = +(old.fat * scl).toFixed(1);
   }
   entries[idx] = {...old, qty:newQty, calories:cal, protein:p, carbs:c, fat:f};
   saveFoodEntriesDB(entries);
@@ -5135,12 +5255,12 @@ async function saveCustomFood() {
     safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify(cached));
   } catch(e) {}
 
-  // Push to Google Sheets "Other Foods Library" section
-  const url = getSheetsUrl();
-  if (url) {
-    sheetsPost(url, { action:'addFoodToLibrary', food })
-      .catch(e => console.warn('addFoodToLibrary failed:', e));
-  }
+  // Push to Google Sheets "Other Foods Library" section.
+  // 2026-06-09 fix: route through the retrying write queue. The old fire-and-
+  // forget sheetsPost could fail silently (offline / redeploy gap) while the UI
+  // toasted "✓ Added" — and the next library pull then replaced FOOD_DB from
+  // the Sheet, silently vanishing the custom food from the dropdown.
+  enqueueWrite('addFoodToLibrary', food);
 
   closeCustomFoodModal();
   populateFoodSelect();
@@ -7237,13 +7357,35 @@ function mergeJournalEntries(local, remote) {
   // template + merges the Sheet's food, (2) the no-Sheets-URL branch (offline /
   // unconfigured → cache is the only source), and (3) this fallback timer for a
   // hung/failed network. Whichever fires first wins; the rest no-op via the gate.
-  function seedTodayPlanOnce() {
-    if (_mealPlanSeedReady) return;
+  // 2026-06-09 fix: track WHICH source seeded. The 8s fallback timer also fires
+  // on merely-slow networks (not just offline), and the per-day init gate then
+  // blocked the live template from correcting a stale-cache seed for the rest of
+  // the day on that device. When the live template arrives AFTER a fallback-
+  // sourced seed, re-run the diff once: deterministic plan IDs make it
+  // idempotent (existing rows are skipped, only genuinely-missing live-plan
+  // items are added; nothing is deleted, so user edits are untouched).
+  let _seededFromFallback = false;
+  function seedTodayPlanOnce(isLiveTemplate) {
+    if (_mealPlanSeedReady) {
+      if (isLiveTemplate && _seededFromFallback) {
+        _seededFromFallback = false;
+        const td    = today();
+        const dates = getFoodInitDates();
+        if (dates.has(td)) {
+          dates.delete(td);
+          safeSetItem(FOOD_INIT_DATES_KEY, JSON.stringify([...dates]));
+        }
+        ensureTodayMealPlan();
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+      }
+      return;
+    }
     _mealPlanSeedReady = true;
+    _seededFromFallback = !isLiveTemplate;
     ensureTodayMealPlan();
     if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
   }
-  setTimeout(seedTodayPlanOnce, AUTOPOP_FALLBACK_MS);
+  setTimeout(() => seedTodayPlanOnce(false), AUTOPOP_FALLBACK_MS);
 
   // Show backup status
   setTimeout(updateBackupStatus, 100);
@@ -7330,8 +7472,11 @@ function mergeJournalEntries(local, remote) {
     // pull failed and libraryData was null) AND the Sheet's food rows are both in
     // hand. This is the authoritative seed — it uses live `autopop` flags and sees
     // any rows already logged on another device, so it can't partial-populate from
-    // a stale cache the way the old +50ms boot timer did.
-    seedTodayPlanOnce();
+    // a stale cache the way the old +50ms boot timer did. The flag tells the seed
+    // whether the LIVE template is actually in hand — if the fallback timer beat
+    // us here, a truthy flag triggers the one-shot corrective re-diff (see
+    // seedTodayPlanOnce); a failed library pull (null) does not.
+    seedTodayPlanOnce(!!(libraryData && Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length));
 
     // After Sheets pull, update backup status.
     updateBackupStatus();
@@ -7351,8 +7496,9 @@ function mergeJournalEntries(local, remote) {
   } else {
     // No Sheets URL (offline-first / not yet configured): the cached template is
     // the only source available, so seed from it immediately rather than waiting
-    // out the fallback timer.
-    seedTodayPlanOnce();
+    // out the fallback timer. Not a live seed, but no live template will arrive
+    // this session either, so the corrective re-diff never fires — harmless.
+    seedTodayPlanOnce(false);
   }
 })();
 </script>
