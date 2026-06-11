@@ -4520,7 +4520,26 @@ function createPlanEntries(date) {
   // Fail-safe: a missing flag (offline hardcoded fallback, or a backend deploy
   // that predates the autopop column) defaults to autopopulating — i.e. only an
   // explicit `false` suppresses, preserving prior whole-plan behavior.
-  return MEAL_PLAN_TEMPLATE.filter(item => item.autopop !== false).map(item => ({
+  //
+  // 2026-06-10: Thursday supplement off-day. Per the slow-carb + ALA + EGCG
+  // protocol (Ferriss PAGG schedule — 6 days on, 1 off; "this week off is
+  // critical"), Alpha Lipoic Acid and Green Tea Flavanols (EGCG) are skipped one
+  // day per week, on Thursdays. We suppress their autopop HERE (same as the
+  // per-item flag — not on MEAL_PLAN_TEMPLATE) so the full template is preserved
+  // for target math and every other day is unaffected. Both are 0-cal so this
+  // never moves targets regardless. 'T12:00:00' anchors to local noon (same
+  // idiom as isTreatDay) so the weekday is TZ-correct; Thursday = getDay() 4.
+  // To skip on a different day, change the 4. To add more off-day supplements,
+  // extend isThursdayOffDaySupplement.
+  const isThursday = new Date(date + 'T12:00:00').getDay() === 4;
+  const isThursdayOffDaySupplement = (name) => {
+    const n = (name || '').toLowerCase();
+    return n.includes('alpha lipoic acid') || n.includes('green tea flavanols') || n.includes('egcg');
+  };
+  return MEAL_PLAN_TEMPLATE
+    .filter(item => item.autopop !== false)
+    .filter(item => !(isThursday && isThursdayOffDaySupplement(item.food_name)))
+    .map(item => ({
     id: 'plan-' + item.food_id + '-' + date,
     date,
     meal:      item.meal,
