@@ -4086,7 +4086,9 @@ let FOOD_DB = [
 // haven't loaded yet — kept in sync with the current Sheet plan as a safety net.
 // 2026-06-09: updated from the pre-slow-carb 2408/234/301/58 to the live
 // slow-carb template totals (?type=mealplan planTemplate sum as of 6/09).
-const FOOD_TARGET_DEFAULTS = { cal:2196, protein:243, carbs:229, fat:69 };
+// 2026-06-10: re-synced to 2252/247/229/74 after the breakfast egg change
+// (eggs 2→3, egg whites 200.1→174.8g) + EGCG added (0-cal, no total change).
+const FOOD_TARGET_DEFAULTS = { cal:2252, protein:247, carbs:229, fat:74 };
 
 // Pulled from the live (un-sanitized) mealplan endpoint and persisted so the
 // macro targets always match what's in the Sheet plan — including any items
@@ -4363,8 +4365,9 @@ async function pullGhSleepFromSheets() {
 let MEAL_PLAN_TEMPLATE = [
   // Breakfast
   { food_id:'alpha-lipoic-acid-300-mg-b',   food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'eggs-b',                       food_name:'Eggs',                                   meal:'Breakfast', qty:2,       unit:'eggs',    calories:140, protein:13,   carbs:0,    fat:10   },
-  { food_id:'egg-whites-tj-s-b',            food_name:'Egg Whites (TJ’s)',                      meal:'Breakfast', qty:200.1,   unit:'g',       calories:109, protein:21.8, carbs:0,    fat:0    },
+  { food_id:'green-tea-flavanols-325--b',   food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Breakfast', qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'eggs-b',                       food_name:'Eggs',                                   meal:'Breakfast', qty:3,       unit:'eggs',    calories:210, protein:19.5, carbs:0,    fat:15   },
+  { food_id:'egg-whites-tj-s-b',            food_name:'Egg Whites (TJ’s)',                      meal:'Breakfast', qty:174.8,   unit:'g',       calories:95,  protein:19,   carbs:0,    fat:0    },
   { food_id:'broccoli-b',                   food_name:'Broccoli',                               meal:'Breakfast', qty:159.375, unit:'grams',   calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
   { food_id:'salsa-b',                      food_name:'Salsa',                                  meal:'Breakfast', qty:6,       unit:'tbsp',    calories:30,  protein:0,    carbs:6,    fat:0    },
   { food_id:'red-lentils-b',                food_name:'Red Lentils',                            meal:'Breakfast', qty:0.25,    unit:'cups',    calories:180, protein:12,   carbs:32,   fat:1    },
@@ -4392,6 +4395,7 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'montreal-seasoning-d',         food_name:'Montreal Seasoning',                     meal:'Dinner',    qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
   // Supper
   { food_id:'alpha-lipoic-acid-300-mg-es',  food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'green-tea-flavanols-325--es',  food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Supper',    qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'spinach-es',                   food_name:'Spinach',                                meal:'Supper',    qty:6,       unit:'cups',    calories:30,  protein:3,    carbs:4.5,  fat:0    },
   { food_id:'black-beans-es',               food_name:'Black Beans',                            meal:'Supper',    qty:0.5,     unit:'cups',    calories:160, protein:16,   carbs:44,   fat:2    },
   { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',                      meal:'Supper',    qty:1,       unit:'tin',     calories:170, protein:17,   carbs:0,    fat:11   },
