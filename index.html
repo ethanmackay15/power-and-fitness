@@ -2749,6 +2749,21 @@ function _opToPayload(op, payload) {
   }
 }
 
+// Classify a flush failure by error class. Network-layer failures ("Load failed"
+// in WebKit, "Failed to fetch" in Chrome, 5xx, HTTP 0) mean the request never
+// reached a usable response — the write itself is valid and WILL succeed once
+// connectivity returns. These must NOT count toward the permanent dead-letter
+// cap. The pre-2026-06-15 behavior counted them the same as poison, so a few
+// flaky-signal mornings could exhaust all 10 attempts on a perfectly valid write
+// (canonical case: the 6/13 plan-seed `addFood` for Alpha Lipoic Acid, dead-
+// lettered with lastError "Load failed") and light the red "SYNC ERROR" badge
+// with no console-free escape on mobile. Genuine rejections (HTTP 4xx,
+// ok:false / "Unknown action", a non-JSON 200 = broken deploy) are permanent
+// and DO still dead-letter — those will never succeed on retry.
+function _isTransientWriteError(msg) {
+  return /Load failed|Failed to fetch|NetworkError|Network request failed|The network connection was lost|The Internet connection appears to be offline|timed out|HTTP 5\d\d|HTTP 0\b/i.test(String(msg || ''));
+}
+
 // Flush the queue in FIFO order. Stops on first failure (per-item backoff
 // scheduled separately). Re-entrant-safe via _queueFlushing guard.
 async function flushQueue() {
@@ -2781,12 +2796,23 @@ async function flushQueue() {
         const q2 = _readQueue();
         _writeQueue(q2.filter(it => it.id !== item.id));
       } catch (err) {
-        // Failure: bump attempt + record error, then break out (backoff elsewhere)
-        const q2 = _readQueue();
+        // Failure: record error, then break out (backoff elsewhere). 2026-06-15:
+        // split the counter by error class. Transient network failures bump
+        // `netAttempt` — retried forever with backoff, NEVER dead-lettered, since
+        // they succeed the moment connectivity returns. Only permanent rejections
+        // bump `attempt`, which is what the QUEUE_MAX_ATTEMPTS dead-letter cap
+        // measures. This stops a flaky mobile connection from permanently
+        // stranding a valid write. See _isTransientWriteError.
+        const msg = String((err && err.message) || err);
+        const q2  = _readQueue();
         const idx = q2.findIndex(it => it.id === item.id);
         if (idx >= 0) {
-          q2[idx].attempt   = (q2[idx].attempt || 0) + 1;
-          q2[idx].lastError = String((err && err.message) || err);
+          if (_isTransientWriteError(msg)) {
+            q2[idx].netAttempt = (q2[idx].netAttempt || 0) + 1;
+          } else {
+            q2[idx].attempt = (q2[idx].attempt || 0) + 1;
+          }
+          q2[idx].lastError = msg;
           _writeQueue(q2);
         }
         break;
@@ -2799,7 +2825,11 @@ async function flushQueue() {
     const remaining = _readQueue();
     const retryable = remaining.filter(it => (it.attempt || 0) < QUEUE_MAX_ATTEMPTS);
     if (retryable.length > 0) {
-      const maxAttempt = Math.max.apply(null, retryable.map(it => it.attempt || 0));
+      // Back off on the COMBINED failure count (permanent attempt + transient
+      // netAttempt) so a write that keeps hitting "Load failed" still ramps to
+      // the 30s cap instead of hammering the network every second on poor signal.
+      const effAttempt = it => (it.attempt || 0) + (it.netAttempt || 0);
+      const maxAttempt = Math.max.apply(null, retryable.map(effAttempt));
       const backoffMs  = Math.min(QUEUE_MAX_BACKOFF_MS, 1000 * Math.pow(2, maxAttempt)) + Math.random() * 500;
       setTimeout(() => flushQueue(), backoffMs);
     }
@@ -2826,7 +2856,12 @@ function _updateQueueStatusUI() {
   //    other code (init/refresh) own the badge messaging.
   if (typeof updateSyncUI === 'function') {
     if (status === 'pending') {
-      updateSyncUI('yellow', 'Saving (' + q.length + ')…');
+      // If the head write is stalling on the network (netAttempt>0, no permanent
+      // failures), say "Waiting for connection…" — otherwise a connectivity-
+      // stalled queue is indistinguishable from a normal in-flight save.
+      const head = q[0];
+      const waiting = head && (head.netAttempt || 0) > 0 && (head.attempt || 0) === 0;
+      updateSyncUI('yellow', waiting ? 'Waiting for connection… (' + q.length + ')' : 'Saving (' + q.length + ')…');
     } else if (status === 'error') {
       // Failed writes live in the dead-letter list (2026-06-09); the live queue
       // keeps flowing past them, so count failures from there.
