@@ -4121,9 +4121,10 @@ let FOOD_DB = [
 // haven't loaded yet — kept in sync with the current Sheet plan as a safety net.
 // 2026-06-09: updated from the pre-slow-carb 2408/234/301/58 to the live
 // slow-carb template totals (?type=mealplan planTemplate sum as of 6/09).
-// 2026-06-10: re-synced to 2252/247/229/74 after the breakfast egg change
-// (eggs 2→3, egg whites 200.1→174.8g) + EGCG added (0-cal, no total change).
-const FOOD_TARGET_DEFAULTS = { cal:2252, protein:247, carbs:229, fat:74 };
+// 2026-06-10: re-synced to 2252/247/229/74 after the breakfast egg change.
+// 2026-06-20: re-synced to 2308/231/261/86 — bean correction (cups→grams), breakfast
+// eggs 3→4, egg whites removed from Breakfast+Supper, 1 egg added to Supper, salsa 6→5 tbsp.
+const FOOD_TARGET_DEFAULTS = { cal:2308, protein:231, carbs:261, fat:86 };
 
 // Pulled from the live (un-sanitized) mealplan endpoint and persisted so the
 // macro targets always match what's in the Sheet plan — including any items
@@ -4388,8 +4389,11 @@ async function pullGhSleepFromSheets() {
 // ── Meal Plan Template ────────────────────────────────────────────────────────
 // Exact daily quantities from your Daily Meal Plan spreadsheet.
 // These are pre-populated on every new day automatically.
-// Last synced from spreadsheet: 2026-06-09 (full slow-carb plan — 2,196 cal /
-// 243g protein; ALA 300mg in Breakfast/Lunch/Supper + the Pre-Sleep stack).
+// Last synced from spreadsheet: 2026-06-20 (bean-corrected slow-carb plan — 2,308 cal /
+// 231g protein). Changes vs 6/09: beans recosted cups→grams (pinto 92.4g/211, black 91.02g/197
+// at Dinner & Supper); breakfast eggs 3→4 (280 cal); egg whites removed from Breakfast AND
+// Supper; 1 whole egg added to Supper; breakfast salsa 6→5 tbsp; EGCG unit serving→pill.
+// ALA 300mg still in Breakfast/Lunch/Supper + the Pre-Sleep stack.
 // 2026-06-09 BUGFIX: this fallback was still the pre-slow-carb 5/17 plan
 // (Cottage Cheese, Apple, Chicken Breast & Ribs). If the offline/slow-network
 // fallback seed fired, it autopopulated foods BANNED on the current protocol.
@@ -4400,11 +4404,10 @@ async function pullGhSleepFromSheets() {
 let MEAL_PLAN_TEMPLATE = [
   // Breakfast
   { food_id:'alpha-lipoic-acid-300-mg-b',   food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'green-tea-flavanols-325--b',   food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Breakfast', qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'eggs-b',                       food_name:'Eggs',                                   meal:'Breakfast', qty:3,       unit:'eggs',    calories:210, protein:19.5, carbs:0,    fat:15   },
-  { food_id:'egg-whites-tj-s-b',            food_name:'Egg Whites (TJ’s)',                      meal:'Breakfast', qty:174.8,   unit:'g',       calories:95,  protein:19,   carbs:0,    fat:0    },
+  { food_id:'green-tea-flavanols-325--b',   food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'eggs-b',                       food_name:'Eggs',                                   meal:'Breakfast', qty:4,       unit:'eggs',    calories:280, protein:26,   carbs:0,    fat:20   },
   { food_id:'broccoli-b',                   food_name:'Broccoli',                               meal:'Breakfast', qty:159.375, unit:'grams',   calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
-  { food_id:'salsa-b',                      food_name:'Salsa',                                  meal:'Breakfast', qty:6,       unit:'tbsp',    calories:30,  protein:0,    carbs:6,    fat:0    },
+  { food_id:'salsa-b',                      food_name:'Salsa',                                  meal:'Breakfast', qty:5,       unit:'tbsp',    calories:25,  protein:0,    carbs:5,    fat:0    },
   { food_id:'red-lentils-b',                food_name:'Red Lentils',                            meal:'Breakfast', qty:0.25,    unit:'cups',    calories:180, protein:12,   carbs:32,   fat:1    },
   { food_id:'cinnamon-b',                   food_name:'Cinnamon',                               meal:'Breakfast', qty:0.5,     unit:'tsp',     calories:3,   protein:0,    carbs:1,    fat:0    },
   { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',                           meal:'Breakfast', qty:1,       unit:'scoop',   calories:15,  protein:1,    carbs:3,    fat:0.5  },
@@ -4420,21 +4423,21 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'alpha-lipoic-acid-300-mg-l',   food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Lunch',     qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'chicken-thighs-boneless--l',   food_name:'Chicken Thighs (Boneless, Skinless)',    meal:'Lunch',     qty:224,     unit:'grams',   calories:320, protein:44,   carbs:0,    fat:16   },
   { food_id:'brussell-sprouts-l',           food_name:'Brussell Sprouts',                       meal:'Lunch',     qty:141.95,  unit:'grams',   calories:58,  protein:5,    carbs:13.4, fat:0    },
-  { food_id:'pinto-beans-l',                food_name:'Pinto Beans',                            meal:'Lunch',     qty:0.5,     unit:'cups',    calories:160, protein:14,   carbs:42,   fat:2    },
+  { food_id:'pinto-beans-l',                food_name:'Pinto Beans',                            meal:'Lunch',     qty:92.4,    unit:'grams',   calories:211, protein:18.5, carbs:55.4, fat:2.6  },
   { food_id:'avocado-l',                    food_name:'Avocado',                                meal:'Lunch',     qty:90,      unit:'grams',   calories:144, protein:1.8,  carbs:7.2,  fat:14.4 },
   { food_id:'chili-lime-seasoning-l',       food_name:'Chili Lime Seasoning',                   meal:'Lunch',     qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
   // Dinner
   { food_id:'beef-96-4-d',                  food_name:'Beef (96/4)',                            meal:'Dinner',    qty:224,     unit:'grams',   calories:280, protein:48,   carbs:0,    fat:9    },
   { food_id:'broccoli-d',                   food_name:'Broccoli',                               meal:'Dinner',    qty:212.5,   unit:'grams',   calories:50,  protein:5,    carbs:10,   fat:0    },
-  { food_id:'black-beans-d',                food_name:'Black Beans',                            meal:'Dinner',    qty:0.5,     unit:'cups',    calories:160, protein:16,   carbs:44,   fat:2    },
+  { food_id:'black-beans-d',                food_name:'Black Beans',                            meal:'Dinner',    qty:91.02,   unit:'grams',   calories:197, protein:19.7, carbs:54.1, fat:2.5  },
   { food_id:'montreal-seasoning-d',         food_name:'Montreal Seasoning',                     meal:'Dinner',    qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
   // Supper
   { food_id:'alpha-lipoic-acid-300-mg-es',  food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'green-tea-flavanols-325--es',  food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Supper',    qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'green-tea-flavanols-325--es',  food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'spinach-es',                   food_name:'Spinach',                                meal:'Supper',    qty:6,       unit:'cups',    calories:30,  protein:3,    carbs:4.5,  fat:0    },
-  { food_id:'black-beans-es',               food_name:'Black Beans',                            meal:'Supper',    qty:0.5,     unit:'cups',    calories:160, protein:16,   carbs:44,   fat:2    },
+  { food_id:'black-beans-es',               food_name:'Black Beans',                            meal:'Supper',    qty:91.02,   unit:'grams',   calories:197, protein:19.7, carbs:54.1, fat:2.5  },
   { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',                      meal:'Supper',    qty:1,       unit:'tin',     calories:170, protein:17,   carbs:0,    fat:11   },
-  { food_id:'egg-whites-tj-s-es',           food_name:'Egg Whites (TJ’s)',                      meal:'Supper',    qty:200.1,   unit:'g',       calories:109, protein:21.8, carbs:0,    fat:0    },
+  { food_id:'eggs-es',                      food_name:'Eggs',                                   meal:'Supper',    qty:1,       unit:'eggs',    calories:70,  protein:6.5,  carbs:0,    fat:5    },
   { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                             meal:'Supper',    qty:0.5,     unit:'cups',    calories:10,  protein:0,    carbs:2,    fat:0    },
   { food_id:'mustard-es',                   food_name:'Mustard',                                meal:'Supper',    qty:3,       unit:'tbsp',    calories:15,  protein:0,    carbs:12,   fat:0    },
   // Pre-Sleep — the bedtime supplement stack (0-macro pills). The 4th ALA dose
