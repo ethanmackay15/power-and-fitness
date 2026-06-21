@@ -1716,8 +1716,15 @@
     @media (max-width: 640px) {
       .wrap { padding: 18px 16px 130px; }
       .stats-watchface { grid-template-columns: 1fr 1fr; gap: 10px; }
-      .stat-watchface-val { font-size: 30px; }
-      .stat-watchface { padding: 14px; }
+      /* 2026-06-21: shrink the big watchface number on mobile so a 5-glyph value
+         like "184.1" (Press Start 2P is fixed-width ~1em/glyph) + its drop-shadow
+         fits inside the card instead of clipping off the right edge. */
+      .stat-watchface-val { font-size: 25px; letter-spacing: 0; }
+      .stat-watchface { padding: 14px 12px; }
+      /* 2026-06-21: keep the 4 bottom tabs inside the viewport — "◆ WEIGHT" was the
+         widest label and overflowed its 1/4 flex column, clipping at the screen edge. */
+      .tabs .tab { font-size: 10px; letter-spacing: .04em; padding: 16px 2px; }
+      #tab-weight::before, #tab-food::before, #tab-habits::before, #tab-train::before { margin-right: 5px; font-size: 11px; }
       .macro-top-bar { grid-template-columns: repeat(4, 1fr); gap: 8px; }
       .macro-top-item { padding: 10px; }
       .macro-top-vals { font-size: 15px; }
