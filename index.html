@@ -3169,15 +3169,45 @@ function renderWeight() {
   const data = load();
   const td = today();
 
-  // Journey chip — week number since start
-  const journeyStart = new Date('2026-03-15T12:00:00');
-  const todayDate = new Date(td + 'T12:00:00');
-  const daysSinceJourneyStart = Math.max(0, Math.floor((todayDate - journeyStart) / 86400000));
-  const weekNum = Math.floor(daysSinceJourneyStart / 7) + 1;
+  // Journey chip — phase-relative week within the CURRENT training phase
+  // (e.g. "Cut · Wk 8/10 · ends Jul 11"), not a cumulative count since Mar 15.
+  // Rationale (2026-06-21): a cumulative counter only ever climbs, which makes a
+  // deliberately-slow recomp read as a slog; a phase-relative counter gives a
+  // finish line. Phase boundaries MIRROR plan-dashboard.html's PHASES array —
+  // there is no phases endpoint, so keep the two in sync by hand when phases shift.
+  const PHASES = [
+    {type:'cut',   start:'2026-03-15', end:'2026-04-18', short:'Cut'},
+    {type:'maint', start:'2026-04-19', end:'2026-05-02', short:'Maintenance'},
+    {type:'cut',   start:'2026-05-03', end:'2026-07-11', short:'Cut'},
+    {type:'maint', start:'2026-07-12', end:'2026-07-25', short:'Maintenance'},
+    {type:'cut',   start:'2026-07-26', end:'2026-09-19', short:'Cut'},
+    {type:'maint', start:'2026-09-20', end:'2026-10-03', short:'Maintenance'},
+    {type:'cut',   start:'2026-10-04', end:'2026-11-07', short:'Cut'},
+    {type:'rev',   start:'2026-11-08', end:'2026-12-19', short:'Reverse'},
+    {type:'maint', start:'2026-12-20', end:'2027-01-02', short:'Maintenance'},
+  ];
+  const dayMs = 86400000;
+  const curPhase = PHASES.find(p => td >= p.start && td <= p.end) || null;
   const jwEl = document.getElementById('journey-week');
   const jsEl = document.getElementById('journey-since');
-  if (jwEl) jwEl.textContent = 'Week ' + weekNum;
-  if (jsEl) jsEl.textContent = 'since Mar 15';
+  if (curPhase) {
+    const pStart = new Date(curPhase.start + 'T12:00:00');
+    const pEnd   = new Date(curPhase.end + 'T12:00:00');
+    const tDate  = new Date(td + 'T12:00:00');
+    const wkNum  = Math.floor((tDate - pStart) / (7 * dayMs)) + 1;
+    const wkTot  = Math.floor((pEnd - pStart) / (7 * dayMs)) + 1;
+    const endLbl = pEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (jwEl) jwEl.textContent = curPhase.short + ' · Wk ' + wkNum + '/' + wkTot;
+    if (jsEl) jsEl.textContent = 'ends ' + endLbl;
+  } else {
+    // Outside the planned phases (e.g. past the plan horizon) — fall back to the
+    // cumulative journey count so the chip never goes blank.
+    const journeyStart = new Date('2026-03-15T12:00:00');
+    const tDate = new Date(td + 'T12:00:00');
+    const wk = Math.floor((tDate - journeyStart) / (7 * dayMs)) + 1;
+    if (jwEl) jwEl.textContent = 'Week ' + wk;
+    if (jsEl) jsEl.textContent = 'since Mar 15';
+  }
 
   // North star target from config
   const jtEl = document.getElementById('journey-target');
