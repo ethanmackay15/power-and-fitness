@@ -3235,21 +3235,9 @@ function renderWeight() {
   const sAvgSubEl = document.getElementById('s-avg-sub');
   if (sAvgEl) sAvgEl.textContent = avg != null ? avg.toFixed(1) : '—';
   if (sAvgSubEl) {
-    const parts = ['lbs'];
-    if (avg != null && CFG.startWeight) {
-      const lost = CFG.startWeight - avg;
-      parts.push((lost >= 0 ? '↓ ' : '↑ ') + Math.abs(lost).toFixed(1) + ' since start');
-    }
-    const rate = rateOfLoss(data.entries);
-    if (rate != null && Math.abs(rate) >= 0.05) {
-      // Negative = losing weight (good on a cut, render greenish-muted)
-      // Positive = gaining (render muted; don't celebrate, don't alarm — just show).
-      const losing = rate < 0;
-      const color = losing ? '#10b981' : 'var(--muted)';
-      const arrow = losing ? '↓' : '↑';
-      parts.push(`<span style="color:${color};font-variant-numeric:tabular-nums">${arrow} ${Math.abs(rate).toFixed(1)}/wk</span>`);
-    }
-    sAvgSubEl.innerHTML = parts.join(' · ');
+    // 2026-06-22: dropped the "↓ X since start" delta and "↓ X/wk" rate chip at
+    // Ethan's request — just the unit now. (rateOfLoss() left defined but now unused.)
+    sAvgSubEl.innerHTML = 'lbs';
   }
 
   // Keep the legacy sparkline call alive in case the element is reintroduced (no-op now).
