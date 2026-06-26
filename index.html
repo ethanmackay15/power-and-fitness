@@ -3395,10 +3395,24 @@ function drawWeightChart(data) {
 
   // Goal pace line removed 2026-05-23 per Ethan; goalEnd/goalLine consts dropped along with the dataset.
 
-  // Y-axis bounds — fixed range so the trend visibly moves rather than auto-fitting
-  // to a flat slice. Adjust here if the working weight range shifts materially.
-  const yMin = 182;
-  const yMax = 192;
+  // Y-axis bounds — derived from the data so the axis follows the cut down instead
+  // of clipping. (Was hardcoded 182–192; broke once entries dropped below 182 — the
+  // newest, lowest points fell off the bottom edge. Fixed 2026-06-26.)
+  // We pad ~1 lb each side, round out to whole pounds, and enforce a MIN_SPAN floor
+  // so a narrow/flat slice can't auto-zoom into noise — the original "don't auto-fit
+  // a flat slice" intent, now as a guardrail rather than a frozen window.
+  const MIN_SPAN = 10; // never show less than 10 lb of range
+  const yVals = [...dailyDots.map(d => d.y), ...avgPts.map(p => p.y)];
+  const dataMin = Math.min(...yVals);
+  const dataMax = Math.max(...yVals);
+  let yMin = Math.floor(dataMin - 1);
+  let yMax = Math.ceil(dataMax + 1);
+  if (yMax - yMin < MIN_SPAN) {
+    // Grow symmetrically around the data midpoint to reach the minimum span.
+    const mid = (dataMin + dataMax) / 2;
+    yMin = Math.floor(mid - MIN_SPAN / 2);
+    yMax = yMin + MIN_SPAN;
+  }
 
   weightChartInst = new Chart(canvas, {
     data: {
