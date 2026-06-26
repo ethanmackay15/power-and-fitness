@@ -3398,11 +3398,21 @@ function drawWeightChart(data) {
   // Y-axis bounds — derived from the data so the axis follows the cut down instead
   // of clipping. (Was hardcoded 182–192; broke once entries dropped below 182 — the
   // newest, lowest points fell off the bottom edge. Fixed 2026-06-26.)
+  // CRITICAL: scope to the VISIBLE x-window only. `entries` carries the full history
+  // (834 rows back to 2022, ranging 176–194 lb), but the chart's x-axis starts at
+  // CFG.startDate so everything pre-cut is hidden off-screen left. Scanning all of it
+  // stretched the axis to 175–196 with huge empty bands. Filter to dates >= startDate
+  // (chartEnd is in the future, so an upper bound isn't needed) so the bounds reflect
+  // only the points actually drawn.
   // We pad ~1 lb each side, round out to whole pounds, and enforce a MIN_SPAN floor
   // so a narrow/flat slice can't auto-zoom into noise — the original "don't auto-fit
   // a flat slice" intent, now as a guardrail rather than a frozen window.
   const MIN_SPAN = 10; // never show less than 10 lb of range
-  const yVals = [...dailyDots.map(d => d.y), ...avgPts.map(p => p.y)];
+  const inWindow = (x) => x >= CFG.startDate;
+  const yVals = [
+    ...dailyDots.filter(d => inWindow(d.x)).map(d => d.y),
+    ...avgPts.filter(p => inWindow(p.x)).map(p => p.y),
+  ];
   const dataMin = Math.min(...yVals);
   const dataMax = Math.max(...yVals);
   let yMin = Math.floor(dataMin - 1);
