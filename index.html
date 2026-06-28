@@ -2281,8 +2281,8 @@ const CFG = {
   goalWeight:   181.5,
   goalRate:     0.65,
   bfTarget:     12,
-  lastDexaDate: '2026-06-06',
-  nextDexaDate: '2026-06-27'   // moved back from 7/11 at Ethan's direction, 2026-06-09
+  lastDexaDate: '2026-06-27',
+  nextDexaDate: '2026-06-27'   // moved back from 7/11 at Ethan's direction, 2026-06-09 — NOTE: now past; set the next scan date when known
 };
 // Helper: weeks to reach goalWeight at goalRate (used for drawing goal pace line only)
 function projectedGoalDate() {
@@ -2311,7 +2311,8 @@ const DEXA_SEED = [
   {date:'2026-01-31', bf:18.4, total:181.5, fat:33.4, lean:140.4, bmc:7.7},
   {date:'2026-03-21', bf:19.3, total:190.2, fat:36.7, lean:145.8, bmc:7.7},
   {date:'2026-05-15', bf:18.4, total:187.9, fat:34.5, lean:145.6, bmc:7.7},
-  {date:'2026-06-06', bf:17.9, total:188.2, fat:33.7, lean:146.7, bmc:7.7}
+  {date:'2026-06-06', bf:17.9, total:188.2, fat:33.7, lean:146.7, bmc:7.7},
+  {date:'2026-06-27', bf:16.3, total:184.3, fat:30.0, lean:146.6, bmc:7.7}
 ];
 function getDexaScans() {
   try {
