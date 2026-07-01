@@ -2282,7 +2282,7 @@ const CFG = {
   goalRate:     0.65,
   bfTarget:     12,
   lastDexaDate: '2026-06-27',
-  nextDexaDate: '2026-06-27'   // moved back from 7/11 at Ethan's direction, 2026-06-09 — NOTE: now past; set the next scan date when known
+  nextDexaDate: '2026-07-18'   // booked 2026-06-28 for 7/18 (new cut→break boundary)
 };
 // Helper: weeks to reach goalWeight at goalRate (used for drawing goal pace line only)
 function projectedGoalDate() {
@@ -3171,7 +3171,7 @@ function renderWeight() {
   const td = today();
 
   // Journey chip — phase-relative week within the CURRENT training phase
-  // (e.g. "Cut · Wk 8/10 · ends Jul 11"), not a cumulative count since Mar 15.
+  // (e.g. "Cut · Wk 8/12 · ends Jul 25"), not a cumulative count since Mar 15.
   // Rationale (2026-06-21): a cumulative counter only ever climbs, which makes a
   // deliberately-slow recomp read as a slog; a phase-relative counter gives a
   // finish line. Phase boundaries MIRROR plan-dashboard.html's PHASES array —
@@ -3179,13 +3179,12 @@ function renderWeight() {
   const PHASES = [
     {type:'cut',   start:'2026-03-15', end:'2026-04-18', short:'Cut'},
     {type:'maint', start:'2026-04-19', end:'2026-05-02', short:'Maintenance'},
-    {type:'cut',   start:'2026-05-03', end:'2026-07-11', short:'Cut'},
-    {type:'maint', start:'2026-07-12', end:'2026-07-25', short:'Maintenance'},
-    {type:'cut',   start:'2026-07-26', end:'2026-09-19', short:'Cut'},
-    {type:'maint', start:'2026-09-20', end:'2026-10-03', short:'Maintenance'},
-    {type:'cut',   start:'2026-10-04', end:'2026-11-07', short:'Cut'},
-    {type:'rev',   start:'2026-11-08', end:'2026-12-19', short:'Reverse'},
-    {type:'maint', start:'2026-12-20', end:'2027-01-02', short:'Maintenance'},
+    {type:'cut',   start:'2026-05-03', end:'2026-07-18', short:'Cut'},
+    {type:'maint', start:'2026-07-19', end:'2026-08-01', short:'Maintenance'},
+    {type:'cut',   start:'2026-08-02', end:'2026-09-26', short:'Cut'},
+    {type:'maint', start:'2026-09-27', end:'2026-10-10', short:'Maintenance'},
+    {type:'cut',   start:'2026-10-11', end:'2026-11-21', short:'Cut'},
+    {type:'rev',   start:'2026-11-22', end:'2027-01-02', short:'Reverse'},
   ];
   const dayMs = 86400000;
   const curPhase = PHASES.find(p => td >= p.start && td <= p.end) || null;
