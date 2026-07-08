@@ -659,13 +659,16 @@
        Replaced the DEXA small-multiples charts (Ethan: 4-scan plots not useful)
        with one Weight/Lean/Fat table. The two most-recent DEXA scans are
        data-driven (#bc-scan-rows, filled by renderDexaSection — refreshes when a
-       scan is added) and flow into the 15% milestone + 12% ultimate targets
+       scan is added) and flow into the 15% milestone + 12% cut-goal targets
        (static). Left column = the BF% journey (e.g. 19.3 -> 18.4 -> 15 -> 12);
-       three value columns = Weight / Lean / Fat (lb). Target numbers: 15% assumes
-       lean ~149 (mid-reclamation, realistic by the ~3.5-mo ETA), 12% assumes lean
-       152 — both kept monotonic vs the measured scans (weight down, lean up, fat
-       down). Holding today's lean would put 15% weight below 12% weight — a
-       confusing down-then-up — so the partial-reclaim assumption is deliberate. */
+       three value columns = Weight / Lean / Fat (lb). Target numbers
+       (re-parameterized 2026-07-07 for the cut-then-FIRST-BULK plan): 12% assumes
+       just +1 lb lean from the 6/27 scan (lean 147.6, FFM 155.3, wt = FFM/0.88 =
+       176.5); 15% assumes +0.4 lean by then (147.0 -> 182.0). Monotonic vs the
+       measured scans (weight down, lean up, fat down). Weights are DEXA-mass
+       frame; Ethan's home scale reads ~2.1 lb lighter (4-scan-morning mean), so
+       scale-frame 12% ~= 174.4. The old 181.5/152/21.8 target (recomp-to-152-lean)
+       is retired from the UI — it's the post-bulk ultimate, not the cut goal. */
     .bc-row {
       display: grid;
       grid-template-columns: 74px 1fr 1fr 1fr;
@@ -2132,18 +2135,20 @@
       <!-- All DEXA scans since the 3/21 cut-baseline — injected by renderDexaSection (oldest first) -->
       <div id="bc-scan-rows"></div>
       <div class="bc-rule"></div>
-      <!-- Targets (static). 15% assumes lean ~149, 12% lean 152 — see CSS note. -->
+      <!-- Targets (static). Re-parameterized 2026-07-07 for the cut-then-first-bulk
+           plan: 12% assumes just +1 lb lean from the 6/27 scan (147.6); 15% assumes
+           +0.4 by then (147.0). Weights are DEXA-mass frame — see CSS note. -->
       <div class="bc-row next">
         <div class="bc-lbl"><span class="bc-bf">15%</span><span class="bc-when">next</span></div>
-        <div class="bc-val">184.4</div>
-        <div class="bc-val">149</div>
-        <div class="bc-val">27.7</div>
+        <div class="bc-val">182.0</div>
+        <div class="bc-val">147.0</div>
+        <div class="bc-val">27.3</div>
       </div>
       <div class="bc-row goal">
         <div class="bc-lbl"><span class="bc-bf">12%</span><span class="bc-when">goal</span></div>
-        <div class="bc-val">181.5</div>
-        <div class="bc-val">152</div>
-        <div class="bc-val">21.8</div>
+        <div class="bc-val">176.5</div>
+        <div class="bc-val">147.6</div>
+        <div class="bc-val">21.2</div>
       </div>
     </div>
 
@@ -2275,10 +2280,13 @@
 const CFG = {
   startDate:    '2026-03-15',
   startWeight:  190.8,
-  // 2026-06-09: goal updated 174 → 181.5. The 12%-BF goal decided 5/25 is
-  // ~181–182 lb on a 152-lb lean target (goal = FFM / 0.88); 174 was the
-  // zero-lean-gain FLOOR, not the goal, and was misleading anyone editing here.
-  goalWeight:   181.5,
+  // 2026-07-07: goal updated 181.5 → 174.4 (SCALE frame). The cut goal is now
+  // 12% BF at +1 lb lean from the 6/27 scan → 176.5 lb in DEXA-mass terms;
+  // this chart plots home-scale weigh-ins, which run ~2.1 lb lighter than DEXA
+  // totals (4-scan-morning mean), so the pace line uses the scale-frame value.
+  // The old 181.5 (recomp-to-152-lean) is the post-FIRST-BULK ultimate, not
+  // the cut goal. (History: 2026-06-09 updated 174 → 181.5.)
+  goalWeight:   174.4,
   goalRate:     0.65,
   bfTarget:     12,
   lastDexaDate: '2026-06-27',
