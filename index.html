@@ -1142,14 +1142,33 @@
     .train-chip:hover { color: var(--cool); border-color: var(--cool); }
     .train-chip.on { color: var(--bg); background: var(--hot); border-color: var(--hot); box-shadow: 2px 2px 0 var(--warn); }
     .train-pick-hint { font-family: 'VT323', monospace; font-size: 19px; color: var(--dim); text-align: center; padding: 14px 4px 4px; }
+    /* 2026-07-09: each exercise line is now a .train-ex-row wrapper (toggle
+       button + optional max-weight input) so the input isn't nested inside the
+       button. The row carries the divider border the button used to own. */
+    .train-ex-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-soft); }
+    /* no divider under the last exercise row (the add-row below has its own top border) */
+    .train-ex-row:not(:has(+ .train-ex-row)) { border-bottom: none; }
     .train-ex {
       display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-      background: transparent; border: none; border-bottom: 1px solid var(--border-soft);
+      background: transparent; border: none;
       padding: 11px 2px; cursor: pointer; font-family: 'VT323', monospace;
       font-size: 21px; color: var(--ink);
+      flex: 1; min-width: 0;
     }
-    .train-ex:last-child { border-bottom: none; }
     .train-ex:hover { color: var(--warn); }
+    /* Max-weight logger (2026-07-09): one number per exercise per day — the
+       heaviest load used. Deliberately NOT sets×reps; a loose progressive-
+       overload signal at near-zero logging friction. */
+    .train-wt-wrap { display: flex; align-items: baseline; gap: 4px; flex: 0 0 auto; padding-right: 2px; }
+    .train-wt {
+      width: 58px; background: var(--bg); border: 1px solid var(--border-soft); color: var(--ink);
+      font-family: 'VT323', monospace; font-size: 18px; padding: 4px 6px; text-align: right;
+      -moz-appearance: textfield; appearance: textfield;
+    }
+    .train-wt::-webkit-outer-spin-button, .train-wt::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .train-wt:focus { outline: none; border-color: var(--cool); }
+    .train-wt::placeholder { color: var(--dim); }
+    .train-wt-unit { font-family: 'VT323', monospace; font-size: 15px; color: var(--dim); }
     .train-box {
       width: 20px; height: 20px; border: 2px solid var(--dim); flex: 0 0 auto;
       display: flex; align-items: center; justify-content: center; color: var(--bg);
@@ -2135,20 +2154,22 @@
       <!-- All DEXA scans since the 3/21 cut-baseline — injected by renderDexaSection (oldest first) -->
       <div id="bc-scan-rows"></div>
       <div class="bc-rule"></div>
-      <!-- Targets (static). Re-parameterized 2026-07-07 for the cut-then-first-bulk
+      <!-- Targets. Re-parameterized 2026-07-07 for the cut-then-first-bulk
            plan: 12% assumes just +1 lb lean from the 6/27 scan (147.6); 15% assumes
-           +0.4 by then (147.0). Weights are DEXA-mass frame — see CSS note. -->
+           +0.4 by then (147.0). Weights are DEXA-mass frame — see CSS note.
+           2026-07-09: values below are the offline fallback — the live values come
+           from the Config tab (interimDexa/goalDexa) via applySharedConfig. -->
       <div class="bc-row next">
-        <div class="bc-lbl"><span class="bc-bf">15%</span><span class="bc-when">next</span></div>
-        <div class="bc-val">182.0</div>
-        <div class="bc-val">147.0</div>
-        <div class="bc-val">27.3</div>
+        <div class="bc-lbl"><span class="bc-bf" id="bc-next-pct">15%</span><span class="bc-when">next</span></div>
+        <div class="bc-val" id="bc-next-w">182.0</div>
+        <div class="bc-val" id="bc-next-l">147.0</div>
+        <div class="bc-val" id="bc-next-f">27.3</div>
       </div>
       <div class="bc-row goal">
-        <div class="bc-lbl"><span class="bc-bf">12%</span><span class="bc-when">goal</span></div>
-        <div class="bc-val">176.5</div>
-        <div class="bc-val">147.6</div>
-        <div class="bc-val">21.2</div>
+        <div class="bc-lbl"><span class="bc-bf" id="bc-goal-pct">12%</span><span class="bc-when">goal</span></div>
+        <div class="bc-val" id="bc-goal-w">176.5</div>
+        <div class="bc-val" id="bc-goal-l">147.6</div>
+        <div class="bc-val" id="bc-goal-f">21.2</div>
       </div>
     </div>
 
@@ -2287,11 +2308,95 @@ const CFG = {
   // The old 181.5 (recomp-to-152-lean) is the post-FIRST-BULK ultimate, not
   // the cut goal. (History: 2026-06-09 updated 174 → 181.5.)
   goalWeight:   174.4,
-  goalRate:     0.65,
+  // 2026-07-09: pace-line rate 0.65 → 0.5 lb/wk. The plan is a deliberately
+  // sustainable 0.43–0.6 lb/wk cut; 0.65 drew a steeper descent than the plan,
+  // so on-plan progress read as "behind pace" on the chart. 0.5 matches the
+  // realized DEXA rate (~0.5 lb/wk).
+  goalRate:     0.5,
   bfTarget:     12,
   lastDexaDate: '2026-06-27',
   nextDexaDate: '2026-07-18'   // booked 2026-06-28 for 7/18 (new cut→break boundary)
 };
+
+// ─── Shared Config (added 2026-07-09) ─────────────────────────────────────────
+// The Sheet's `Config` tab (?type=config) is now the single source of truth for
+// the plan parameters that used to be hand-copied across this file, both
+// dashboards, and SKILL.md. On boot we apply the last-cached copy instantly,
+// then pull fresh config alongside the other sheet pulls; the CFG literals above
+// and DEFAULT_PHASES below are the offline/first-run fallback only. Keys used
+// here: goalWeightScale → CFG.goalWeight, goalRate → CFG.goalRate,
+// bfTargetPct → CFG.bfTarget, nextDexaDate → CFG.nextDexaDate,
+// phases → journey chip, interimDexa/goalDexa → Body Comp target box.
+const CONFIG_CACHE_KEY = 'sharedConfig_v1';
+let SHARED_CONFIG = null;
+
+// Journey-chip phase calendar — fallback copy, overridden by SHARED_CONFIG.phases
+// when the Config tab is reachable (which also retires the old "hand-sync with
+// plan-dashboard.html" debt: both surfaces now read the same sheet tab).
+const DEFAULT_PHASES = [
+  {type:'cut',   start:'2026-03-15', end:'2026-04-18', short:'Cut'},
+  {type:'maint', start:'2026-04-19', end:'2026-05-02', short:'Maintenance'},
+  {type:'cut',   start:'2026-05-03', end:'2026-07-18', short:'Cut'},
+  {type:'maint', start:'2026-07-19', end:'2026-08-01', short:'Maintenance'},
+  {type:'cut',   start:'2026-08-02', end:'2026-09-26', short:'Cut'},
+  {type:'maint', start:'2026-09-27', end:'2026-10-10', short:'Maintenance'},
+  {type:'cut',   start:'2026-10-11', end:'2026-11-21', short:'Cut'},
+  {type:'rev',   start:'2026-11-22', end:'2027-01-02', short:'Reverse'},
+];
+function activePhases() {
+  return (SHARED_CONFIG && Array.isArray(SHARED_CONFIG.phases) && SHARED_CONFIG.phases.length)
+    ? SHARED_CONFIG.phases : DEFAULT_PHASES;
+}
+
+function applySharedConfig(cfg) {
+  if (!cfg || typeof cfg !== 'object') return;
+  SHARED_CONFIG = cfg;
+  const num = v => { const n = Number(v); return isFinite(n) && n > 0 ? n : null; };
+  if (num(cfg.goalWeightScale)) CFG.goalWeight = num(cfg.goalWeightScale);
+  if (num(cfg.goalRate))        CFG.goalRate   = num(cfg.goalRate);
+  if (num(cfg.bfTargetPct))     CFG.bfTarget   = num(cfg.bfTargetPct);
+  if (typeof cfg.nextDexaDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(cfg.nextDexaDate)) {
+    CFG.nextDexaDate = cfg.nextDexaDate;
+  }
+  // Body Composition target box (static markup, filled here so a goal
+  // re-parameterization is a one-cell Config edit, not an HTML hunt).
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = String(v); };
+  // lb cells keep the table's one-decimal convention (182 → "182.0")
+  const setLb  = (id, v) => { const n = Number(v); if (isFinite(n)) setTxt(id, n.toFixed(1)); };
+  if (cfg.interimDexa && typeof cfg.interimDexa === 'object') {
+    setTxt('bc-next-pct', (cfg.interimDexa.bf != null ? cfg.interimDexa.bf + '%' : null));
+    setLb('bc-next-w', cfg.interimDexa.weight); setLb('bc-next-l', cfg.interimDexa.lean); setLb('bc-next-f', cfg.interimDexa.fat);
+  }
+  if (cfg.goalDexa && typeof cfg.goalDexa === 'object') {
+    setTxt('bc-goal-pct', (cfg.goalDexa.bf != null ? cfg.goalDexa.bf + '%' : null));
+    setLb('bc-goal-w', cfg.goalDexa.weight); setLb('bc-goal-l', cfg.goalDexa.lean); setLb('bc-goal-f', cfg.goalDexa.fat);
+  }
+}
+
+// Best-effort live pull; caches on success so the next boot starts current.
+// An old backend deployment (no `config` route) returns ok:false — treated the
+// same as offline: keep the fallback values, no error surfaced.
+async function pullConfigFromSheets() {
+  const url = (typeof getSheetsUrl === 'function') ? getSheetsUrl() : '';
+  if (!url) return;
+  try {
+    const res  = await noCacheFetch(url + '?type=config');
+    const data = await res.json();
+    if (data && data.ok && data.config && typeof data.config === 'object') {
+      // Skip the apply + full re-render when nothing changed — this runs on the
+      // 60s visibility poll, and an unconditional renderWeight() would rebuild
+      // the chart every minute for no reason.
+      const fresh = JSON.stringify(data.config);
+      let prev = null;
+      try { prev = localStorage.getItem(CONFIG_CACHE_KEY); } catch (e) {}
+      if (fresh === prev && SHARED_CONFIG) return;
+      applySharedConfig(data.config);
+      try { safeSetItem(CONFIG_CACHE_KEY, fresh); } catch (e) {}
+      // Re-render surfaces that bake config values into their output.
+      if (typeof renderWeight === 'function') renderWeight();
+    }
+  } catch (e) { /* offline / old deployment — fallbacks stand */ }
+}
 // Helper: weeks to reach goalWeight at goalRate (used for drawing goal pace line only)
 function projectedGoalDate() {
   const lbsToLose = Math.max(0, CFG.startWeight - CFG.goalWeight);
@@ -3182,18 +3287,10 @@ function renderWeight() {
   // (e.g. "Cut · Wk 8/12 · ends Jul 25"), not a cumulative count since Mar 15.
   // Rationale (2026-06-21): a cumulative counter only ever climbs, which makes a
   // deliberately-slow recomp read as a slog; a phase-relative counter gives a
-  // finish line. Phase boundaries MIRROR plan-dashboard.html's PHASES array —
-  // there is no phases endpoint, so keep the two in sync by hand when phases shift.
-  const PHASES = [
-    {type:'cut',   start:'2026-03-15', end:'2026-04-18', short:'Cut'},
-    {type:'maint', start:'2026-04-19', end:'2026-05-02', short:'Maintenance'},
-    {type:'cut',   start:'2026-05-03', end:'2026-07-18', short:'Cut'},
-    {type:'maint', start:'2026-07-19', end:'2026-08-01', short:'Maintenance'},
-    {type:'cut',   start:'2026-08-02', end:'2026-09-26', short:'Cut'},
-    {type:'maint', start:'2026-09-27', end:'2026-10-10', short:'Maintenance'},
-    {type:'cut',   start:'2026-10-11', end:'2026-11-21', short:'Cut'},
-    {type:'rev',   start:'2026-11-22', end:'2027-01-02', short:'Reverse'},
-  ];
+  // finish line. 2026-07-09: phase boundaries now come from the Sheet's Config
+  // tab via activePhases() (DEFAULT_PHASES near CFG is the offline fallback) —
+  // the old hand-sync-with-plan-dashboard debt is retired; both read the tab.
+  const PHASES = activePhases();
   const dayMs = 86400000;
   const curPhase = PHASES.find(p => td >= p.start && td <= p.end) || null;
   const jwEl = document.getElementById('journey-week');
@@ -3890,6 +3987,10 @@ async function syncOnVisibility(forceEvenIfHidden) {
   if (!sheetsUrl) return;
   if (!forceEvenIfHidden && document.hidden) return;
   if (_syncInFlight) return _syncInFlight;
+  // 2026-07-09: refresh shared config on visibility too — an iOS PWA can live
+  // for days without a cold boot, so boot-only config would go stale after a
+  // Config-tab edit. Fire-and-forget; read-only; applies + re-renders on change.
+  pullConfigFromSheets();
   // Per-domain pending check: pull every domain, but only APPLY the merge for
   // a given domain if there are no pending writes for that domain. Prevents
   // stuck writes in one area (e.g. a flaky food upload) from blocking pulls
@@ -4056,6 +4157,12 @@ function ensureTodayMealPlan() {
   if (!_mealPlanSeedReady) return;
   const td = today();
   if (getFoodInitDates().has(td)) return;  // already seeded on THIS device today
+  // 2026-07-09: never autopop a day already marked as a skip day. Seeding a
+  // skip day writes plausible-looking plan rows to the Sheet for a day whose
+  // real intake is untracked — the documented "skip days understate intake"
+  // trap started here. Return BEFORE marking the date initialized, so if the
+  // skip is toggled off later the normal seed path still runs.
+  if (typeof isSkippedDay === 'function' && isSkippedDay(td)) return;
   // First time seeing this date on this device — create the missing plan entries
   // locally AND enqueue them.
   // ARCHITECTURAL FIX (2026-04-30): the Phase 2 decision to NOT enqueue plan
@@ -4148,18 +4255,23 @@ let FOOD_DB = [
   { id:'egg-whites',     name:'Egg Whites (TJ\'s)',   category:'Breakfast',     serving:3,    unit:'tbsp',    cal:25,  p:5.0, c:0,    f:0.0  },
   { id:'broccoli-b',     name:'Broccoli',              category:'Breakfast',     serving:85,   unit:'g',       cal:20,  p:2.0, c:4.0,  f:0.0  },
   { id:'salsa',          name:'Salsa',                 category:'Breakfast',     serving:2,    unit:'tbsp',    cal:10,  p:0.0, c:2.0,  f:0.0  },
-  { id:'red-lentils',    name:'Red Lentils',           category:'Breakfast',     serving:0.25, unit:'cups',    cal:180, p:12.0,c:32.0, f:1.0  },
+  // 2026-07-09: red → green lentils (the 6/21 swap), gram-based serving matching the live library.
+  { id:'green-lentils',  name:'Green Lentils',         category:'Breakfast',     serving:50,   unit:'grams',   cal:180, p:12.0,c:32.0, f:0.5  },
   { id:'greek-yogurt',   name:'Greek Yogurt (Nonfat TJ\'s)', category:'Breakfast', serving:150,  unit:'g',       cal:90,  p:15.0,c:6.0,  f:0.0  },
   { id:'cocoa-powder',   name:'Cocoa Powder',          category:'Breakfast',     serving:1,    unit:'scoop',   cal:15,  p:1.0, c:3.0,  f:0.5  },
   { id:'fish-pills',     name:'Fish Pills',            category:'Breakfast',     serving:1,    unit:'pill',    cal:15,  p:0.0, c:0.0,  f:1.5  },
   // Lunch
   { id:'chicken',        name:'Chicken Breast & Ribs', category:'Lunch',         serving:112,  unit:'g',       cal:130, p:24.0,c:0.0,  f:3.0  },
   { id:'brussell-sprouts', name:'Brussell Sprouts',     category:'Lunch',         serving:85,   unit:'g',       cal:35,  p:3.0, c:8.0,  f:0.0  },
-  { id:'pinto-beans',    name:'Pinto Beans',           category:'Lunch',         serving:0.25, unit:'cups',    cal:80,  p:7.0, c:21.0, f:1.0  },
+  // 2026-07-09: bean rows re-priced to the 6/20 corrected gram-based scale
+  // (matching the live sheet library: pinto 35 g = 80 cal, black 37 g = 80 cal).
+  // The old 0.25-cups rows predated the bean correction — a fresh-offline-device
+  // log through this fallback would have resurrected the under-logging bug.
+  { id:'pinto-beans',    name:'Pinto Beans',           category:'Lunch',         serving:35,   unit:'grams',   cal:80,  p:7.0, c:21.0, f:1.0  },
   { id:'avocado',        name:'Avocado',               category:'Lunch',         serving:50,   unit:'g',       cal:80,  p:1.0, c:4.0,  f:8.0  },
   // Dinner
   { id:'broccoli-d',     name:'Broccoli',              category:'Dinner',        serving:85,   unit:'g',       cal:20,  p:2.0, c:4.0,  f:0.0  },
-  { id:'black-beans',    name:'Black Beans',           category:'Dinner',        serving:0.25, unit:'cups',    cal:80,  p:8.0, c:22.0, f:1.0  },
+  { id:'black-beans',    name:'Black Beans',           category:'Dinner',        serving:37,   unit:'grams',   cal:80,  p:8.0, c:22.0, f:1.0  },
   { id:'beef-96',        name:'Beef 96/4',             category:'Dinner',        serving:112,  unit:'g',       cal:140, p:24.0,c:0.0,  f:4.5  },
   { id:'olive-oil',      name:'Olive Oil',             category:'Dinner',        serving:1,    unit:'tbsp',    cal:120, p:0.0, c:0.0,  f:14.0 },
   // Supper
@@ -4181,7 +4293,9 @@ let FOOD_DB = [
 // 2026-06-10: re-synced to 2252/247/229/74 after the breakfast egg change.
 // 2026-06-20: re-synced to 2308/231/261/86 — bean correction (cups→grams), breakfast
 // eggs 3→4, egg whites removed from Breakfast+Supper, 1 egg added to Supper, salsa 6→5 tbsp.
-const FOOD_TARGET_DEFAULTS = { cal:2308, protein:231, carbs:261, fat:86 };
+// 2026-07-09: resynced to the live plan totals (was the stale 6/20-era 2308/231/261/86,
+// which mismatched the fallback template below after its own resync).
+const FOOD_TARGET_DEFAULTS = { cal:2360, protein:236.3, carbs:257.6, fat:88.7 };
 
 // Pulled from the live (un-sanitized) mealplan endpoint and persisted so the
 // macro targets always match what's in the Sheet plan — including any items
@@ -4464,13 +4578,14 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'green-tea-flavanols-325--b',   food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'eggs-b',                       food_name:'Eggs',                                   meal:'Breakfast', qty:4,       unit:'eggs',    calories:280, protein:26,   carbs:0,    fat:20   },
   { food_id:'broccoli-b',                   food_name:'Broccoli',                               meal:'Breakfast', qty:159.375, unit:'grams',   calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
-  { food_id:'salsa-b',                      food_name:'Salsa',                                  meal:'Breakfast', qty:5,       unit:'tbsp',    calories:25,  protein:0,    carbs:5,    fat:0    },
-  { food_id:'red-lentils-b',                food_name:'Red Lentils',                            meal:'Breakfast', qty:0.25,    unit:'cups',    calories:180, protein:12,   carbs:32,   fat:1    },
+  { food_id:'salsa-b',                      food_name:'Salsa',                                  meal:'Breakfast', qty:82.5,    unit:'grams',   calories:25,  protein:0,    carbs:5,    fat:0    },
+  // 2026-07-09 resync vs live template: red lentils → GREEN lentils 56 g (the 6/21 swap)
+  { food_id:'green-lentils-b',              food_name:'Green Lentils',                          meal:'Breakfast', qty:56,      unit:'grams',   calories:202, protein:13.4, carbs:35.8, fat:0.6  },
   { food_id:'cinnamon-b',                   food_name:'Cinnamon',                               meal:'Breakfast', qty:0.5,     unit:'tsp',     calories:3,   protein:0,    carbs:1,    fat:0    },
   { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',                           meal:'Breakfast', qty:1,       unit:'scoop',   calories:15,  protein:1,    carbs:3,    fat:0.5  },
   { food_id:'fish-oil-710-mg-epa-290--b',   food_name:'Fish Oil (710 mg EPA, 290 mg DHA)',      meal:'Breakfast', qty:1,       unit:'pill',    calories:15,  protein:0,    carbs:0,    fat:1.5  },
   { food_id:'salt-b',                       food_name:'Salt',                                   meal:'Breakfast', qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'creatine-b',                   food_name:'Creatine',                               meal:'Breakfast', qty:5,       unit:'grams',   calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'creatine-b',                   food_name:'Creatine',                               meal:'Breakfast', qty:10,      unit:'grams',   calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'vitamin-c-1-000-mg-b',         food_name:'Vitamin C (1,000 mg)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'vitamin-d-5-000-iu-b',         food_name:'Vitamin D (5,000 IU)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'niacinamide-500-mg-b',         food_name:'Niacinamide (500 mg)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
@@ -4481,7 +4596,8 @@ let MEAL_PLAN_TEMPLATE = [
   { food_id:'chicken-thighs-boneless--l',   food_name:'Chicken Thighs (Boneless, Skinless)',    meal:'Lunch',     qty:224,     unit:'grams',   calories:320, protein:44,   carbs:0,    fat:16   },
   { food_id:'brussell-sprouts-l',           food_name:'Brussell Sprouts',                       meal:'Lunch',     qty:141.95,  unit:'grams',   calories:58,  protein:5,    carbs:13.4, fat:0    },
   { food_id:'pinto-beans-l',                food_name:'Pinto Beans',                            meal:'Lunch',     qty:92.4,    unit:'grams',   calories:211, protein:18.5, carbs:55.4, fat:2.6  },
-  { food_id:'avocado-l',                    food_name:'Avocado',                                meal:'Lunch',     qty:90,      unit:'grams',   calories:144, protein:1.8,  carbs:7.2,  fat:14.4 },
+  // 2026-07-09 resync vs live template: avocado 90 → 80 g (part of the 6/23 portion trim)
+  { food_id:'avocado-l',                    food_name:'Avocado',                                meal:'Lunch',     qty:80,      unit:'grams',   calories:128, protein:1.6,  carbs:6.4,  fat:12.8 },
   { food_id:'chili-lime-seasoning-l',       food_name:'Chili Lime Seasoning',                   meal:'Lunch',     qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
   // Dinner
   { food_id:'beef-96-4-d',                  food_name:'Beef (96/4)',                            meal:'Dinner',    qty:224,     unit:'grams',   calories:280, protein:48,   carbs:0,    fat:9    },
@@ -4491,10 +4607,12 @@ let MEAL_PLAN_TEMPLATE = [
   // Supper
   { food_id:'alpha-lipoic-acid-300-mg-es',  food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
   { food_id:'green-tea-flavanols-325--es',  food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'spinach-es',                   food_name:'Spinach',                                meal:'Supper',    qty:6,       unit:'cups',    calories:30,  protein:3,    carbs:4.5,  fat:0    },
-  { food_id:'black-beans-es',               food_name:'Black Beans',                            meal:'Supper',    qty:91.02,   unit:'grams',   calories:197, protein:19.7, carbs:54.1, fat:2.5  },
+  { food_id:'spinach-es',                   food_name:'Spinach',                                meal:'Supper',    qty:127.5,   unit:'grams',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
+  // 2026-07-09 resync vs live template: supper black beans 91 → 80 g (part of the 6/23 portion trim)
+  { food_id:'black-beans-es',               food_name:'Black Beans',                            meal:'Supper',    qty:79.92,   unit:'grams',   calories:173, protein:17.3, carbs:47.5, fat:2.2  },
   { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',                      meal:'Supper',    qty:1,       unit:'tin',     calories:170, protein:17,   carbs:0,    fat:11   },
-  { food_id:'eggs-es',                      food_name:'Eggs',                                   meal:'Supper',    qty:1,       unit:'eggs',    calories:70,  protein:6.5,  carbs:0,    fat:5    },
+  // 2026-07-09 resync vs live template: supper eggs 1 → 2 (the 6/21 change)
+  { food_id:'eggs-es',                      food_name:'Eggs',                                   meal:'Supper',    qty:2,       unit:'eggs',    calories:140, protein:13,   carbs:0,    fat:10   },
   { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                             meal:'Supper',    qty:0.5,     unit:'cups',    calories:10,  protein:0,    carbs:2,    fat:0    },
   { food_id:'mustard-es',                   food_name:'Mustard',                                meal:'Supper',    qty:3,       unit:'tbsp',    calories:15,  protein:0,    carbs:12,   fat:0    },
   // Pre-Sleep — the bedtime supplement stack (0-macro pills). The 4th ALA dose
@@ -5984,7 +6102,7 @@ function mergeTrainingLog(remoteEntries) {
     remoteEntries.forEach(r => {
       if (!isDone(r)) return;
       if (!out[r.date]) out[r.date] = {};
-      out[r.date][r.exercise] = { done: true, focus: r.focus || '', updated: r.updated || '' };
+      out[r.date][r.exercise] = { done: true, focus: r.focus || '', updated: r.updated || '', weight: r.weight != null ? String(r.weight) : '' };
     });
     saveTrainingData(out);
     return;
@@ -5994,7 +6112,7 @@ function mergeTrainingLog(remoteEntries) {
   remoteEntries.forEach(r => {
     if (!merged[r.date]) merged[r.date] = {};
     const le = merged[r.date][r.exercise];
-    const re = { done: isDone(r), focus: r.focus || '', updated: r.updated || '' };
+    const re = { done: isDone(r), focus: r.focus || '', updated: r.updated || '', weight: r.weight != null ? String(r.weight) : '' };
     if (!le) { if (re.done) merged[r.date][r.exercise] = re; }
     else if (ts(re.updated) > ts(le.updated)) {
       if (re.done) merged[r.date][r.exercise] = re;
@@ -6114,13 +6232,28 @@ function renderTraining() {
       const allEx = exs.concat(extras);
       const doneCount = allEx.filter(e => doneMap[e] && doneMap[e].done).length;
       const rows = allEx.map(e => {
-        const on = doneMap[e] && doneMap[e].done;
+        const st = doneMap[e];
+        const on = st && st.done;
         const extra = !planSet.has(e);
-        return `<button class="train-ex ${on ? 'on' : ''}" onclick="toggleTrainingExercise('${attrEsc(e)}')" aria-label="${on ? 'Uncheck ' : 'Check '}${esc(e)}">
-          <span class="train-box ${on ? 'on' : ''}">${on ? '✓' : ''}</span>
-          <span class="train-ex-name">${esc(e)}</span>
-          ${extra ? '<span class="train-ex-added">added</span>' : ''}
-        </button>`;
+        // Max-weight logger (2026-07-09): visible once the exercise is checked.
+        // One number = the heaviest weight used today. Change/blur enqueues the
+        // same setTrainingExercise upsert with the weight riding along.
+        const wtVal = (on && st.weight != null && st.weight !== '') ? String(st.weight) : '';
+        const wtInput = on ? `<span class="train-wt-wrap">
+            <input class="train-wt" type="number" inputmode="decimal" min="0" max="2000" step="0.5"
+              placeholder="max" value="${attrEsc(wtVal)}"
+              onchange="setTrainingWeight('${attrEsc(e)}', this.value)"
+              aria-label="Max weight in pounds for ${esc(e)}">
+            <span class="train-wt-unit">lb</span>
+          </span>` : '';
+        return `<div class="train-ex-row">
+          <button class="train-ex ${on ? 'on' : ''}" onclick="toggleTrainingExercise('${attrEsc(e)}')" aria-label="${on ? 'Uncheck ' : 'Check '}${esc(e)}">
+            <span class="train-box ${on ? 'on' : ''}">${on ? '✓' : ''}</span>
+            <span class="train-ex-name">${esc(e)}</span>
+            ${extra ? '<span class="train-ex-added">added</span>' : ''}
+          </button>
+          ${wtInput}
+        </div>`;
       }).join('');
       const addRow = `<div class="train-add">
         <input id="train-add-input" class="train-add-input" type="text" maxlength="60" placeholder="Add an exercise you did…" onkeydown="if(event.key==='Enter'){event.preventDefault();addTrainingExercise();}" aria-label="Add an exercise">
@@ -6213,6 +6346,31 @@ function selectTrainingWorkout(dayKey) {
 function refreshHabitsIfVisible() {
   const habitsPanel = document.getElementById('panel-habits');
   if (habitsPanel && habitsPanel.classList.contains('active')) renderHabits();
+}
+
+// Max-weight logger (2026-07-09). Stores the day's heaviest load for a checked
+// exercise — Ethan's chosen granularity: ONE number per exercise per day, not
+// sets×reps (declined 7/02; max-weight agreed 7/09). Empty string clears it.
+// The write is the same setTrainingExercise upsert (done stays TRUE); the
+// backend preserves fields absent from other writers' payloads, so a plain
+// check-off from another device can't wipe a logged weight.
+function setTrainingWeight(exercise, value) {
+  const date = trainingViewDate;
+  const data = getTrainingData();
+  const st = data[date] && data[date][exercise];
+  if (!st || !st.done) { renderTraining(); return; }
+  let v = String(value == null ? '' : value).trim();
+  if (v !== '') {
+    const n = Number(v);
+    if (!isFinite(n) || n < 0 || n > 2000) { renderTraining(); return; }  // reject junk, keep prior value
+    v = String(n);
+  }
+  if ((st.weight || '') === v) return;   // no-op — don't enqueue a redundant write
+  st.weight = v;
+  st.updated = new Date().toISOString();
+  saveTrainingData(data);
+  enqueueWrite('setTrainingExercise', { date, focus: st.focus || '', exercise, done: 'TRUE', weight: v });
+  renderTraining();
 }
 
 function toggleTrainingExercise(exercise) {
@@ -7443,6 +7601,13 @@ function mergeJournalEntries(local, remote) {
   // Set date label in header (MacroFactor style)
   setHeaderDateLabel(td);
 
+  // Apply the last-cached shared config instantly (target box, pace line,
+  // phases); a fresh copy is pulled below alongside the other sheet pulls.
+  try {
+    const cachedCfg = JSON.parse(localStorage.getItem(CONFIG_CACHE_KEY) || 'null');
+    if (cachedCfg) applySharedConfig(cachedCfg);
+  } catch(e) {}
+
   // Load food library from localStorage cache so the dropdown is ready instantly
   try {
     const cached = JSON.parse(localStorage.getItem(FOOD_LIBRARY_CACHE_KEY));
@@ -7517,6 +7682,8 @@ function mergeJournalEntries(local, remote) {
   const sheetsUrl = getSheetsUrl();
   if (sheetsUrl) {
     updateSyncUI('yellow','Connecting to Google Sheets...');
+    // Shared config — fire-and-forget; applies + re-renders when it lands.
+    pullConfigFromSheets();
     // Pull weight, food entries, food library, habits, DEXA, skip dates, and
     // Google Health (Fitbit) sleep in parallel. GH sleep is read-only — used by
     // the nightly check-in to grade hours-asleep against the perfect-day criteria
