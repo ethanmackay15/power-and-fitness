@@ -47,15 +47,16 @@
       --hot:         #4f52e0;   /* the one accent (indigo) */
       --cool:        #4f52e0;   /* legacy 2nd accent — folded into the one accent */
       --warn:        #d97706;
-      --good:        #0e9f6e;
-      --bad:         #dc2626;
-      --orange:      #ea580c;
-      /* Food-tab macro colors — vivid arcade trio (P red / F orange / C green),
-         tuned one notch deeper than literal neon so they stay legible on the
-         light cards. Restored 2026-07-19 at Ethan's request ("more fun"). */
-      --macro-p:     #e11d48;   /* protein — red */
-      --macro-f:     #ea580c;   /* fat — orange */
-      --macro-c:     #059669;   /* carbs — green */
+      /* Vibrant MacroFactor-style trio — one saturated red/orange/green used
+         app-wide (habits squares & %s, food macros, deltas). Brightened
+         2026-07-19 at Ethan's request ("MacroFactor colors are more vibrant"). */
+      --good:        #10b981;   /* green */
+      --bad:         #f43f5e;   /* red */
+      --orange:      #f97316;   /* orange */
+      /* Food-tab macros reuse the same trio (P red / F orange / C green). */
+      --macro-p:     var(--bad);
+      --macro-f:     var(--orange);
+      --macro-c:     var(--good);
 
       /* Clean Light extras */
       --faint:       #b3b9c2;
@@ -1777,7 +1778,7 @@
       font-family: var(--font);
       font-size: 10px;
       font-weight: 600;
-      color: #047857;
+      color: var(--good);
       letter-spacing: .04em;
       margin-top: 6px;
     }
@@ -1796,7 +1797,7 @@
       letter-spacing: .02em;
       text-transform: capitalize;
     }
-    .hm-pct { color: #047857; font-variant-numeric: tabular-nums; }
+    .hm-pct { color: var(--good); font-variant-numeric: tabular-nums; }
     .habit-heatmap-row:has(.hm-pct:contains("0%")) .hm-pct { color: var(--bad); }
     .hm-squares {
       display: grid;
@@ -1898,7 +1899,10 @@
       .stat-watchface { padding: 14px 12px; }
       /* 2026-06-21: keep the 4 bottom tabs inside the viewport — "WEIGHT" was the
          widest label and overflowed its 1/4 flex column, clipping at the screen edge. */
-      .tabs .tab { font-size: 10px; letter-spacing: .05em; padding: 15px 2px; }
+      /* 2026-07-19: bumped the mobile tab bar ~30% (10→13px, 15→20px pad) at
+         Ethan's request — labels still fit their 1/4 columns at 13px. */
+      .tabs .tab { font-size: 13px; letter-spacing: .05em; padding: 20px 2px; }
+      .tabs .tab.tab-active::before { height: 4px; }
       #tab-weight::before, #tab-food::before, #tab-habits::before, #tab-train::before { margin-right: 5px; font-size: 11px; }
       .macro-top-bar { grid-template-columns: repeat(4, 1fr); gap: 8px; }
       .macro-top-item { padding: 10px; }
@@ -7499,13 +7503,13 @@ function drawDexaChart(scans) {
   // Clean Light palette — bad/red, orange, good/green
   const series = [
     { key:'bf',   canvasId:'chart-dexa-bf',   deltaId:'dexa-delta-bf',
-      color:'#dc2626', unit:'%',  precision:1, padPct:0.10, niceStep:0.5,
+      color:'#f43f5e', unit:'%',  precision:1, padPct:0.10, niceStep:0.5,
       data: scans.map(s => s.bf),   goodDir:-1, label:'Body Fat' },
     { key:'fat',  canvasId:'chart-dexa-fat',  deltaId:'dexa-delta-fat',
-      color:'#ea580c', unit:' lb', precision:1, padPct:0.10, niceStep:1.0,
+      color:'#f97316', unit:' lb', precision:1, padPct:0.10, niceStep:1.0,
       data: scans.map(s => s.fat),  goodDir:-1, label:'Fat Mass' },
     { key:'lean', canvasId:'chart-dexa-lean', deltaId:'dexa-delta-lean',
-      color:'#0e9f6e', unit:' lb', precision:1, padPct:0.10, niceStep:1.0,
+      color:'#10b981', unit:' lb', precision:1, padPct:0.10, niceStep:1.0,
       data: scans.map(s => s.lean), goodDir:+1, label:'Lean Mass' }
   ];
 
