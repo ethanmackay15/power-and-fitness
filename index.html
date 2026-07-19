@@ -44,6 +44,12 @@
       --good:        #0e9f6e;
       --bad:         #dc2626;
       --orange:      #ea580c;
+      /* Food-tab macro colors — vivid arcade trio (P red / F orange / C green),
+         tuned one notch deeper than literal neon so they stay legible on the
+         light cards. Restored 2026-07-19 at Ethan's request ("more fun"). */
+      --macro-p:     #e11d48;   /* protein — red */
+      --macro-f:     #ea580c;   /* fat — orange */
+      --macro-c:     #059669;   /* carbs — green */
 
       /* Clean Light extras */
       --faint:       #b3b9c2;
@@ -855,9 +861,9 @@
       font-variant-numeric: tabular-nums;
     }
     .mtv-current { color: var(--hot); display: block; }
-    .macro-top-item:nth-child(2) .mtv-current { color: var(--good); }
-    .macro-top-item:nth-child(3) .mtv-current { color: #e5677a; }
-    .macro-top-item:nth-child(4) .mtv-current { color: #e9a13b; }
+    .macro-top-item:nth-child(2) .mtv-current { color: var(--macro-p); }
+    .macro-top-item:nth-child(3) .mtv-current { color: var(--macro-f); }
+    .macro-top-item:nth-child(4) .mtv-current { color: var(--macro-c); }
 
     /* Daily-totals reveal disclosure — totals hidden by default (slow-carb
        eat-to-hunger; checkable but not fixate-able). The toggle button matches
@@ -993,9 +999,9 @@
       margin-left: auto;
     }
     .food-meal-cal .mc-val { color: var(--ink); }
-    .food-meal-cal .mc-p   { color: #047857; }
-    .food-meal-cal .mc-f   { color: #be123c; }
-    .food-meal-cal .mc-c   { color: #b45309; }
+    .food-meal-cal .mc-p   { color: var(--macro-p); }
+    .food-meal-cal .mc-f   { color: var(--macro-f); }
+    .food-meal-cal .mc-c   { color: var(--macro-c); }
 
     .food-entries-list { display: flex; flex-direction: column; gap: 6px; }
     .food-entry-row {
@@ -1028,12 +1034,18 @@
       font-variant-numeric: tabular-nums;
     }
     .food-entry-detail .fd-cal { color: var(--ink); font-weight: 600; }
-    .food-entry-detail .fd-p   { color: #047857; }
-    .food-entry-detail .fd-f   { color: #be123c; }
-    .food-entry-detail .fd-c   { color: #b45309; }
+    .food-entry-detail .fd-p   { color: var(--macro-p); }
+    .food-entry-detail .fd-f   { color: var(--macro-f); }
+    .food-entry-detail .fd-c   { color: var(--macro-c); }
     .food-entry-detail .fd-sep { color: var(--faint); }
     .food-entry-detail .fd-unit,
     .food-meal-cal .mc-unit { color: #6b7280; font-weight: 400; font-size: 11px; margin-left: 1px; }
+    /* 🔥 calorie flame — restored 2026-07-19 (replaced the gray "cal" suffix) */
+    .fd-cal .cal-flame, .mc-val .cal-flame { font-size: 0.82em; margin-left: 2px; }
+    /* food-preview macros — same vivid arcade trio */
+    .food-macro-p { color: var(--macro-p); font-weight: 600; }
+    .food-macro-f { color: var(--macro-f); font-weight: 600; }
+    .food-macro-c { color: var(--macro-c); font-weight: 600; }
     .food-entry-qty { color: #6b7280; }
 
     .food-entry-actions {
@@ -2055,15 +2067,15 @@
           <div class="macro-top-vals"><span class="mtv-current" id="food-cal-count">0</span></div>
         </div>
         <div class="macro-top-item">
-          <div class="macro-top-label" style="color:#ef4444">P</div>
+          <div class="macro-top-label" style="color:var(--macro-p)">P</div>
           <div class="macro-top-vals"><span class="mtv-current" id="val-protein">0</span></div>
         </div>
         <div class="macro-top-item">
-          <div class="macro-top-label" style="color:#f59e0b">F</div>
+          <div class="macro-top-label" style="color:var(--macro-f)">F</div>
           <div class="macro-top-vals"><span class="mtv-current" id="val-fat">0</span></div>
         </div>
         <div class="macro-top-item">
-          <div class="macro-top-label" style="color:#10b981">C</div>
+          <div class="macro-top-label" style="color:var(--macro-c)">C</div>
           <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span></div>
         </div>
       </div>
@@ -5659,7 +5671,7 @@ function renderFood() {
         <div class="food-entry-info">
           <span class="food-entry-name">${esc(e.food_name)}</span>
           <div class="food-entry-detail">
-            <span class="fd-cal">${e.calories}<span class="fd-unit">cal</span></span>
+            <span class="fd-cal">${e.calories}<span class="cal-flame">🔥</span></span>
             <span class="fd-p">${e.protein}P</span>
             <span class="fd-f">${e.fat}F</span>
             <span class="fd-c">${e.carbs}C</span>
@@ -5679,7 +5691,7 @@ function renderFood() {
       <div class="food-meal-header">
         <span class="food-meal-name">${esc(g.meal)}</span>
         <span class="food-meal-cal">
-          <span class="mc-val">${Math.round(mCal)}<span class="mc-unit">cal</span></span>
+          <span class="mc-val">${Math.round(mCal)}<span class="cal-flame">🔥</span></span>
           <span class="mc-p">${mP.toFixed(0)}P</span>
           <span class="mc-f">${mF.toFixed(0)}F</span>
           <span class="mc-c">${mC.toFixed(0)}C</span>
