@@ -6073,11 +6073,38 @@ async function pullFoodLibraryFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    // Phase-aware source: maintenance weeks pull the maintenance plan, cut weeks
-    // the standard plan (mealPlanSourceType honors the sticky manual override).
-    const res  = await noCacheFetch(url + '?type=' + mealPlanSourceType());
+    // The food LIBRARY (`foods[]` → FOOD_DB) is a phase-INDEPENDENT master list —
+    // ALWAYS pull it from the full standard plan (?type=mealplan). Only the autopop
+    // TEMPLATE (`planTemplate`) is phase-aware.
+    //
+    // 2026-07-21 BUGFIX: last night (7/20) this was repointed to
+    // `?type=`+mealPlanSourceType(), so during the diet break it fetched the
+    // maintenance plan's SMALLER library (the "Maintenance Daily Meal Plan" tab
+    // carries only the foods that plan uses). That library is a strict subset of
+    // the full one — it silently dropped Broccoli (Whole Foods, Frozen),
+    // Broccoli (Raw), Sardines (Connetable), Spindrift (Lime). Ethan flagged the
+    // missing Whole Foods broccoli. Fix: library always from the full plan; the
+    // maintenance TEMPLATE is swapped in below without shrinking the library.
+    const res  = await noCacheFetch(url + '?type=mealplan');
     const data = await res.json();
-    return data.ok ? data : null;
+    if (!data || !data.ok) return null;
+
+    const src = mealPlanSourceType();
+    if (src === 'mealplan') return data;  // cut phase / manual "Cut" override — one fetch covers both
+
+    // Maintenance/reverse phase (or manual "Maint"): keep the FULL library, but
+    // swap in the phase-appropriate autopop template. Second fetch is only for its
+    // planTemplate. If it fails, degrade gracefully to the full plan's template
+    // (autopop seeds the cut plan for the day — the manual override still exists),
+    // which is strictly better than shrinking the library.
+    try {
+      const mres  = await noCacheFetch(url + '?type=' + src);
+      const mdata = await mres.json();
+      if (mdata && mdata.ok && Array.isArray(mdata.planTemplate) && mdata.planTemplate.length) {
+        return { ...data, planTemplate: mdata.planTemplate };
+      }
+    } catch(e) {}
+    return data;
   } catch(e) { return null; }
 }
 
