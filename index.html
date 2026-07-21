@@ -1952,6 +1952,14 @@
     <button class="scanline-toggle-btn" id="scanline-toggle-btn" onclick="toggleScanlines()">ON</button>
   </div>
 
+  <label style="margin-top:12px">Daily meal plan source</label>
+  <div id="mealplan-source-row" style="display:flex;gap:6px">
+    <button type="button" class="btn-outline" style="flex:1" data-src="auto"  onclick="setMealPlanSource('auto')">Auto</button>
+    <button type="button" class="btn-outline" style="flex:1" data-src="cut"   onclick="setMealPlanSource('cut')">Cut</button>
+    <button type="button" class="btn-outline" style="flex:1" data-src="maint" onclick="setMealPlanSource('maint')">Maint</button>
+  </div>
+  <div class="hint" id="mealplan-source-hint">Auto follows your plan phases.</div>
+
   <label>Apps Script Web App URL</label>
   <input type="text" id="sheets-url" placeholder="https://script.google.com/macros/s/..." />
   <div class="hint">Deploy the Apps Script in your Google Sheet and paste the URL here.</div>
@@ -2502,6 +2510,40 @@ const DEFAULT_PHASES = [
 function activePhases() {
   return (SHARED_CONFIG && Array.isArray(SHARED_CONFIG.phases) && SHARED_CONFIG.phases.length)
     ? SHARED_CONFIG.phases : DEFAULT_PHASES;
+}
+
+// ── Meal-plan source (phase auto-switch) ─────────────────────────────────────
+// The daily autopop pulls its template from one of two Sheet tabs: the standard
+// weekday plan (?type=mealplan) or the diet-break maintenance plan
+// (?type=maintenanceMealPlan). Which one is NOT a per-day question — it follows
+// the plan phase calendar (activePhases()): maintenance/reverse weeks use the
+// maintenance plan, cut weeks use the standard plan. So the app decides on its
+// own at each day's boot, zero taps. A sticky manual override ('cut'/'maint')
+// covers genuine exceptions and persists until switched back to 'auto' — it is
+// NOT a modal that re-asks every morning. Added 2026-07-20.
+const MEALPLAN_SOURCE_KEY = 'mealPlanSourceOverride_v1';   // 'auto' | 'cut' | 'maint'
+function getMealPlanSourceOverride() {
+  try { const v = localStorage.getItem(MEALPLAN_SOURCE_KEY); return (v === 'cut' || v === 'maint') ? v : 'auto'; }
+  catch (e) { return 'auto'; }
+}
+function setMealPlanSourceOverride(v) {
+  try { localStorage.setItem(MEALPLAN_SOURCE_KEY, (v === 'cut' || v === 'maint') ? v : 'auto'); } catch (e) {}
+}
+// Phase type covering a given date ('cut' | 'maint' | 'rev' | null). Phase
+// bounds are YYYY-MM-DD strings, same lexical-compare pattern as the journey chip.
+function activePhaseType(dateStr) {
+  const d = dateStr || today();
+  const ph = activePhases().find(p => d >= p.start && d <= p.end);
+  return ph ? ph.type : null;
+}
+// The ?type= endpoint the given day's autopop should draw from.
+function mealPlanSourceType(dateStr) {
+  const ov = getMealPlanSourceOverride();
+  if (ov === 'cut')   return 'mealplan';
+  if (ov === 'maint') return 'maintenanceMealPlan';
+  // auto — maintenance phases get the maintenance plan; cut/reverse/off-plan
+  // all fall through to the standard weekday plan.
+  return activePhaseType(dateStr) === 'maint' ? 'maintenanceMealPlan' : 'mealplan';
 }
 
 function applySharedConfig(cfg) {
@@ -3313,6 +3355,42 @@ function toggleSettings() {
   document.getElementById('settings-overlay').classList.toggle('open');
   if (document.getElementById('settings-panel').classList.contains('open')) {
     document.getElementById('sheets-url').value = getSheetsUrl();
+    refreshMealPlanSourceUI();
+  }
+}
+
+// Reflect the current meal-plan source override in the Settings segmented control
+// and describe what "Auto" resolves to today.
+function refreshMealPlanSourceUI() {
+  const ov = getMealPlanSourceOverride();
+  document.querySelectorAll('#mealplan-source-row button').forEach(b => {
+    const on = b.dataset.src === ov;
+    b.classList.toggle('btn', on);
+    b.classList.toggle('btn-outline', !on);
+  });
+  const hint = document.getElementById('mealplan-source-hint');
+  if (!hint) return;
+  const resolved = mealPlanSourceType() === 'maintenanceMealPlan' ? 'maintenance' : 'cut';
+  hint.textContent = (ov === 'auto')
+    ? 'Auto follows your plan phases — today resolves to the ' + resolved + ' plan. Maintenance weeks autopop the maintenance plan; cut weeks the standard plan.'
+    : 'Manual override: always autopop the ' + (ov === 'maint' ? 'maintenance' : 'cut') + ' plan until you switch back to Auto.';
+}
+
+// Persist a source choice and immediately re-pull the template from the newly
+// selected tab so macro targets + the next autopop reflect it. Does NOT rewrite
+// food already logged today — the switch governs autopop going forward.
+async function setMealPlanSource(v) {
+  setMealPlanSourceOverride(v);
+  refreshMealPlanSourceUI();
+  const lib = await pullFoodLibraryFromSheets();
+  if (lib && Array.isArray(lib.foods) && lib.foods.length) {
+    FOOD_DB = lib.foods;
+    if (Array.isArray(lib.planTemplate) && lib.planTemplate.length) {
+      setRawPlanTotalsFromTemplate(lib.planTemplate);
+      MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(lib.planTemplate);
+      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch (e) {}
+    }
+    if (document.getElementById('panel-food')?.classList.contains('active')) { populateFoodSelect(); renderFood(); }
   }
 }
 
@@ -5995,7 +6073,9 @@ async function pullFoodLibraryFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    const res  = await noCacheFetch(url + '?type=mealplan');
+    // Phase-aware source: maintenance weeks pull the maintenance plan, cut weeks
+    // the standard plan (mealPlanSourceType honors the sticky manual override).
+    const res  = await noCacheFetch(url + '?type=' + mealPlanSourceType());
     const data = await res.json();
     return data.ok ? data : null;
   } catch(e) { return null; }
