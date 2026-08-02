@@ -210,7 +210,7 @@
       </li>
     </ul></div>
   </div>
-  <p style="font-size:11px;color:var(--faint);margin-top:16px"><span id="dataStatus">Loading live data…</span> · v38 · 2026-07-31 · moved the Blood Panel note 8/01 → 8/22 (rescheduled). · v37 · 2026-07-31 · retitled &ldquo;Full History &amp; Short-Term Plan&rdquo; → &ldquo;Power Dashboard – History and Plan&rdquo; (tab title + H1). · v36 · 2026-07-29 · auto-fetches weight, food, DEXA &amp; skip-days live from the Power sheet on every open and computes &ldquo;today&rdquo; from the clock — no more manual refresh. Falls back to the last saved snapshot if the sheet is unreachable. Since v23 the <b>phase plan, goal target &amp; maintenance boundary also load live</b> from the sheet's <b>Config</b> tab (<code>?type=config</code>) — the baked copies in this file are offline fallbacks only; travel/strategy annotations remain hand-maintained. Calorie values sit on the bean-corrected scale (the sheet itself was corrected 6/20). The in-progress week hides its averages behind a <b>Reveal ▸</b> button — click it once you've finished eating Saturday and it re-pulls the sheet, folds in that day's logged calories &amp; weigh-in, and unveils the full-week verdict. It resets on reload; the week finalizes on its own once the calendar rolls past Saturday. (v33: reskinned to Clean Light to match the app — Inter, white cards on a soft gray page, one indigo accent, hairline borders + soft shadows; phase color-coding kept as light tints of the app's trio (cut→rose, maintenance→indigo, reverse→green, DEXA/today→amber). Visual layer only; all layout + render logic unchanged. v36 (2026-07-29): added a "Skip day" item to the legend with a hatched swatch matching the calendar's diagonal skip shading — the hatch was the only meaningful calendar mark with no legend entry (skip days are dropped from the weekly calorie average). Swatch hatch uses a higher opacity (.30) than the real cell overlay (~.05) so the pattern reads at 14px. v35 (2026-07-29): replaced the single "Deload Week" note with a bookended pair — "Deload Start" on 7/19 and "Deload End" on 7/28 (Ethan's call to mark start & end on their own calendar dates). Deload extended past the planned wk1, then ended the morning of 7/29 (felt lethargic, resumed a real lift), so it closed 7/28. v34 (2026-07-23): re-planned the back half for sustainability + Thanksgiving — from 8/02: cut 8/02–9/19 (7 wk) · diet break 9/20–10/03 (2 wk) · cut 10/04–11/14 (6 wk) · diet break 11/15–11/28 (2 wk, covers Thanksgiving Thu 11/26) · cut 11/29–12/12 (2 wk) · reverse diet 12/13–1/23/27 (6 wk). No block over 7 weeks; ~15 wk total cut still sized to reach ~12%. PLAN_END extended 1/02→1/23; added a Thanksgiving 11/26 note. Live copy is the Config tab `phases` key (paste the new JSON there — that's what the app + board actually read); this baked PHASES fallback + index.html DEFAULT_PHASES refreshed to match. v31: daily calorie cells no longer turn red at maintenance — a single day only reddens at ≥3,250 (DAY_CAL_RED, ~200 over the treat ceiling) so a normal treat day near ~3,050 reads neutral, not alarm-red (Ethan, 7/12); applies to both the calendar cells and the Reveal-painted current-day cell. The weekly-average chip still reddens at maintenance. v32: daily calorie sums now filter tombstoned autopop rows (<code>?type=deletedPlanIds</code>) exactly as index.html does — fixes the app-vs-dashboard drift where an autopop item deleted in the app still lingered in the Food sheet and inflated the board (7/19 read 2,906 vs the app's correct 2,868 from a deleted breakfast broccoli); the Saturday Reveal path filters them too. v30: renamed the 7/19 diet-break calendar note "Active Rest Week" → "Deload Week" (RP terminology, Ethan's call 7/12) and repointed the protocol-doc reference to "Slow-Carb Experiment - v18 2026-07-12.md". v29: Reveal now also paints the current/treat day's OWN calorie number into its calendar cell — previously Reveal only updated the weekly-average cell and the day's figure stayed blank until the next-day reload; it uses the same day-total folded into the average so cell and average always agree, and resets on reload like the rest of the ephemeral reveal. v28: relabeled — 8/01 note "Blood Panel", 9/26 "WNBF Show" (emoji removed). v27: added Function blood panel note on 8/01 (trip-style marker, no icon); "Active rest wk" → "Active Rest Week". v26: added the diet-break travel — ✈ To Minneapolis 7/23, ✈ To SF 7/26 (Eaux Claires; lands in the active-rest week). v25: diet-break annotations slimmed same day at Ethan's direction — just a plain &ldquo;Active rest wk&rdquo; note on 7/19 (standard strat text style, no calories, no special shading); the break's execution spec lives in the DIET BREAK section of &ldquo;Slow-Carb Experiment - v17 2026-07-10.md&rdquo; (wk1 active rest ~2,750 · wk2 ramp ~2,850–2,875). v23: PHASES/GOAL/maintenance-boundary now fetched from the Config tab with baked fallbacks; added an 8s fetch timeout so a hung endpoint falls back instead of loading forever; guarded against empty weight/dexa responses. v22: re-parameterized the goal target for the cut-then-first-bulk plan — 12% BF at +1 lb lean from the 6/27 scan → 176.5 lb DEXA-frame (lean 147.6, fat 21.2; home scale reads ~2.1 lb lighter → ~174.4 scale-frame). The 181.5/152/21.8 recomp target is retired from the UI and reserved as the post-bulk ultimate. v21: added a 9/26 calendar annotation for the WNBF Fremont natural bodybuilding show (spectating) — new gold &ldquo;event&rdquo; note style. v20: removed the header subtitle line. v19: bottom-of-board cleanup — removed the "How to read it" card and renamed "Why it's built this way" → "Principles to remember" (now a single full-width card); the reward bullet became "The long-term tentative plan" (reach 12% → reverse diet to a new set point; 2027 first-ever bulk). v18: pulled the back-half plan earlier by a week to dodge a travel conflict — current cut now ends 7/18 (11 wks), maintenance 7/19–8/01, cut 8/02–9/26 (8 wks), maintenance 9/27–10/10, final cut 10/11–11/21 (now 6 wks, absorbs the shifted week), reverse diet 11/22→1/02 unchanged; planned-scan marker moved to the 7/18 boundary. v17: moved the calorie color "at/above maintenance" boundary 2,800→2,850 to match the 6/27 DEXA-anchored TDEE re-anchor — both the per-day calendar cells and the weekly-average chip now turn the cut color only at ≥2,850 (the deep-deficit markers are unchanged). v16: re-planned the back half — current cut extended to 12 wks (ends 7/25), maintenance break shifted to 7/26–8/08, then cut 8/09–10/03, maint 10/04–10/17, cut 10/18–11/21, reverse diet 11/22→1/02; latest-DEXA chip + offline fallback refreshed to 6/27 (16.3%); planned-scan marker moved to the 7/25 boundary. v15: removed the "fat to lose" chip. v14: added the Saturday Reveal button — re-fetches today's data at click time so it's accurate whenever clicked. v13: in-progress weeks gray out the weight average too — both verdicts reveal together. v12: switched from a baked-in data snapshot to live fetch + auto-date.)</p>
+  <p style="font-size:11px;color:var(--faint);margin-top:16px"><span id="dataStatus">Loading live data…</span> · v40 · 2026-08-01 · root-caused the &ldquo;stuck offline&rdquo; bug — the board now pulls per-date calorie SUMS via the new <code>?type=foodDailyTotals</code> endpoint (server aggregates + tombstone-filters) instead of the full ~740KB food-row dump, dropping the two slowest endpoints (food + deletedPlanIds); needs the Apps Script redeployed (SCRIPT_VERSION v2026-08-01a). · v39 · 2026-08-01 · first pass — retry-once with a 20s timeout (was a single 8s try) so an Apps Script cold-start + the ~740KB food payload no longer trips the board into the stale snapshot (kept as belt-and-suspenders). · v38 · 2026-07-31 · moved the Blood Panel note 8/01 → 8/22 (rescheduled). · v37 · 2026-07-31 · retitled &ldquo;Full History &amp; Short-Term Plan&rdquo; → &ldquo;Power Dashboard – History and Plan&rdquo; (tab title + H1). · v36 · 2026-07-29 · auto-fetches weight, food, DEXA &amp; skip-days live from the Power sheet on every open and computes &ldquo;today&rdquo; from the clock — no more manual refresh. Falls back to the last saved snapshot if the sheet is unreachable. Since v23 the <b>phase plan, goal target &amp; maintenance boundary also load live</b> from the sheet's <b>Config</b> tab (<code>?type=config</code>) — the baked copies in this file are offline fallbacks only; travel/strategy annotations remain hand-maintained. Calorie values sit on the bean-corrected scale (the sheet itself was corrected 6/20). The in-progress week hides its averages behind a <b>Reveal ▸</b> button — click it once you've finished eating Saturday and it re-pulls the sheet, folds in that day's logged calories &amp; weigh-in, and unveils the full-week verdict. It resets on reload; the week finalizes on its own once the calendar rolls past Saturday. (v33: reskinned to Clean Light to match the app — Inter, white cards on a soft gray page, one indigo accent, hairline borders + soft shadows; phase color-coding kept as light tints of the app's trio (cut→rose, maintenance→indigo, reverse→green, DEXA/today→amber). Visual layer only; all layout + render logic unchanged. v36 (2026-07-29): added a "Skip day" item to the legend with a hatched swatch matching the calendar's diagonal skip shading — the hatch was the only meaningful calendar mark with no legend entry (skip days are dropped from the weekly calorie average). Swatch hatch uses a higher opacity (.30) than the real cell overlay (~.05) so the pattern reads at 14px. v35 (2026-07-29): replaced the single "Deload Week" note with a bookended pair — "Deload Start" on 7/19 and "Deload End" on 7/28 (Ethan's call to mark start & end on their own calendar dates). Deload extended past the planned wk1, then ended the morning of 7/29 (felt lethargic, resumed a real lift), so it closed 7/28. v34 (2026-07-23): re-planned the back half for sustainability + Thanksgiving — from 8/02: cut 8/02–9/19 (7 wk) · diet break 9/20–10/03 (2 wk) · cut 10/04–11/14 (6 wk) · diet break 11/15–11/28 (2 wk, covers Thanksgiving Thu 11/26) · cut 11/29–12/12 (2 wk) · reverse diet 12/13–1/23/27 (6 wk). No block over 7 weeks; ~15 wk total cut still sized to reach ~12%. PLAN_END extended 1/02→1/23; added a Thanksgiving 11/26 note. Live copy is the Config tab `phases` key (paste the new JSON there — that's what the app + board actually read); this baked PHASES fallback + index.html DEFAULT_PHASES refreshed to match. v31: daily calorie cells no longer turn red at maintenance — a single day only reddens at ≥3,250 (DAY_CAL_RED, ~200 over the treat ceiling) so a normal treat day near ~3,050 reads neutral, not alarm-red (Ethan, 7/12); applies to both the calendar cells and the Reveal-painted current-day cell. The weekly-average chip still reddens at maintenance. v32: daily calorie sums now filter tombstoned autopop rows (<code>?type=deletedPlanIds</code>) exactly as index.html does — fixes the app-vs-dashboard drift where an autopop item deleted in the app still lingered in the Food sheet and inflated the board (7/19 read 2,906 vs the app's correct 2,868 from a deleted breakfast broccoli); the Saturday Reveal path filters them too. v30: renamed the 7/19 diet-break calendar note "Active Rest Week" → "Deload Week" (RP terminology, Ethan's call 7/12) and repointed the protocol-doc reference to "Slow-Carb Experiment - v18 2026-07-12.md". v29: Reveal now also paints the current/treat day's OWN calorie number into its calendar cell — previously Reveal only updated the weekly-average cell and the day's figure stayed blank until the next-day reload; it uses the same day-total folded into the average so cell and average always agree, and resets on reload like the rest of the ephemeral reveal. v28: relabeled — 8/01 note "Blood Panel", 9/26 "WNBF Show" (emoji removed). v27: added Function blood panel note on 8/01 (trip-style marker, no icon); "Active rest wk" → "Active Rest Week". v26: added the diet-break travel — ✈ To Minneapolis 7/23, ✈ To SF 7/26 (Eaux Claires; lands in the active-rest week). v25: diet-break annotations slimmed same day at Ethan's direction — just a plain &ldquo;Active rest wk&rdquo; note on 7/19 (standard strat text style, no calories, no special shading); the break's execution spec lives in the DIET BREAK section of &ldquo;Slow-Carb Experiment - v17 2026-07-10.md&rdquo; (wk1 active rest ~2,750 · wk2 ramp ~2,850–2,875). v23: PHASES/GOAL/maintenance-boundary now fetched from the Config tab with baked fallbacks; added an 8s fetch timeout so a hung endpoint falls back instead of loading forever; guarded against empty weight/dexa responses. v22: re-parameterized the goal target for the cut-then-first-bulk plan — 12% BF at +1 lb lean from the 6/27 scan → 176.5 lb DEXA-frame (lean 147.6, fat 21.2; home scale reads ~2.1 lb lighter → ~174.4 scale-frame). The 181.5/152/21.8 recomp target is retired from the UI and reserved as the post-bulk ultimate. v21: added a 9/26 calendar annotation for the WNBF Fremont natural bodybuilding show (spectating) — new gold &ldquo;event&rdquo; note style. v20: removed the header subtitle line. v19: bottom-of-board cleanup — removed the "How to read it" card and renamed "Why it's built this way" → "Principles to remember" (now a single full-width card); the reward bullet became "The long-term tentative plan" (reach 12% → reverse diet to a new set point; 2027 first-ever bulk). v18: pulled the back-half plan earlier by a week to dodge a travel conflict — current cut now ends 7/18 (11 wks), maintenance 7/19–8/01, cut 8/02–9/26 (8 wks), maintenance 9/27–10/10, final cut 10/11–11/21 (now 6 wks, absorbs the shifted week), reverse diet 11/22→1/02 unchanged; planned-scan marker moved to the 7/18 boundary. v17: moved the calorie color "at/above maintenance" boundary 2,800→2,850 to match the 6/27 DEXA-anchored TDEE re-anchor — both the per-day calendar cells and the weekly-average chip now turn the cut color only at ≥2,850 (the deep-deficit markers are unchanged). v16: re-planned the back half — current cut extended to 12 wks (ends 7/25), maintenance break shifted to 7/26–8/08, then cut 8/09–10/03, maint 10/04–10/17, cut 10/18–11/21, reverse diet 11/22→1/02; latest-DEXA chip + offline fallback refreshed to 6/27 (16.3%); planned-scan marker moved to the 7/25 boundary. v15: removed the "fat to lose" chip. v14: added the Saturday Reveal button — re-fetches today's data at click time so it's accurate whenever clicked. v13: in-progress weeks gray out the weight average too — both verdicts reveal together. v12: switched from a baked-in data snapshot to live fetch + auto-date.)</p>
 </div>
 
 <script>
@@ -287,7 +287,8 @@ const FALLBACK_CHIPS={weight:183.0, dexaBf:16.3, dexaDate:'2026-06-27', fatToLos
 // Populated by init() — from live data when reachable, else the fallback snapshot.
 let TODAY, DAILY, DEXA, DEXADATA, dexaSet, MILESTONES;
 let TODAY_CAL=null;                 // today's logged calories (held out of the daily map; used by the reveal)
-let DELETED_PLAN_IDS=new Set();     // tombstoned autopop rows (deletedPlanIds) — excluded from calorie sums, mirrors index.html
+// (v40 2026-08-01: tombstone filtering moved server-side into ?type=foodDailyTotals,
+//  so the client no longer pulls deletedPlanIds or maintains a DELETED_PLAN_IDS set.)
 let revealCurrentWeek=false;        // ephemeral: the Saturday "reveal verdict" click, resets on reload
 let curWeekVerdict=null;            // computed averages for the in-progress week
 
@@ -295,11 +296,10 @@ let curWeekVerdict=null;            // computed averages for the in-progress wee
 function localToday(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 function normDate(s){const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];const t=new Date(s);return isNaN(t)?String(s).slice(0,10):t.toISOString().slice(0,10);}
 function fmtDexaDate(isoDate){const p=isoDate.split('-');return (+p[1])+'/'+String(+p[2]).padStart(2,'0');}
-async function fetchType(type){
-  // v23: 8s abort timeout (mirrors treat-dashboard). Without it a HUNG (not
-  // failed) endpoint left the board on "Loading live data…" forever with no
-  // offline banner — now it falls back like any other fetch failure.
-  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),8000);
+async function fetchOnce(type,timeoutMs){
+  // Abort timeout guards against a HUNG (not failed) endpoint leaving the board
+  // on "Loading live data…" forever with no offline banner.
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),timeoutMs);
   try{
     const r=await fetch(WEBAPP_URL+'?type='+type+'&_='+Date.now(),{cache:'no-store',signal:ctl.signal});
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -307,6 +307,35 @@ async function fetchType(type){
     if(!j||j.ok!==true) throw new Error('bad response for '+type);
     return j;
   } finally { clearTimeout(to); }
+}
+// v39 (2026-08-01): retry-once with a 20s abort (was a single 8s try). Apps
+// Script cold-starts + the heavy ~740KB `food` payload routinely blew the old
+// 8s budget — the first (cold) hit hangs/times out while the warm retry returns
+// in ~6-8s — which rejected the whole Promise.all in loadLive() and flipped the
+// board to the STALE offline snapshot even though the sheet was perfectly fine
+// (measured 2026-08-01: cold food = 30-45s/timeout, dexa 9.6s, deletedPlanIds
+// 16.6s — all over 8s; warm retries 6-8s). The retry hits a now-warmed script.
+async function fetchType(type){
+  try{ return await fetchOnce(type,20000); }
+  catch(e){ return await fetchOnce(type,20000); }   // warm-up retry after a cold-start miss
+}
+// v40: pull daily calorie totals. Prefers the lightweight server-aggregated
+// endpoint (?type=foodDailyTotals, SCRIPT_VERSION v2026-08-01a+); if the backend
+// hasn't been redeployed yet that's an unknown type, so we fall back to the full
+// ?type=food dump + deletedPlanIds and aggregate client-side — SAME result, just
+// heavier/slower (the v39 retry+20s carries it). Lets the board work both before
+// and after the redeploy. Returns { totals:{ 'YYYY-MM-DD': cal, ... } }.
+async function fetchFoodTotals(){
+  try{
+    const f=await fetchType('foodDailyTotals');
+    if(f&&f.totals) return {totals:f.totals};
+  }catch(e){ /* endpoint not deployed yet — fall through to legacy path */ }
+  const [f,dp]=await Promise.all([fetchType('food'),fetchType('deletedPlanIds')]);
+  const del=new Set((dp&&dp.ids)||[]);
+  const totals={};
+  (f.entries||[]).forEach(e=>{ if(e.id&&del.has(e.id)) return; const d=normDate(e.date); totals[d]=(totals[d]||0)+(Number(e.calories)||0); });
+  Object.keys(totals).forEach(d=>{ totals[d]=Math.round(totals[d]); });
+  return {totals};
 }
 // v23: shared-config pull — best-effort, separate from loadLive so an old
 // backend deployment (no `config` route yet) or a config hiccup can NEVER cost
@@ -327,22 +356,24 @@ function setGoalChip(g){
   set('goalBf',g.bf); lb('goalW',g.weight); lb('goalLean',g.lean); lb('goalFat',g.fat);
 }
 async function loadLive(){
-  const [w,f,dx,sk,dp]=await Promise.all([fetchType('weight'),fetchType('food'),fetchType('dexa'),fetchType('skipDates'),fetchType('deletedPlanIds')]);
+  // v40 (2026-08-01): pull per-date calorie SUMS via ?type=foodDailyTotals instead
+  // of the full ?type=food row dump (~740KB). The server aggregates AND tombstone-
+  // filters (deleted autopop plan-* rows), so this drops the two slowest endpoints
+  // (food + deletedPlanIds — measured 30-45s + 16.6s cold) and returns a few KB.
+  // See the getFoodDailyTotals() note in google-apps-script.js. Sums match the app
+  // and ?type=food exactly (same filter + date normalization, server-side).
+  const [w,f,dx,sk]=await Promise.all([fetchType('weight'),fetchFoodTotals(),fetchType('dexa'),fetchType('skipDates')]);
   const today=localToday(), daily={};
-  // Tombstoned autopop rows: when Ethan deletes an autopop item in the app, its id is recorded
-  // in deletedPlanIds but the row can linger in the Food sheet — index.html filters these, so the
-  // dashboard must too, or it double-counts. Canonical case 2026-07-19: dashboard read 2,906 vs the
-  // app's 2,868 because a deleted breakfast broccoli (plan-broccoli-b, 38 cal) was still summed here.
-  DELETED_PLAN_IDS=new Set((dp&&dp.ids)||[]);
   // weigh-ins (filtered to the board window)
   (w.entries||[]).forEach(e=>{const d=normDate(e.date);
     if(d<CAL_START||d>PLAN_END||e.weight===''||e.weight==null) return;
     (daily[d]=daily[d]||{}).w=Math.round(Number(e.weight)*10)/10;});
-  // daily calorie totals — hold out TODAY (autopop plan, not finalized) and any future day
+  // daily calorie totals (already tombstone-filtered + summed server-side) — hold
+  // out TODAY (autopop plan, not finalized) and any future day
   const ftot={};
-  (f.entries||[]).forEach(e=>{ if(e.id&&DELETED_PLAN_IDS.has(e.id)) return; const d=normDate(e.date); ftot[d]=(ftot[d]||0)+(Number(e.calories)||0);});
+  Object.keys((f&&f.totals)||{}).forEach(k=>{ ftot[normDate(k)]=Math.round(Number(f.totals[k])||0); });
   Object.keys(ftot).forEach(d=>{ if(d<CAL_START||d>PLAN_END||d>=today) return;
-    (daily[d]=daily[d]||{}).c=Math.round(ftot[d]);});
+    (daily[d]=daily[d]||{}).c=ftot[d];});
   // skip days (excluded from weekly averages by the renderer)
   (sk.dates||[]).forEach(x=>{const d=normDate(x); (daily[d]=daily[d]||{}).skip=true;});
   // DEXA composition
@@ -394,10 +425,9 @@ async function revealWeek(){
   el.innerHTML=`<div class="wsavg pend">…</div><div class="wsk">finalizing</div>`;
   let todayCal=TODAY_CAL, todayWt=(DAILY[TODAY]&&DAILY[TODAY].w!=null)?DAILY[TODAY].w:null;
   try{
-    const [f,w]=await Promise.all([fetchType('food'),fetchType('weight')]);
-    let s=0,hasC=false;
-    (f.entries||[]).forEach(e=>{ if(e.id&&DELETED_PLAN_IDS.has(e.id)) return; if(normDate(e.date)===TODAY){ s+=Number(e.calories)||0; hasC=true; } });
-    if(hasC) todayCal=Math.round(s);
+    const [f,w]=await Promise.all([fetchFoodTotals(),fetchType('weight')]);
+    const tc=(f&&f.totals)?f.totals[TODAY]:null;   // server-summed, tombstone-filtered
+    if(tc!=null) todayCal=Math.round(Number(tc)||0);
     const tw=(w.entries||[]).find(e=>normDate(e.date)===TODAY && e.weight!==''&&e.weight!=null);
     if(tw) todayWt=Math.round(Number(tw.weight)*10)/10;
   }catch(e){ /* sheet unreachable — fall back to the values loaded at page open */ }
