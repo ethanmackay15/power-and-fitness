@@ -2479,7 +2479,7 @@ const CFG = {
   goalRate:     0.5,
   bfTarget:     12,
   lastDexaDate: '2026-06-27',
-  nextDexaDate: '2026-07-18'   // booked 2026-06-28 for 7/18 (new cut→break boundary)
+  nextDexaDate: '2026-09-12'   // booked 2026-08-03 for 9/12 7:39am (cut-end at the 8/02–9/12 cut→break boundary; 7/18 scan logged)
 };
 
 // ─── Shared Config (added 2026-07-09) ─────────────────────────────────────────
@@ -2502,10 +2502,14 @@ const DEFAULT_PHASES = [
   {type:'maint', start:'2026-04-19', end:'2026-05-02', short:'Maintenance'},
   {type:'cut',   start:'2026-05-03', end:'2026-07-18', short:'Cut'},
   {type:'maint', start:'2026-07-19', end:'2026-08-01', short:'Maintenance'},
-  {type:'cut',   start:'2026-08-02', end:'2026-09-26', short:'Cut'},
-  {type:'maint', start:'2026-09-27', end:'2026-10-10', short:'Maintenance'},
-  {type:'cut',   start:'2026-10-11', end:'2026-11-21', short:'Cut'},
-  {type:'rev',   start:'2026-11-22', end:'2027-01-02', short:'Reverse'},
+  {type:'cut',   start:'2026-08-02', end:'2026-09-12', short:'Cut'},
+  {type:'maint', start:'2026-09-13', end:'2026-09-19', short:'Maintenance'},
+  {type:'cut',   start:'2026-09-20', end:'2026-10-24', short:'Cut'},
+  {type:'maint', start:'2026-10-25', end:'2026-10-31', short:'Maintenance'},
+  {type:'cut',   start:'2026-11-01', end:'2026-11-21', short:'Cut'},
+  {type:'maint', start:'2026-11-22', end:'2026-11-28', short:'Maintenance'},
+  {type:'cut',   start:'2026-11-29', end:'2026-12-12', short:'Cut'},
+  {type:'rev',   start:'2026-12-13', end:'2027-01-23', short:'Reverse'},
 ];
 function activePhases() {
   return (SHARED_CONFIG && Array.isArray(SHARED_CONFIG.phases) && SHARED_CONFIG.phases.length)
