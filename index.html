@@ -1952,14 +1952,6 @@
     <button class="scanline-toggle-btn" id="scanline-toggle-btn" onclick="toggleScanlines()">ON</button>
   </div>
 
-  <label style="margin-top:12px">Daily meal plan source</label>
-  <div id="mealplan-source-row" style="display:flex;gap:6px">
-    <button type="button" class="btn-outline" style="flex:1" data-src="auto"  onclick="setMealPlanSource('auto')">Auto</button>
-    <button type="button" class="btn-outline" style="flex:1" data-src="cut"   onclick="setMealPlanSource('cut')">Cut</button>
-    <button type="button" class="btn-outline" style="flex:1" data-src="maint" onclick="setMealPlanSource('maint')">Maint</button>
-  </div>
-  <div class="hint" id="mealplan-source-hint">Auto follows your plan phases.</div>
-
   <label>Apps Script Web App URL</label>
   <input type="text" id="sheets-url" placeholder="https://script.google.com/macros/s/..." />
   <div class="hint">Deploy the Apps Script in your Google Sheet and paste the URL here.</div>
@@ -2516,39 +2508,19 @@ function activePhases() {
     ? SHARED_CONFIG.phases : DEFAULT_PHASES;
 }
 
-// ── Meal-plan source (phase auto-switch) ─────────────────────────────────────
-// The daily autopop pulls its template from one of two Sheet tabs: the standard
-// weekday plan (?type=mealplan) or the diet-break maintenance plan
-// (?type=maintenanceMealPlan). Which one is NOT a per-day question — it follows
-// the plan phase calendar (activePhases()): maintenance/reverse weeks use the
-// maintenance plan, cut weeks use the standard plan. So the app decides on its
-// own at each day's boot, zero taps. A sticky manual override ('cut'/'maint')
-// covers genuine exceptions and persists until switched back to 'auto' — it is
-// NOT a modal that re-asks every morning. Added 2026-07-20.
-const MEALPLAN_SOURCE_KEY = 'mealPlanSourceOverride_v1';   // 'auto' | 'cut' | 'maint'
-function getMealPlanSourceOverride() {
-  try { const v = localStorage.getItem(MEALPLAN_SOURCE_KEY); return (v === 'cut' || v === 'maint') ? v : 'auto'; }
-  catch (e) { return 'auto'; }
-}
-function setMealPlanSourceOverride(v) {
-  try { localStorage.setItem(MEALPLAN_SOURCE_KEY, (v === 'cut' || v === 'maint') ? v : 'auto'); } catch (e) {}
-}
-// Phase type covering a given date ('cut' | 'maint' | 'rev' | null). Phase
-// bounds are YYYY-MM-DD strings, same lexical-compare pattern as the journey chip.
-function activePhaseType(dateStr) {
-  const d = dateStr || today();
-  const ph = activePhases().find(p => d >= p.start && d <= p.end);
-  return ph ? ph.type : null;
-}
-// The ?type= endpoint the given day's autopop should draw from.
-function mealPlanSourceType(dateStr) {
-  const ov = getMealPlanSourceOverride();
-  if (ov === 'cut')   return 'mealplan';
-  if (ov === 'maint') return 'maintenanceMealPlan';
-  // auto — maintenance phases get the maintenance plan; cut/reverse/off-plan
-  // all fall through to the standard weekday plan.
-  return activePhaseType(dateStr) === 'maint' ? 'maintenanceMealPlan' : 'mealplan';
-}
+// ── Meal-plan source — REMOVED 2026-08-07 (Ethan's call) ─────────────────────
+// The 2026-07-20 phase auto-switch (autopop from ?type=maintenanceMealPlan
+// during maint/rev phases, with a sticky Settings override in localStorage
+// 'mealPlanSourceOverride_v1') was removed after the per-DEVICE override bit
+// twice post-break (8/02 and 8/07: a device with the override still on 'maint'
+// seeded the maintenance plan on a cut day). The app now ALWAYS autopops from
+// the standard plan (?type=mealplan). The backend ?type=maintenanceMealPlan
+// endpoint and the "Maintenance Daily Meal Plan" Sheet tab are intentionally
+// left in place — to reinstate for the next diet break (9/13), restore from
+// archive/index-2026-08-07-pre-maint-removal.html: mealPlanSourceType() +
+// activePhaseType() + the Settings source row + the second planTemplate fetch
+// in pullFoodLibraryFromSheets(). Boot clears the stale localStorage key on
+// every device so a future reinstatement starts from a clean 'auto' state.
 
 function applySharedConfig(cfg) {
   if (!cfg || typeof cfg !== 'object') return;
@@ -2934,10 +2906,17 @@ const QUEUE_MAX_BACKOFF_MS = 30000;
 const TOAST_DURATION_MS = 3500;
 const CHART_RESIZE_DEBOUNCE_MS = 150;
 // Boot autopop fallback — if the live meal-plan pull hasn't resolved within this
-// window, seed today's plan from the localStorage cache as a last resort (offline
-// or a hung network). On a normal connection the post-pull seed fires well before
-// this, so the cache is never the source when online. See seedTodayPlanOnce in init().
-const AUTOPOP_FALLBACK_MS = 8000;
+// window, seed today's plan from the localStorage cache as a last resort (a HUNG
+// network only — a failed/offline fetch rejects fast and the boot path seeds
+// immediately after Promise.all settles, so this timer never governs it).
+// 2026-08-07 CLOBBER FIX (part 3): raised 8s → 60s. A cold Apps Script start
+// routinely takes 30–45s on the ?type=food pull, so at 8s this fallback BEAT the
+// boot pull on most first-opens-of-the-day: it seeded from stale local state
+// (no rows for today, pre-today tombstones) and enqueued default-quantity
+// addFood upserts that overwrote the morning's edits from another device. 60s
+// outlasts a cold start; the only cost is a slower autopop in the rare
+// genuinely-hung-network case.
+const AUTOPOP_FALLBACK_MS = 60000;
 // Background polling — while the tab is visible, re-sync from Sheets every minute
 // so edits made on another device show up without requiring a manual refresh.
 // The interval is harmless when the tab is hidden because syncOnVisibility
@@ -3359,44 +3338,12 @@ function toggleSettings() {
   document.getElementById('settings-overlay').classList.toggle('open');
   if (document.getElementById('settings-panel').classList.contains('open')) {
     document.getElementById('sheets-url').value = getSheetsUrl();
-    refreshMealPlanSourceUI();
   }
 }
 
-// Reflect the current meal-plan source override in the Settings segmented control
-// and describe what "Auto" resolves to today.
-function refreshMealPlanSourceUI() {
-  const ov = getMealPlanSourceOverride();
-  document.querySelectorAll('#mealplan-source-row button').forEach(b => {
-    const on = b.dataset.src === ov;
-    b.classList.toggle('btn', on);
-    b.classList.toggle('btn-outline', !on);
-  });
-  const hint = document.getElementById('mealplan-source-hint');
-  if (!hint) return;
-  const resolved = mealPlanSourceType() === 'maintenanceMealPlan' ? 'maintenance' : 'cut';
-  hint.textContent = (ov === 'auto')
-    ? 'Auto follows your plan phases — today resolves to the ' + resolved + ' plan. Maintenance weeks autopop the maintenance plan; cut weeks the standard plan.'
-    : 'Manual override: always autopop the ' + (ov === 'maint' ? 'maintenance' : 'cut') + ' plan until you switch back to Auto.';
-}
-
-// Persist a source choice and immediately re-pull the template from the newly
-// selected tab so macro targets + the next autopop reflect it. Does NOT rewrite
-// food already logged today — the switch governs autopop going forward.
-async function setMealPlanSource(v) {
-  setMealPlanSourceOverride(v);
-  refreshMealPlanSourceUI();
-  const lib = await pullFoodLibraryFromSheets();
-  if (lib && Array.isArray(lib.foods) && lib.foods.length) {
-    FOOD_DB = lib.foods;
-    if (Array.isArray(lib.planTemplate) && lib.planTemplate.length) {
-      setRawPlanTotalsFromTemplate(lib.planTemplate);
-      MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(lib.planTemplate);
-      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch (e) {}
-    }
-    if (document.getElementById('panel-food')?.classList.contains('active')) { populateFoodSelect(); renderFood(); }
-  }
-}
+// refreshMealPlanSourceUI / setMealPlanSource removed 2026-08-07 with the
+// meal-plan source feature (see the removal note at the old mealPlanSourceType
+// site, ~line 2520).
 
 const SHEETS_URL_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/;
 
@@ -4248,9 +4195,24 @@ function handleDayRollover() {
   trainingViewDate = td;
   setHeaderDateLabel(td);
   if (typeof window.applyTreatDayTheme === 'function') window.applyTreatDayTheme();
-  // Autopop the new day's plan. No-ops harmlessly if the boot seed gate
-  // (_mealPlanSeedReady) hasn't opened yet — the boot path covers that case.
-  ensureTodayMealPlan();
+  // 2026-08-07 CLOBBER FIX (part 1): do NOT seed the new day from here. This
+  // runs at the top of syncOnVisibility — BEFORE the pulls — so on a resident
+  // PWA's first resume of a new day it seeded from STALE local state: no rows
+  // for today (they were logged on another device), a tombstone list predating
+  // today's deletions, and whatever template was last cached. The seed then
+  // enqueued a full day of default-quantity addFood writes, and syncFoodEntries
+  // upserts by id — so every plan row already edited on the other device that
+  // morning was overwritten back to template defaults ("opened my phone and it
+  // clobbered my morning edits", recurring since ~July). Instead, close the
+  // seed gate and let syncOnVisibility seed AFTER the pull has merged today's
+  // real rows + tombstones (see its finally block). The gate also blocks the
+  // renderFood seed path in the interim. Offline/unconfigured (no Sheets URL):
+  // no pull will ever arrive, so seed immediately, as before.
+  if (getSheetsUrl()) {
+    _mealPlanSeedReady = false;
+  } else {
+    ensureTodayMealPlan();
+  }
   // Re-render whichever tab is visible so the UI reflects the new day.
   if (document.getElementById('panel-food')?.classList.contains('active'))   renderFood();
   if (document.getElementById('panel-habits')?.classList.contains('active')) renderHabits();
@@ -4354,6 +4316,20 @@ async function syncOnVisibility(forceEvenIfHidden) {
     } catch(e) {
       updateSyncUI('red', 'Re-sync failed');
     } finally {
+      // 2026-08-07 CLOBBER FIX (part 2): if handleDayRollover() closed the seed
+      // gate at the top of this sync (device's first sight of a new day), open
+      // it and seed NOW — after the pulls above merged today's real rows and
+      // tombstones from the Sheet — so the seed diff only fills genuinely
+      // missing plan items instead of re-adding (and re-pushing over) rows
+      // already logged, edited, or deleted on another device. Runs in finally
+      // so a failed pull still autopops the day (same fallback semantics as
+      // boot); the seedOnly server guard makes even that residual harmless to
+      // the Sheet.
+      if (!_mealPlanSeedReady) {
+        _mealPlanSeedReady = true;
+        ensureTodayMealPlan();
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+      }
       _syncInFlight = null;
     }
   })();
@@ -4493,7 +4469,14 @@ function ensureTodayMealPlan() {
   const missing    = createPlanEntries(td).filter(e => !presentIds.has(e.id) && !deletedIds.has(e.id));
   if (missing.length) {
     saveFoodEntriesDB([...existing, ...missing]);
-    missing.forEach(e => enqueueWrite('addFood', e));
+    // 2026-08-07 CLOBBER FIX (part 4): seed writes carry seedOnly so the backend
+    // (v2026-08-07a+) treats them as INSERT-IF-ABSENT — a machine seed can never
+    // overwrite a row that already exists on the Sheet (i.e. one the user edited
+    // on another device) and never re-inserts a tombstoned id. User-initiated
+    // add/update writes stay full upserts. This is the durable backstop for any
+    // seed that still fires against stale state, whatever the ordering. An older
+    // deployed backend ignores the extra field (unchanged upsert behavior).
+    missing.forEach(e => enqueueWrite('addFood', { ...e, seedOnly: true }));
   }
 }
 
@@ -6077,37 +6060,12 @@ async function pullFoodLibraryFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    // The food LIBRARY (`foods[]` → FOOD_DB) is a phase-INDEPENDENT master list —
-    // ALWAYS pull it from the full standard plan (?type=mealplan). Only the autopop
-    // TEMPLATE (`planTemplate`) is phase-aware.
-    //
-    // 2026-07-21 BUGFIX: last night (7/20) this was repointed to
-    // `?type=`+mealPlanSourceType(), so during the diet break it fetched the
-    // maintenance plan's SMALLER library (the "Maintenance Daily Meal Plan" tab
-    // carries only the foods that plan uses). That library is a strict subset of
-    // the full one — it silently dropped Broccoli (Whole Foods, Frozen),
-    // Broccoli (Raw), Sardines (Connetable), Spindrift (Lime). Ethan flagged the
-    // missing Whole Foods broccoli. Fix: library always from the full plan; the
-    // maintenance TEMPLATE is swapped in below without shrinking the library.
+    // Library AND autopop template both come from the standard plan. (The
+    // 2026-07-20 phase-aware template swap — maintenance plan during maint/rev
+    // phases — was removed 2026-08-07; see the removal note ~line 2520.)
     const res  = await noCacheFetch(url + '?type=mealplan');
     const data = await res.json();
     if (!data || !data.ok) return null;
-
-    const src = mealPlanSourceType();
-    if (src === 'mealplan') return data;  // cut phase / manual "Cut" override — one fetch covers both
-
-    // Maintenance/reverse phase (or manual "Maint"): keep the FULL library, but
-    // swap in the phase-appropriate autopop template. Second fetch is only for its
-    // planTemplate. If it fails, degrade gracefully to the full plan's template
-    // (autopop seeds the cut plan for the day — the manual override still exists),
-    // which is strictly better than shrinking the library.
-    try {
-      const mres  = await noCacheFetch(url + '?type=' + src);
-      const mdata = await mres.json();
-      if (mdata && mdata.ok && Array.isArray(mdata.planTemplate) && mdata.planTemplate.length) {
-        return { ...data, planTemplate: mdata.planTemplate };
-      }
-    } catch(e) {}
     return data;
   } catch(e) { return null; }
 }
@@ -8032,6 +7990,13 @@ function mergeJournalEntries(local, remote) {
 // ══════════════════════════════════════════════════════════════════════════
 (async function init(){
   const td = today();
+
+  // 2026-08-07: meal-plan source feature removed — clear the per-device sticky
+  // override so no device keeps a stale 'maint' value (the 8/02 + 8/07 bug: a
+  // device whose override was still 'maint' seeded the maintenance plan on a
+  // cut day; localStorage is per-device, so flipping it on one device never
+  // fixed the others).
+  try { localStorage.removeItem('mealPlanSourceOverride_v1'); } catch(e) {}
 
   // Set date label in header (MacroFactor style)
   setHeaderDateLabel(td);
