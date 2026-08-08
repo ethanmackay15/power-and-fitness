@@ -22,7 +22,9 @@
   <!-- Clean Light font: Inter for everything (400/500/600/700) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Press Start 2P rides along for the treat-day banner only (Saturdays) —
+       ~15KB, display=swap so it never blocks paint. -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
@@ -84,25 +86,92 @@
 
     /* ───── "Treat Day" theme — Saturdays from 2026-06-13 onward (slow-carb
        experiment treat days). Overrides the base palette; defined AFTER :root
-       so body.sat wins on equal specificity. Toggled by JS. Clean Light form:
-       page stays light, accents + recessed surfaces tint warm rose. ───── */
+       so body.sat wins on equal specificity. Toggled by JS.
+       AMPED 2026-08-08 (Ethan: "treat day UI is pretty boring — amp it up, we
+       can break out of the MacroFactor style here") — this is the 7/18 deferred
+       "clean 6 days, party on the valve day" idea. Festive takeover: animated
+       candy-gradient page, hot-pink/gold chrome, arcade banner + glow restored,
+       floating treat emoji, confetti on first open (see applyTreatDayTheme).
+       Card interiors deliberately stay light — Clean Light components carry
+       dark-on-white literal colors, so a dark takeover would break legibility. ───── */
     body.sat {
-      --bg:#faf4f8; --panel:#fdf2f8;
-      --border:#f3d6e5; --border-soft:#fae8f1;
+      --bg:#ffe3ef; --panel:#fdf2f8;
+      --border:#f9a8d4; --border-soft:#fbd0e8;
       --hot:#db2777; --cool:#db2777; --hot-soft:#fce7f3;
+      --shadow-card: 0 2px 12px rgba(219,39,119,.16);
+      --shadow-pop:  0 8px 30px rgba(219,39,119,.25);
+    }
+    /* Animated candy-gradient backdrop + floating emoji share one fixed layer,
+       #sat-sprinkles, under .wrap (z-index 1) and the tab bar (z-index 90).
+       ⚠️ Deliberately NOT a body.sat::before — the neutered-arcade rule
+       `body.scanlines::before { content: none }` sits later in this sheet and
+       body always carries .scanlines, so a ::before gradient silently never
+       renders (caught by pixel-sampling the first screenshot pass, 8/08).
+       background-position animation on an oversized gradient = GPU-cheap. */
+    #sat-sprinkles { display: none; }
+    body.sat #sat-sprinkles {
+      display: block;
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      overflow: hidden;
+      background: linear-gradient(120deg,
+        #ffc9e2 0%, #ffe3c8 25%, #fbc9f0 50%, #ddd6ff 75%, #ffc9e2 100%);
+      background-size: 300% 300%;
+      animation: satDrift 16s ease-in-out infinite;
+    }
+    @keyframes satDrift {
+      0%,100% { background-position: 0% 50%; }
+      50%     { background-position: 100% 50%; }
+    }
+    #sat-sprinkles span {
+      position: absolute; bottom: -60px;
+      font-size: 26px; opacity: 0;
+      animation: satFloat linear infinite;
+    }
+    @keyframes satFloat {
+      0%   { transform: translateY(0) rotate(-8deg); opacity: 0; }
+      8%   { opacity: .5; }
+      92%  { opacity: .5; }
+      100% { transform: translateY(-115vh) rotate(10deg); opacity: 0; }
     }
     #sat-banner {
       display: none;
-      background: #fce7f3;
-      color: #be185d; text-align: center;
-      padding: 14px 18px; margin-bottom: 22px;
-      border: none; border-left: 3px solid #db2777; border-radius: 12px;
+      background: linear-gradient(135deg, #f97316 0%, #ec4899 55%, #db2777 100%);
+      color: #fff; text-align: center;
+      padding: 18px 16px; margin-bottom: 22px;
+      border: none; border-radius: 16px;
+      font-family: 'Press Start 2P', var(--font), monospace;
+      font-size: 15px; font-weight: 400; line-height: 1.5;
+      letter-spacing: 1px;
+      text-shadow: 2px 2px 0 rgba(0,0,0,.35);
+      animation: satGlow 1.8s ease-in-out infinite;
+    }
+    #sat-banner .sat-sub {
+      display: block; margin-top: 8px;
       font-family: var(--font);
-      font-size: 13px; font-weight: 700; line-height: 1.4;
-      letter-spacing: .12em; text-transform: uppercase;
+      font-size: 11px; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; text-shadow: none; opacity: .9;
     }
     body.sat #sat-banner { display: block; }
-    /* satGlow animation retired (designer critique round 1) — flat tinted banner. */
+    @keyframes satGlow {
+      0%,100% { box-shadow: 0 4px 16px rgba(219,39,119,.35); }
+      50%     { box-shadow: 0 4px 30px rgba(249,115,22,.65); }
+    }
+    /* Party chrome: gold active-tab indicator + gold header dot on treat day. */
+    body.sat .tabs { background: #fff7fb; border-top-color: #f9a8d4; }
+    body.sat .tabs .tab.tab-active::before { background: #f59e0b; }
+    body.sat .header::before {
+      background: #f59e0b; border-radius: 50%;
+      animation: satPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes satPulse {
+      0%,100% { transform: scale(1); }
+      50%     { transform: scale(1.35); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body.sat #sat-sprinkles, #sat-sprinkles span, #sat-banner, body.sat .header::before {
+        animation: none;
+      }
+    }
 
     * { box-sizing: border-box; }
     html, body {
@@ -1914,12 +1983,30 @@
       .modal-row { grid-template-columns: 1fr; }
       .journey-week { font-size: 13px; }
       .journey-target { font-size: 13px; }
+      /* Treat-day banner: PS2P is very wide — 15px overflows a 390px viewport. */
+      #sat-banner { font-size: 11px; letter-spacing: 0; padding: 16px 10px; }
+      #sat-banner .sat-sub { font-size: 10px; letter-spacing: .1em; }
     }
 
   </style>
 </head>
 <body class="scanlines">
 <canvas id="confetti"></canvas>
+<!-- Treat-day floating emoji layer — display:none except on body.sat (CSS).
+     Static markup: zero cost on the 6 clean days. Durations/delays staggered
+     so the drift never visibly loops in sync. -->
+<div id="sat-sprinkles" aria-hidden="true">
+  <span style="left:6%;  animation-duration:18s; animation-delay:0s;">🍩</span>
+  <span style="left:16%; animation-duration:23s; animation-delay:6s;">🧁</span>
+  <span style="left:27%; animation-duration:20s; animation-delay:12s;">🍪</span>
+  <span style="left:38%; animation-duration:26s; animation-delay:3s;">🍦</span>
+  <span style="left:50%; animation-duration:19s; animation-delay:9s;">🍰</span>
+  <span style="left:61%; animation-duration:24s; animation-delay:15s;">🍫</span>
+  <span style="left:72%; animation-duration:21s; animation-delay:5s;">🍕</span>
+  <span style="left:82%; animation-duration:25s; animation-delay:11s;">🍔</span>
+  <span style="left:91%; animation-duration:22s; animation-delay:8s;">🍿</span>
+  <span style="left:44%; animation-duration:28s; animation-delay:19s;">🍨</span>
+</div>
 <button class="settings-toggle" onclick="toggleSettings()" aria-label="Open settings" title="Settings">⚙</button>
 <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
 <div class="settings-panel" id="settings-panel">
@@ -2003,6 +2090,24 @@
       var laToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
       var isTreatToday = laToday >= window.TREAT_DAY_START && new Date(laToday + 'T12:00:00').getDay() === 6;
       document.body.classList.toggle('sat', isTreatToday);
+      // Amp pass 2026-08-08: match the iOS/Android status-bar tint to the party
+      // backdrop on treat day, restore Clean Light gray otherwise.
+      var themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) themeMeta.setAttribute('content', isTreatToday ? '#ffd3e8' : '#f4f5f7');
+      // Confetti burst on the first open of each treat day (also fires when the
+      // resident PWA rolls over midnight into a Saturday). fireworks() is a
+      // hoisted declaration in the main script block — parsed before
+      // DOMContentLoaded runs this, but guard anyway; a missing canvas or a
+      // blocked localStorage must never break theme application.
+      if (isTreatToday) {
+        try {
+          var fired = localStorage.getItem('treatConfettiFired');
+          if (fired !== laToday && typeof window.fireworks === 'function') {
+            localStorage.setItem('treatConfettiFired', laToday);
+            setTimeout(function(){ window.fireworks(); }, 500);
+          }
+        } catch(e){}
+      }
     };
     // Wire palette swatch clicks once DOM is ready
     function wire() {
@@ -2036,7 +2141,7 @@
     </div>
   </div>
 
-  <div id="sat-banner">TREAT DAY</div>
+  <div id="sat-banner">🎉 TREAT DAY 🎉<span class="sat-sub">the valve is open · enjoy every bite</span></div>
 
   <!-- Bottom Tab Navigation (fixed) -->
   <div class="tabs">
