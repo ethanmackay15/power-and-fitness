@@ -5000,67 +5000,63 @@ async function pullGhSleepFromSheets() {
 // ── Meal Plan Template ────────────────────────────────────────────────────────
 // Exact daily quantities from your Daily Meal Plan spreadsheet.
 // These are pre-populated on every new day automatically.
-// Last synced from spreadsheet: 2026-06-20 (bean-corrected slow-carb plan — 2,308 cal /
-// 231g protein). Changes vs 6/09: beans recosted cups→grams (pinto 92.4g/211, black 91.02g/197
-// at Dinner & Supper); breakfast eggs 3→4 (280 cal); egg whites removed from Breakfast AND
-// Supper; 1 whole egg added to Supper; breakfast salsa 6→5 tbsp; EGCG unit serving→pill.
-// ALA 300mg still in Breakfast/Lunch/Supper + the Pre-Sleep stack.
 // 2026-06-09 BUGFIX: this fallback was still the pre-slow-carb 5/17 plan
 // (Cottage Cheese, Apple, Chicken Breast & Ribs). If the offline/slow-network
 // fallback seed fired, it autopopulated foods BANNED on the current protocol.
-// Mirrors what Apps Script `getMealPlan()` returns from the "Daily Meal Plan"
-// tab — keep this in sync so first-load (no cache) and offline scenarios
+// Mirrors what Apps Script `getMealPlan()` returns from the 'Cut Daily Meal
+// Plan' tab — keep this in sync so first-load (no cache) and offline scenarios
 // autopopulate the right plan. The Sheets fetch overwrites this on every load.
 // food_ids must match Sheets format: nameSlug-sectionSlug.
+// Last synced from spreadsheet: 2026-08-14 — live 'Cut Daily Meal Plan' tab via
+// ?type=mealplan (2,394 cal / 236g protein, 39 rows). Notable vs the stale
+// 7/09 snapshot this replaces: GREEN LENTILS 56 g -> 60 g, breakfast broccoli
+// 159.4 -> 199.75 g, breakfast salsa 82.5 -> 79.86 g (the 56 g lentil seeds Ethan
+// kept seeing were THIS stale fallback firing on slow/failed boots).
 let MEAL_PLAN_TEMPLATE = [
   // Breakfast
-  { food_id:'alpha-lipoic-acid-300-mg-b',   food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'green-tea-flavanols-325--b',   food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'eggs-b',                       food_name:'Eggs',                                   meal:'Breakfast', qty:4,       unit:'eggs',    calories:280, protein:26,   carbs:0,    fat:20   },
-  { food_id:'broccoli-b',                   food_name:'Broccoli',                               meal:'Breakfast', qty:159.375, unit:'grams',   calories:38,  protein:3.8,  carbs:7.5,  fat:0    },
-  { food_id:'salsa-b',                      food_name:'Salsa',                                  meal:'Breakfast', qty:82.5,    unit:'grams',   calories:25,  protein:0,    carbs:5,    fat:0    },
-  // 2026-07-09 resync vs live template: red lentils → GREEN lentils 56 g (the 6/21 swap)
-  { food_id:'green-lentils-b',              food_name:'Green Lentils',                          meal:'Breakfast', qty:56,      unit:'grams',   calories:202, protein:13.4, carbs:35.8, fat:0.6  },
-  { food_id:'cinnamon-b',                   food_name:'Cinnamon',                               meal:'Breakfast', qty:0.5,     unit:'tsp',     calories:3,   protein:0,    carbs:1,    fat:0    },
-  { food_id:'cocoa-powder-b',               food_name:'Cocoa Powder',                           meal:'Breakfast', qty:1,       unit:'scoop',   calories:15,  protein:1,    carbs:3,    fat:0.5  },
-  { food_id:'fish-oil-710-mg-epa-290--b',   food_name:'Fish Oil (710 mg EPA, 290 mg DHA)',      meal:'Breakfast', qty:1,       unit:'pill',    calories:15,  protein:0,    carbs:0,    fat:1.5  },
-  { food_id:'salt-b',                       food_name:'Salt',                                   meal:'Breakfast', qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'creatine-b',                   food_name:'Creatine',                               meal:'Breakfast', qty:10,      unit:'grams',   calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'vitamin-c-1-000-mg-b',         food_name:'Vitamin C (1,000 mg)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'vitamin-d-5-000-iu-b',         food_name:'Vitamin D (5,000 IU)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'niacinamide-500-mg-b',         food_name:'Niacinamide (500 mg)',                   meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'centrum-multivitamin-for-b',   food_name:'Centrum Multivitamin for Men',           meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'finasteride-1-mg-b',           food_name:'Finasteride (1 mg)',                     meal:'Breakfast', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'alpha-lipoic-acid-300-mg-b',      food_name:'Alpha Lipoic Acid (300 mg)',                        meal:'Breakfast', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'green-tea-flavanols-325--b',      food_name:'Green Tea Flavanols (325 mg EGCG)',                 meal:'Breakfast', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'eggs-b',                          food_name:'Eggs',                                              meal:'Breakfast', qty:4,        unit:'eggs',    calories:280,  protein:26,    carbs:0,     fat:20 },
+  { food_id:'broccoli-b',                      food_name:'Broccoli',                                          meal:'Breakfast', qty:199.75,   unit:'grams',   calories:47,   protein:4.7,   carbs:9.4,   fat:0 },
+  { food_id:'salsa-b',                         food_name:'Salsa',                                             meal:'Breakfast', qty:79.86,    unit:'grams',   calories:24,   protein:0,     carbs:4.8,   fat:0 },
+  { food_id:'green-lentils-b',                 food_name:'Green Lentils',                                     meal:'Breakfast', qty:60,       unit:'grams',   calories:216,  protein:14.4,  carbs:38.4,  fat:0.6 },
+  { food_id:'cinnamon-b',                      food_name:'Cinnamon',                                          meal:'Breakfast', qty:0.5,      unit:'tsp',     calories:3,    protein:0,     carbs:1,     fat:0 },
+  { food_id:'cocoa-powder-b',                  food_name:'Cocoa Powder',                                      meal:'Breakfast', qty:1,        unit:'scoop',   calories:15,   protein:1,     carbs:3,     fat:0.5 },
+  { food_id:'fish-oil-710-mg-epa-290--b',      food_name:'Fish Oil (710 mg EPA, 290 mg DHA)',                 meal:'Breakfast', qty:1,        unit:'pill',    calories:15,   protein:0,     carbs:0,     fat:1.5 },
+  { food_id:'salt-b',                          food_name:'Salt',                                              meal:'Breakfast', qty:1,        unit:'serving', calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'creatine-b',                      food_name:'Creatine',                                          meal:'Breakfast', qty:10,       unit:'grams',   calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'vitamin-c-1-000-mg-b',            food_name:'Vitamin C (1,000 mg)',                              meal:'Breakfast', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'vitamin-d-5-000-iu-b',            food_name:'Vitamin D (5,000 IU)',                              meal:'Breakfast', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'niacinamide-500-mg-b',            food_name:'Niacinamide (500 mg)',                              meal:'Breakfast', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'centrum-multivitamin-for-b',      food_name:'Centrum Multivitamin for Men',                      meal:'Breakfast', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'finasteride-1-mg-b',              food_name:'Finasteride (1 mg)',                                meal:'Breakfast', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
   // Lunch
-  { food_id:'alpha-lipoic-acid-300-mg-l',   food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Lunch',     qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'chicken-thighs-boneless--l',   food_name:'Chicken Thighs (Boneless, Skinless)',    meal:'Lunch',     qty:224,     unit:'grams',   calories:320, protein:44,   carbs:0,    fat:16   },
-  { food_id:'brussell-sprouts-l',           food_name:'Brussell Sprouts',                       meal:'Lunch',     qty:141.95,  unit:'grams',   calories:58,  protein:5,    carbs:13.4, fat:0    },
-  { food_id:'pinto-beans-l',                food_name:'Pinto Beans',                            meal:'Lunch',     qty:92.4,    unit:'grams',   calories:211, protein:18.5, carbs:55.4, fat:2.6  },
-  // 2026-07-09 resync vs live template: avocado 90 → 80 g (part of the 6/23 portion trim)
-  { food_id:'avocado-l',                    food_name:'Avocado',                                meal:'Lunch',     qty:80,      unit:'grams',   calories:128, protein:1.6,  carbs:6.4,  fat:12.8 },
-  { food_id:'chili-lime-seasoning-l',       food_name:'Chili Lime Seasoning',                   meal:'Lunch',     qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'alpha-lipoic-acid-300-mg-l',      food_name:'Alpha Lipoic Acid (300 mg)',                        meal:'Lunch',     qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'chicken-thighs-boneless--l',      food_name:'Chicken Thighs (Boneless, Skinless)',               meal:'Lunch',     qty:224,      unit:'grams',   calories:320,  protein:44,    carbs:0,     fat:16 },
+  { food_id:'brussell-sprouts-l',              food_name:'Brussell Sprouts',                                  meal:'Lunch',     qty:141.95,   unit:'grams',   calories:58,   protein:5,     carbs:13.4,  fat:0 },
+  { food_id:'pinto-beans-l',                   food_name:'Pinto Beans',                                       meal:'Lunch',     qty:89.95,    unit:'grams',   calories:206,  protein:18,    carbs:54,    fat:2.6 },
+  { food_id:'avocado-l',                       food_name:'Avocado',                                           meal:'Lunch',     qty:80,       unit:'grams',   calories:128,  protein:1.6,   carbs:6.4,   fat:12.8 },
+  { food_id:'chili-lime-seasoning-l',          food_name:'Chili Lime Seasoning',                              meal:'Lunch',     qty:1,        unit:'serving', calories:0,    protein:0,     carbs:0,     fat:0 },
   // Dinner
-  { food_id:'beef-96-4-d',                  food_name:'Beef (96/4)',                            meal:'Dinner',    qty:224,     unit:'grams',   calories:280, protein:48,   carbs:0,    fat:9    },
-  { food_id:'broccoli-d',                   food_name:'Broccoli',                               meal:'Dinner',    qty:212.5,   unit:'grams',   calories:50,  protein:5,    carbs:10,   fat:0    },
-  { food_id:'black-beans-d',                food_name:'Black Beans',                            meal:'Dinner',    qty:91.02,   unit:'grams',   calories:197, protein:19.7, carbs:54.1, fat:2.5  },
-  { food_id:'montreal-seasoning-d',         food_name:'Montreal Seasoning',                     meal:'Dinner',    qty:1,       unit:'serving', calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'beef-96-4-d',                     food_name:'Beef (96/4)',                                       meal:'Dinner',    qty:224,      unit:'grams',   calories:280,  protein:48,    carbs:0,     fat:9 },
+  { food_id:'broccoli-d',                      food_name:'Broccoli',                                          meal:'Dinner',    qty:212.5,    unit:'grams',   calories:50,   protein:5,     carbs:10,    fat:0 },
+  { food_id:'black-beans-d',                   food_name:'Black Beans',                                       meal:'Dinner',    qty:89.91,    unit:'grams',   calories:194,  protein:19.4,  carbs:53.5,  fat:2.4 },
+  { food_id:'montreal-seasoning-d',            food_name:'Montreal Seasoning',                                meal:'Dinner',    qty:1,        unit:'serving', calories:0,    protein:0,     carbs:0,     fat:0 },
   // Supper
-  { food_id:'alpha-lipoic-acid-300-mg-es',  food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'green-tea-flavanols-325--es',  food_name:'Green Tea Flavanols (325 mg EGCG)',      meal:'Supper',    qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'spinach-es',                   food_name:'Spinach',                                meal:'Supper',    qty:127.5,   unit:'grams',   calories:30,  protein:3,    carbs:4.5,  fat:0    },
-  // 2026-07-09 resync vs live template: supper black beans 91 → 80 g (part of the 6/23 portion trim)
-  { food_id:'black-beans-es',               food_name:'Black Beans',                            meal:'Supper',    qty:79.92,   unit:'grams',   calories:173, protein:17.3, carbs:47.5, fat:2.2  },
-  { food_id:'sardines-170cal-es',           food_name:'Sardines (170cal)',                      meal:'Supper',    qty:1,       unit:'tin',     calories:170, protein:17,   carbs:0,    fat:11   },
-  // 2026-07-09 resync vs live template: supper eggs 1 → 2 (the 6/21 change)
-  { food_id:'eggs-es',                      food_name:'Eggs',                                   meal:'Supper',    qty:2,       unit:'eggs',    calories:140, protein:13,   carbs:0,    fat:10   },
-  { food_id:'sauerkraut-es',                food_name:'Sauerkraut',                             meal:'Supper',    qty:0.5,     unit:'cups',    calories:10,  protein:0,    carbs:2,    fat:0    },
-  { food_id:'mustard-es',                   food_name:'Mustard',                                meal:'Supper',    qty:3,       unit:'tbsp',    calories:15,  protein:0,    carbs:12,   fat:0    },
-  // Pre-Sleep — the bedtime supplement stack (0-macro pills). The 4th ALA dose
-  // lives here deliberately — matches Ferriss's PAGG schedule (4th dose prior
-  // to bed), confirmed by Ethan 2026-06-09.
-  { food_id:'alpha-lipoic-acid-300-mg-pre', food_name:'Alpha Lipoic Acid (300 mg)',             meal:'Pre-Sleep', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'magnesium-l-threonate-14-pre', food_name:'Magnesium L-Threonate (144 mg)',         meal:'Pre-Sleep', qty:3,       unit:'pills',   calories:0,   protein:0,    carbs:0,    fat:0    },
-  { food_id:'niacinamide-500-mg-pre',       food_name:'Niacinamide (500 mg)',                   meal:'Pre-Sleep', qty:1,       unit:'pill',    calories:0,   protein:0,    carbs:0,    fat:0    },
+  { food_id:'alpha-lipoic-acid-300-mg-es',     food_name:'Alpha Lipoic Acid (300 mg)',                        meal:'Supper',    qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'green-tea-flavanols-325--es',     food_name:'Green Tea Flavanols (325 mg EGCG)',                 meal:'Supper',    qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'spinach-es',                      food_name:'Spinach',                                           meal:'Supper',    qty:127.5,    unit:'grams',   calories:30,   protein:3,     carbs:4.5,   fat:0 },
+  { food_id:'black-beans-es',                  food_name:'Black Beans',                                       meal:'Supper',    qty:69.93,    unit:'grams',   calories:151,  protein:15.1,  carbs:41.6,  fat:1.9 },
+  { food_id:'sardines-170cal-es',              food_name:'Sardines (170cal)',                                 meal:'Supper',    qty:1,        unit:'tin',     calories:170,  protein:17,    carbs:0,     fat:11 },
+  { food_id:'cucumber-es',                     food_name:'Cucumber',                                          meal:'Supper',    qty:180.6,    unit:'Grams',   calories:27,   protein:1.2,   carbs:6.6,   fat:0 },
+  { food_id:'eggs-es',                         food_name:'Eggs',                                              meal:'Supper',    qty:2,        unit:'eggs',    calories:140,  protein:13,    carbs:0,     fat:10 },
+  { food_id:'salsa-es',                        food_name:'Salsa',                                             meal:'Supper',    qty:49.5,     unit:'grams',   calories:15,   protein:0,     carbs:3,     fat:0 },
+  { food_id:'sauerkraut-es',                   food_name:'Sauerkraut',                                        meal:'Supper',    qty:0.5,      unit:'cups',    calories:10,   protein:0,     carbs:2,     fat:0 },
+  { food_id:'mustard-es',                      food_name:'Mustard',                                           meal:'Supper',    qty:3,        unit:'tbsp',    calories:15,   protein:0,     carbs:12,    fat:0 },
+  // Pre-Sleep
+  { food_id:'alpha-lipoic-acid-300-mg-pre',    food_name:'Alpha Lipoic Acid (300 mg)',                        meal:'Pre-Sleep', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'magnesium-l-threonate-14-pre',    food_name:'Magnesium L-Threonate (144 mg)',                    meal:'Pre-Sleep', qty:3,        unit:'pills',   calories:0,    protein:0,     carbs:0,     fat:0 },
+  { food_id:'niacinamide-500-mg-pre',          food_name:'Niacinamide (500 mg)',                              meal:'Pre-Sleep', qty:1,        unit:'pill',    calories:0,    protein:0,     carbs:0,     fat:0 },
 ];
 
 // 2026-05-17: removed `REMOVED_PLAN_FOODS` Set, `REMOVED_PLAN_FOOD_PREFIXES`
