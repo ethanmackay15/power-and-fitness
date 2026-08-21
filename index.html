@@ -2597,6 +2597,11 @@ let SHARED_CONFIG = null;
 // Journey-chip phase calendar — fallback copy, overridden by SHARED_CONFIG.phases
 // when the Config tab is reachable (which also retires the old "hand-sync with
 // plan-dashboard.html" debt: both surfaces now read the same sheet tab).
+// Re-planned 2026-08-21: compressed the back half to reach 12% ~5 wk sooner (no
+// longer runs to 12/12), then +1 buffer wk so the cut-end cheat day is truly
+// guilt-free. Current cut + first break unchanged; then a 5-wk cut, 1-wk break
+// (10/25–31, Sierra quarter-end), final 2-wk cut ending Fri 11/13, cheat day +
+// DEXA Sat 11/14, reverse diet from 11/14. Live copy is the Config tab `phases` key.
 const DEFAULT_PHASES = [
   {type:'cut',   start:'2026-03-15', end:'2026-04-18', short:'Cut'},
   {type:'maint', start:'2026-04-19', end:'2026-05-02', short:'Maintenance'},
@@ -2606,10 +2611,8 @@ const DEFAULT_PHASES = [
   {type:'maint', start:'2026-09-13', end:'2026-09-19', short:'Maintenance'},
   {type:'cut',   start:'2026-09-20', end:'2026-10-24', short:'Cut'},
   {type:'maint', start:'2026-10-25', end:'2026-10-31', short:'Maintenance'},
-  {type:'cut',   start:'2026-11-01', end:'2026-11-21', short:'Cut'},
-  {type:'maint', start:'2026-11-22', end:'2026-11-28', short:'Maintenance'},
-  {type:'cut',   start:'2026-11-29', end:'2026-12-12', short:'Cut'},
-  {type:'rev',   start:'2026-12-13', end:'2027-01-23', short:'Reverse'},
+  {type:'cut',   start:'2026-11-01', end:'2026-11-13', short:'Cut'},
+  {type:'rev',   start:'2026-11-14', end:'2027-01-23', short:'Reverse'},
 ];
 function activePhases() {
   return (SHARED_CONFIG && Array.isArray(SHARED_CONFIG.phases) && SHARED_CONFIG.phases.length)
