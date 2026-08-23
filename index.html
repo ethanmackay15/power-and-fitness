@@ -2916,8 +2916,34 @@ function updateSyncUI(status, msg) {
   if (status === 'red') showToast('⚠ ' + msg);
 }
 
+// ─── Passphrase (added 2026-08-23) ───────────────────────────────────────────
+// Shared-secret gate on the Apps Script endpoint (server checks a Script
+// Property; enforcement is off until Ethan sets it). The key is stored under a
+// deliberately UN-prefixed localStorage name shared by all apps on this origin
+// (Power, plan/treat dashboards, Growth) — one entry per browser covers all.
+// Never baked into this file: the repo is public.
+const API_KEY_LS = 'sheets_api_key_v1';
+let _keyPromptCancelled = false;
+// Read-only: NEVER prompts. While server enforcement is off, requests carry an
+// empty key and just work — devices see zero nagging until the API_KEY Script
+// Property is set. The prompt fires only from the unauthorized paths below.
+function getApiKey() {
+  try { return localStorage.getItem(API_KEY_LS) || ''; } catch(e) { return ''; }
+}
+function promptForApiKey() {
+  if (_keyPromptCancelled) return '';    // don't nag every sync cycle after a cancel
+  const k = (prompt('Enter your data passphrase (one-time on this device):') || '').trim();
+  if (k) { try { localStorage.setItem(API_KEY_LS, k); } catch(e) {} }
+  else _keyPromptCancelled = true;
+  return k;
+}
+function clearApiKey() {
+  try { localStorage.removeItem(API_KEY_LS); } catch(e) {}
+}
+
 // Helper: POST to Sheets with CORS, falling back to no-cors if redirect fails
 async function sheetsPost(url, payload) {
+  payload = Object.assign({ key: getApiKey() }, payload);
   try {
     const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload), redirect:'follow' });
     if (!res.ok && res.status !== 0) throw new Error('HTTP ' + res.status);
@@ -2966,7 +2992,7 @@ async function sheetsPostJson(url, payload) {
   const res = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body:    JSON.stringify(payload),
+    body:    JSON.stringify(Object.assign({ key: getApiKey() }, payload)),
     redirect:'follow',
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2974,6 +3000,9 @@ async function sheetsPostJson(url, payload) {
   try { json = await res.json(); }
   catch (e) { throw new Error('Invalid JSON response from server'); }
   if (!json || json.ok !== true) {
+    // Wrong/stale passphrase: clear + prompt now so the queue's retry of this
+    // write carries the freshly entered key.
+    if (json && json.error === 'unauthorized') { clearApiKey(); promptForApiKey(); }
     throw new Error((json && json.error) || 'Server returned ok:false');
   }
   return json;
@@ -2985,10 +3014,24 @@ async function sheetsPostJson(url, payload) {
 // busting, desktop / second-device pulls can silently return yesterday's data.
 // Belt-and-suspenders: cache:'no-store' + a per-request timestamp so any
 // intermediate cache (browser, CDN, future SW) treats each pull as unique.
-function noCacheFetch(url, opts) {
+async function noCacheFetch(url, opts) {
   const sep = url.includes('?') ? '&' : '?';
-  const bustedUrl = url + sep + '_=' + Date.now();
-  return fetch(bustedUrl, Object.assign({ cache: 'no-store' }, opts || {}));
+  const make = () => fetch(
+    url + sep + '_=' + Date.now() + '&key=' + encodeURIComponent(getApiKey()),
+    Object.assign({ cache: 'no-store' }, opts || {})
+  );
+  let res = await make();
+  // Central unauthorized handling for ALL GET pulls: probe a clone (so callers
+  // can still res.json() normally), and on a wrong/stale passphrase clear it,
+  // re-prompt via getApiKey(), and retry the same URL once.
+  try {
+    const probe = await res.clone().json();
+    if (probe && probe.ok === false && probe.error === 'unauthorized') {
+      clearApiKey();
+      if (promptForApiKey()) res = await make();
+    }
+  } catch(e) { /* non-JSON response — pass through untouched */ }
+  return res;
 }
 
 // GET-side strict pull. Used by lastModified probe and future per-tab reads.

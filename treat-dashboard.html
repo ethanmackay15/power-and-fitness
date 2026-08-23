@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chez Power</title>
+<link rel="icon" type="image/svg+xml" href="treat-icon.svg">
+<link rel="icon" type="image/png" href="treat-icon.png">
+<link rel="apple-touch-icon" href="treat-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  /* ── Fine-dining "Carte du Samedi" — parchment, gold foil, elegant serifs ── */
+  :root{
+    --paper:#e7ddc8; --card:#faf6ec; --card2:#f3ecdb; --ink:#26211a; --muted:#897e6b;
+    --gold:#a9863f; --goldb:#c4a24f; --line:#d9cfb8; --burg:#7a2a3a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);
+    font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;line-height:1.4;-webkit-font-smoothing:antialiased;min-height:100vh}
+  body{background:
+    radial-gradient(1200px 700px at 50% -10%,rgba(255,255,255,.5),transparent 60%),
+    radial-gradient(ellipse at center,transparent 50%,rgba(60,45,20,.14) 100%),
+    var(--paper);
+    padding:34px 22px 60px}
+  .serif{font-family:'Playfair Display',serif}
+
+  .wrap{max-width:940px;margin:0 auto;background:var(--card);
+    border:2px double var(--gold);box-shadow:0 14px 50px rgba(40,30,10,.28);
+    padding:40px 46px 34px;position:relative}
+  .wrap::before,.wrap::after{content:'❦';position:absolute;left:50%;transform:translateX(-50%);color:var(--gold);font-size:18px;opacity:.8}
+  .wrap::before{top:13px} .wrap::after{bottom:11px}
+
+  /* ── masthead ── */
+  .masthead{text-align:center;margin:6px 0 0}
+  .rest{font-family:'Playfair Display',serif;font-weight:800;font-size:44px;letter-spacing:.005em;line-height:1}
+  .stars{color:var(--gold);letter-spacing:.42em;font-size:15px;margin-top:11px}
+  .carte{font-style:italic;color:var(--muted);font-size:21px;letter-spacing:.14em;text-transform:uppercase;margin-top:9px}
+  .orn{text-align:center;color:var(--gold);letter-spacing:.5em;font-size:15px;margin:16px 0 4px}
+  .tagline{text-align:center;font-style:italic;color:var(--muted);font-size:20px;max-width:540px;margin:8px auto 24px}
+
+  /* ── hero: l'addition ── */
+  .hero{border:2px double var(--gold);background:var(--card2);padding:18px 26px 22px;margin-bottom:8px}
+  .heroCap{text-align:center;font-style:italic;color:var(--gold);font-size:16px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:10px}
+  .heroTop{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px}
+  .htotal{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .htotal .big{font-family:'Playfair Display',serif;font-weight:700;font-size:50px;line-height:.9;transition:transform .18s ease}
+  .htotal .big.bump{transform:scale(1.07)}
+  .htotal .u{font-style:italic;color:var(--muted);font-size:21px}
+  .htotal .of{font-style:italic;color:var(--muted);font-size:19px}
+  .macros{display:flex}
+  .mac{text-align:center;padding:2px 16px;border-left:1px solid var(--line)}
+  .mac:first-child{border-left:0}
+  .mac .ml{font-style:italic;font-size:14.5px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  .mac .mv{font-family:'Playfair Display',serif;font-size:23px;margin-top:2px;line-height:1}
+  .mac.p .mv,.mac.c .mv,.mac.f .mv{color:var(--ink)}
+
+  .meter{height:11px;border:1px solid var(--gold);background:var(--card);margin-top:18px;display:flex;
+    box-shadow:inset 0 1px 2px rgba(60,45,20,.12)}
+  .mseg{height:100%;transition:width .5s cubic-bezier(.22,1,.36,1)}
+  .mseg.add{background:linear-gradient(90deg,var(--goldb),var(--gold))}
+  .mseg.over{background:var(--burg)}
+  .mseg.room{background:transparent}
+  .mlabel{display:flex;justify-content:space-between;align-items:baseline;margin-top:9px;font-style:italic;font-size:18.5px}
+  .mroom{color:var(--gold)} .mroom.over{color:var(--burg)}
+  .mceil{color:var(--muted);font-size:16.5px}
+
+  .cols{display:grid;grid-template-columns:1fr 1.05fr;gap:34px;margin-top:26px;align-items:start}
+  @media(max-width:760px){.cols{grid-template-columns:1fr;gap:26px} .wrap{padding:30px 24px}}
+
+  .ph{text-align:center;margin-bottom:16px;padding-bottom:11px;border-bottom:1px solid var(--line);position:relative}
+  .ph::after{content:'✦';position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);background:var(--card);
+    color:var(--gold);font-size:13px;padding:0 8px}
+  .ph .t{font-family:'Playfair Display',serif;font-weight:600;font-size:18px;letter-spacing:.14em;text-transform:uppercase;display:block}
+  .ph .n{font-style:italic;font-size:17px;color:var(--muted);display:block;margin-top:3px}
+
+  /* ── le menu dégustation (the floor) ── */
+  .meal{margin-bottom:15px} .meal:last-child{margin-bottom:0}
+  .mealh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+  .mealh .mn{font-family:'Playfair Display',serif;font-weight:600;font-size:14.5px;letter-spacing:.13em;text-transform:uppercase}
+  .mealh .mn .lk{display:none}
+  .mealh .mc{font-style:italic;color:var(--gold);font-size:18px}
+  .frow{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dotted var(--line);padding:2px 0 3px}
+  .frow:last-child{border-bottom:0}
+  .frow .fn{color:var(--ink)} .frow .fn b{font-style:italic;color:var(--muted);font-weight:400;font-size:.9em;margin-left:7px}
+  .frow .fc{color:var(--muted);font-style:italic;font-variant-numeric:tabular-nums;padding-left:12px}
+  .plateTot{display:flex;justify-content:space-between;align-items:baseline;margin-top:15px;padding-top:11px;border-top:2px double var(--gold)}
+  .plateTot .l{font-family:'Playfair Display',serif;font-weight:600;font-size:13px;letter-spacing:.16em;text-transform:uppercase}
+  .plateTot .v{font-family:'Playfair Display',serif;font-size:20px}
+
+  /* ── à la carte (tappable treats) ── */
+  .menu{display:flex;flex-direction:column}
+  .treat{display:flex;align-items:flex-start;gap:10px;position:relative;cursor:pointer;user-select:none;
+    padding:12px 4px 12px 28px;border-bottom:1px dotted var(--line);transition:background .15s ease}
+  .treat:hover{background:rgba(169,134,63,.05)}
+  .treat .emo{display:none}
+  .treat .add{position:absolute;left:2px;top:13px;width:auto;height:auto;border:0;background:none;font-size:0;line-height:1}
+  .treat .add::before{content:'❖';font-size:17px;color:var(--muted);transition:color .15s ease}
+  .treat.on .add::before{content:'✦';color:var(--gold)}
+  .treat .body{flex:1;min-width:0}
+  .treat .nm{font-family:'Playfair Display',serif;font-weight:600;font-size:19px;line-height:1.15}
+  .treat .sb{font-style:italic;font-size:16.5px;color:var(--muted);margin-top:2px}
+  .treat .rt{text-align:right;flex:none;padding-left:10px}
+  .treat .cal{font-family:'Playfair Display',serif;font-size:19px;color:var(--ink);line-height:1}
+  .treat .cal small{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:var(--muted)}
+  .treat .mm{font-style:italic;font-size:14.5px;color:var(--gold);margin-top:3px}
+  .treat.on{background:linear-gradient(90deg,rgba(169,134,63,.10),rgba(169,134,63,.02))}
+  .treat.on .nm,.treat.on .cal{color:var(--gold)}
+  .rmx{position:absolute;top:6px;right:2px;width:20px;height:20px;border:1px solid var(--burg);color:var(--burg);background:var(--card);
+    border-radius:50%;font-size:13px;line-height:17px;text-align:center;display:none;cursor:pointer}
+  .treat.custom .rmx{display:block}
+  .treat.custom .add::before{content:'✦';color:var(--gold)}
+
+  .addnew{display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--gold);font-style:italic;font-size:18.5px;
+    padding:14px 4px 4px 28px;position:relative}
+  .addnew .pl{position:absolute;left:1px;font-size:18px;font-style:normal}
+  .addnew:hover{color:var(--ink)}
+  .form{display:none;flex-direction:column;gap:9px;padding:14px 2px 4px}
+  .form.open{display:flex}
+  .form .r1{display:flex;gap:9px}
+  .form input{background:var(--card);border:1px solid var(--gold);color:var(--ink);font-family:'Cormorant Garamond',serif;
+    font-size:18px;padding:8px 11px;width:100%}
+  .form input::placeholder{color:var(--muted);font-style:italic}
+  .form input:focus{outline:none;border-color:var(--ink)}
+  .form .nm{flex:2} .form .cl{flex:1}
+  .form .macs{display:flex;gap:9px}
+  .form .btns{display:flex;gap:10px;justify-content:flex-end}
+  .form button{font-family:'Playfair Display',serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+    padding:9px 16px;cursor:pointer;border:1px solid var(--gold);background:transparent;color:var(--muted)}
+  .form .save{background:var(--gold);color:var(--card);border-color:var(--gold)}
+
+  .foot{text-align:center;font-style:italic;font-size:15px;color:var(--muted);margin-top:26px;line-height:1.55;
+    border-top:1px solid var(--line);padding-top:16px}
+  .foot b{color:var(--ink);font-style:normal;font-weight:600} .foot code{font-family:'Cormorant Garamond',serif;color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div class="rest serif">Chez Power</div>
+    <div class="stars">★ ★ ★</div>
+    <div class="carte">Carte du Samedi · Menu de Fête</div>
+  </div>
+  <div class="orn">❧ ⸙ ❧</div>
+  <p class="tagline">Le plan du jour est déjà servi. Composez, à votre guise, les plaisirs du soir.</p>
+
+  <div class="hero">
+    <div class="heroCap">L'Addition du Soir</div>
+    <div class="heroTop">
+      <div class="htotal">
+        <span class="big serif" id="totCal">2,360</span>
+        <span class="u">cal</span>
+        <span class="of" id="totOf">sur 3,050</span>
+      </div>
+      <div class="macros">
+        <div class="mac p"><div class="ml">Protéines</div><div class="mv" id="totP">236</div></div>
+        <div class="mac c"><div class="ml">Glucides</div><div class="mv" id="totC">258</div></div>
+        <div class="mac f"><div class="ml">Lipides</div><div class="mv" id="totF">89</div></div>
+      </div>
+    </div>
+    <div class="meter">
+      <div class="mseg add"  id="segAdd"></div>
+      <div class="mseg over" id="segOver"></div>
+      <div class="mseg room" id="segRoom"></div>
+    </div>
+    <div class="mlabel">
+      <span class="mroom" id="roomLab">690 calories still at the table</span>
+      <span class="mceil" id="ceilLab">0 of 690 · à la carte</span>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <div class="ph"><span class="t">Le Menu Dégustation</span><span class="n" id="plateNote">compris · prix fixe</span></div>
+      <div id="plate"></div>
+      <div class="plateTot"><span class="l">Le Couvert</span><span class="v" id="plateTotV">2,360 cal</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="ph"><span class="t">À la Carte</span><span class="n">touchez pour ajouter</span></div>
+      <div class="menu" id="menu"></div>
+    </div>
+  </div>
+
+  <p class="foot"><span id="dataStatus">Chargement…</span> · Édition Michelin · v9 · 2026-08-23 · Le <b>couvert</b> auto-fetches your live <b>Daily Meal Plan</b> (<code>?type=mealplan</code>); the <b>à la carte</b> treats are curated here. The <b>3,050 ceiling</b> (maintenance 2,850 + 200 — the 7/03 appetite-led cut from +400) loads live from the sheet's <b>Config</b> tab (<code>?type=config</code>), with 2,850/3,050 baked as the offline fallback. Touchez to compose the evening — totals &amp; room update live. Rien is written back to the sheet. Falls back to a saved snapshot if the kitchen is unreachable.</p>
+</div>
+
+<script>
+const WEBAPP_URL='https://script.google.com/macros/s/AKfycbyZI5LVLP-VJlQqu93CGS1pNCTF43OPJP2ONEIZ8aKyXan6zBgyOFfRhTqIWQxjm77_Zw/exec';
+// v8 (2026-07-09): anchors corrected to the current plan — maintenance 2,850
+// (6/27 DEXA re-anchor; was the retired 2,800) + 200 (the 7/03 appetite-led
+// ceiling cut from +400) = 3,050. These are baked FALLBACKS: init() overrides
+// from the sheet's Config tab (`tdee` + `treatCeiling`) when reachable, so
+// future re-anchors are a one-cell sheet edit, not a file edit.
+let MAINTENANCE=2850, BREAK=200, CEILING=MAINTENANCE+BREAK;   // 3,050
+
+// ── Curated tappable treats (NOT in the sheet — from the Slow-Carb Experiment doc) ──
+const TREATS=[
+  {id:'cold', emo:'🥤', nm:'Cold brew',         sb:'La Colombe · black & unsweet',        cal:15,  p:0,  c:0,  f:0},
+  {id:'tea',  emo:'🫖', nm:'Sparkling tea',      sb:'BrightLeaf Earl Grey · zero-cal',     cal:0,   p:0,  c:0,  f:0},
+  {id:'guac', emo:'🥑', nm:'Guacamole',          sb:'avocado, tomato &amp; onion, beyond the plate', cal:65, p:1, c:4, f:5},
+  {id:'cc',   emo:'🥣', nm:'Cottage cheese',     sb:'Good Culture 2% · whole tub',         cal:360, p:56, c:16, f:8},
+  {id:'ice',  emo:'🍨', nm:'Protein ice cream',  sb:'Fairlife Core Power + Jell-O ZS',     cal:200, p:26, c:15, f:4.5},
+];
+
+// ── Offline fallback: the current plan (caloric foods only) + total macros ──
+const FALLBACK_PLAN={
+  meals:[
+    {meal:'Breakfast', cal:578, items:[
+      {nm:'Eggs',q:'4 eggs',cal:280},{nm:'Green lentils',q:'56 g',cal:202},{nm:'Broccoli',q:'159 g',cal:38},
+      {nm:'Salsa',q:'83 g',cal:25},{nm:'Cocoa powder',q:'1 scoop',cal:15},{nm:'Fish oil',q:'1',cal:15},{nm:'Cinnamon',q:'½ tsp',cal:3}]},
+    {meal:'Lunch', cal:717, items:[
+      {nm:'Chicken thighs',q:'224 g',cal:320},{nm:'Pinto beans',q:'92 g',cal:211},{nm:'Avocado',q:'80 g',cal:128},{nm:'Brussels sprouts',q:'142 g',cal:58}]},
+    {meal:'Dinner', cal:527, items:[
+      {nm:'Beef 96/4',q:'224 g',cal:280},{nm:'Black beans',q:'91 g',cal:197},{nm:'Broccoli',q:'213 g',cal:50}]},
+    {meal:'Supper', cal:538, items:[
+      {nm:'Sardines',q:'1 tin',cal:170},{nm:'Black beans',q:'80 g',cal:173},{nm:'Eggs',q:'2 eggs',cal:140},
+      {nm:'Spinach',q:'128 g',cal:30},{nm:'Mustard',q:'3 tbsp',cal:15},{nm:'Sauerkraut',q:'½ cup',cal:10}]},
+  ],
+  total:{cal:2360, p:236.3, c:257.6, f:88.7}
+};
+const MEAL_ORDER=['Breakfast','Lunch','Dinner','Supper','Pre-Sleep'];
+
+let FLOOR=FALLBACK_PLAN;                 // replaced by live data when reachable
+const selected=new Set();                // tapped treat ids
+const customs=[];                        // {id,nm,cal,p,c,f}
+let customSeq=0;
+
+function fmt(n){return Math.round(n).toLocaleString();}
+// Passphrase gate (2026-08-23, v9): shared localStorage key across all apps on
+// this origin (Power, dashboards, Growth) — one entry per browser covers all.
+const API_KEY_LS='sheets_api_key_v1';
+let _keyPromptCancelled=false;
+// getApiKey never prompts — zero nagging while server enforcement is off. The
+// prompt fires only when the server answers unauthorized.
+function getApiKey(){try{return localStorage.getItem(API_KEY_LS)||'';}catch(e){return '';}}
+function promptForApiKey(){if(_keyPromptCancelled)return '';const k=(prompt('Enter your data passphrase (one-time on this device):')||'').trim();if(k){try{localStorage.setItem(API_KEY_LS,k);}catch(e){}}else _keyPromptCancelled=true;return k;}
+function clearApiKey(){try{localStorage.removeItem(API_KEY_LS);}catch(e){}}
+async function fetchType(type){
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),6500);
+  const go=()=>fetch(WEBAPP_URL+'?type='+type+'&_='+Date.now()+'&key='+encodeURIComponent(getApiKey()),{cache:'no-store',signal:ctl.signal});
+  try{
+    let r=await go();
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    let j=await r.json();
+    if(j&&j.ok===false&&j.error==='unauthorized'){ // wrong/missing passphrase: clear, prompt, retry once
+      clearApiKey();
+      if(promptForApiKey()){
+        r=await go(); if(!r.ok) throw new Error('HTTP '+r.status);
+        j=await r.json();
+      }
+    }
+    if(!j||j.ok!==true) throw new Error('bad '+type);
+    return j;
+  } finally { clearTimeout(to); }
+}
+// Build the couvert from the live meal plan: group planTemplate by meal, drop 0-cal rows (pills/seasoning).
+function planToFloor(mp){
+  const by={};
+  (mp.planTemplate||[]).forEach(r=>{
+    const cal=Number(r.calories)||0; const meal=r.meal||'Other';
+    (by[meal]=by[meal]||{meal,cal:0,p:0,c:0,f:0,items:[]});
+    by[meal].cal+=cal; by[meal].p+=Number(r.protein)||0; by[meal].c+=Number(r.carbs)||0; by[meal].f+=Number(r.fat)||0;
+    if(cal>0) by[meal].items.push({nm:r.food_name||'—', q:trimQty(r.qty,r.unit), cal:Math.round(cal)});
+  });
+  const meals=Object.values(by).filter(m=>m.cal>0)
+    .sort((a,b)=>MEAL_ORDER.indexOf(a.meal)-MEAL_ORDER.indexOf(b.meal));
+  meals.forEach(m=>{m.items.sort((x,y)=>y.cal-x.cal); m.cal=Math.round(m.cal);});
+  const total=meals.reduce((t,m)=>({cal:t.cal+m.cal,p:t.p+m.p,c:t.c+m.c,f:t.f+m.f}),{cal:0,p:0,c:0,f:0});
+  return {meals, total};
+}
+function trimQty(q,u){
+  let n=Number(q); if(!isFinite(n)) return (q!=null?q+' '+(u||''):'').trim();
+  n=Math.round(n*10)/10; let unit=(u||'').replace('grams','g').replace('serving','').trim();
+  return (unit==='eggs'||unit==='pill'||unit==='pills'||unit==='tin'||unit==='cups'||unit==='tbsp'||unit==='tsp'||unit==='scoop')
+    ? (n+' '+unit) : (unit?(n+' '+unit):String(n));
+}
+
+function totals(){
+  const t={cal:FLOOR.total.cal, p:FLOOR.total.p, c:FLOOR.total.c, f:FLOOR.total.f};
+  TREATS.forEach(x=>{ if(selected.has(x.id)){t.cal+=x.cal;t.p+=x.p;t.c+=x.c;t.f+=x.f;} });
+  customs.forEach(x=>{t.cal+=x.cal;t.p+=x.p;t.c+=x.c;t.f+=x.f;});
+  return t;
+}
+
+function renderPlate(){
+  document.getElementById('plate').innerHTML=FLOOR.meals.map(m=>`
+    <div class="meal">
+      <div class="mealh"><span class="mn"><span class="lk">🔒</span>${m.meal}</span><span class="mc">${fmt(m.cal)} cal</span></div>
+      ${m.items.map(it=>`<div class="frow"><span class="fn">${it.nm}<b>${it.q||''}</b></span><span class="fc">${fmt(it.cal)}</span></div>`).join('')}
+    </div>`).join('');
+  document.getElementById('plateTotV').textContent=fmt(FLOOR.total.cal)+' cal';
+}
+function treatHtml(t,on,isCustom){
+  const mm=(t.p||t.c||t.f)?`<div class="mm">P${Math.round(t.p)} · C${Math.round(t.c)} · F${Math.round(t.f)}</div>`:'';
+  return `<div class="treat${on?' on':''}${isCustom?' custom':''}" data-id="${t.id}">
+      ${isCustom?'<span class="rmx" data-rm="'+t.id+'">×</span>':''}
+      <span class="emo">${t.emo||'🍴'}</span>
+      <div class="body"><div class="nm">${t.nm}</div><div class="sb">${t.sb||''}</div></div>
+      <div class="rt"><div class="cal">${t.cal?('+'+t.cal):'0'}<small> cal</small></div>${mm}</div>
+      <div class="add">${on?'✓':'+'}</div>
+    </div>`;
+}
+function renderMenu(){
+  const m=document.getElementById('menu');
+  let h=TREATS.map(t=>treatHtml(t, selected.has(t.id), false)).join('');
+  h+=customs.map(t=>treatHtml({...t,emo:'✨',sb:'votre choix'}, true, true)).join('');
+  h+=`<div class="addnew" id="addNew"><span class="pl">✦</span> Ajouter un plaisir…</div>
+      <div class="form" id="form">
+        <div class="r1"><input class="nm" id="fNm" placeholder="Quel plaisir ?" maxlength="28">
+          <input class="cl" id="fCal" type="number" inputmode="numeric" placeholder="cal"></div>
+        <div class="macs"><input id="fP" type="number" inputmode="numeric" placeholder="protéines g">
+          <input id="fC" type="number" inputmode="numeric" placeholder="glucides g">
+          <input id="fF" type="number" inputmode="numeric" placeholder="lipides g"></div>
+        <div class="btns"><button class="cancel" id="fCancel">Annuler</button><button class="save" id="fSave">Ajouter</button></div>
+      </div>`;
+  m.innerHTML=h;
+  // wire taps
+  m.querySelectorAll('.treat').forEach(el=>{
+    el.addEventListener('click',e=>{
+      if(e.target.dataset.rm){ const i=customs.findIndex(c=>c.id===e.target.dataset.rm); if(i>=0)customs.splice(i,1); renderMenu(); renderTotals(true); return; }
+      const id=el.dataset.id;
+      if(id&&id.startsWith('cus')) return;            // custom toggles off only via ×
+      if(selected.has(id)) selected.delete(id); else selected.add(id);
+      renderMenu(); renderTotals(true);
+    });
+  });
+  const form=document.getElementById('form'), addBtn=document.getElementById('addNew');
+  addBtn.addEventListener('click',()=>{form.classList.add('open');addBtn.style.display='none';document.getElementById('fNm').focus();});
+  document.getElementById('fCancel').addEventListener('click',()=>{form.classList.remove('open');addBtn.style.display='';});
+  document.getElementById('fSave').addEventListener('click',()=>{
+    const nm=document.getElementById('fNm').value.trim()||'Plaisir maison';
+    const cal=Math.max(0,Math.round(+document.getElementById('fCal').value||0));
+    const p=Math.max(0,Math.round(+document.getElementById('fP').value||0));
+    const c=Math.max(0,Math.round(+document.getElementById('fC').value||0));
+    const f=Math.max(0,Math.round(+document.getElementById('fF').value||0));
+    customs.push({id:'cus'+(customSeq++), nm, cal, p, c, f});
+    renderMenu(); renderTotals(true);
+  });
+}
+function renderTotals(bump){
+  const t=totals(), added=t.cal-FLOOR.total.cal, room=CEILING-t.cal, over=Math.max(0,-room);
+  const calEl=document.getElementById('totCal');
+  calEl.textContent=fmt(t.cal);
+  document.getElementById('totOf').textContent='sur '+fmt(CEILING);
+  document.getElementById('totP').textContent=Math.round(t.p);
+  document.getElementById('totC').textContent=Math.round(t.c);
+  document.getElementById('totF').textContent=Math.round(t.f);
+  // meter = the à la carte budget only (ceiling − couvert); tapping treats fills it.
+  const budget=Math.max(0,CEILING-FLOOR.total.cal);            // e.g. 840
+  const scale=Math.max(budget, added), pct=v=>scale>0?Math.max(0,v)/scale*100:0;
+  document.getElementById('segAdd').style.width =pct(Math.min(added,budget))+'%';
+  document.getElementById('segOver').style.width=pct(over)+'%';
+  document.getElementById('segRoom').style.width=pct(budget-added)+'%';
+  const rl=document.getElementById('roomLab');
+  if(over>0){ rl.textContent=fmt(over)+' over the ceiling — c’est la vie 🥂'; rl.classList.add('over'); }
+  else { rl.textContent=fmt(budget-added)+' calories still at the table'; rl.classList.remove('over'); }
+  document.getElementById('ceilLab').textContent=fmt(added)+' of '+fmt(budget)+' · à la carte';
+  if(bump){ calEl.classList.remove('bump'); void calEl.offsetWidth; calEl.classList.add('bump'); }
+}
+function setStatus(live){
+  document.getElementById('dataStatus').textContent = live
+    ? ('Servi en direct · '+new Date().toLocaleDateString())
+    : '⚠ Hors-ligne — dernière carte enregistrée';
+  document.getElementById('plateNote').textContent = live ? 'compris · prix fixe · en direct' : 'compris · prix fixe · enregistré';
+}
+
+// v8: pull the ceiling/maintenance from the Config tab. Separate try/catch so a
+// config failure (or an old backend deployment without the route) can't cost
+// the couvert its live meal plan — the baked 2,850/3,050 fallbacks stand.
+async function loadConfig(){
+  try{
+    const c=await fetchType('config'); const cfg=c.config||{};
+    const t=Number(cfg.tdee), ceil=Number(cfg.treatCeiling);
+    if(isFinite(t)&&t>0) MAINTENANCE=t;
+    if(isFinite(ceil)&&ceil>MAINTENANCE) CEILING=ceil; else CEILING=MAINTENANCE+BREAK;
+    BREAK=CEILING-MAINTENANCE;
+  }catch(e){ /* fallbacks stand */ }
+}
+async function init(){
+  let live=true;
+  const cfgDone=loadConfig();
+  try{ FLOOR=planToFloor(await fetchType('mealplan')); if(!FLOOR.meals.length) throw new Error('empty'); }
+  catch(e){ FLOOR=FALLBACK_PLAN; live=false; }
+  await cfgDone;
+  renderPlate(); renderMenu(); renderTotals(false); setStatus(live);
+}
+init();
+</script>
+</body>
+</html>
