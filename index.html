@@ -2148,9 +2148,9 @@
 
   <!-- Bottom Tab Navigation (fixed) -->
   <div class="tabs">
-    <button class="tab" id="tab-weight" onclick="switchTab('weight')">Weight</button>
+    <button class="tab tab-active" id="tab-weight" onclick="switchTab('weight')">Weight</button>
     <button class="tab" id="tab-food"   onclick="switchTab('food')">Food</button>
-    <button class="tab tab-active" id="tab-habits" onclick="switchTab('habits')">Habits</button>
+    <button class="tab" id="tab-habits" onclick="switchTab('habits')">Journal</button>
     <button class="tab" id="tab-train"  onclick="switchTab('train')">Train</button>
   </div>
 
@@ -2313,7 +2313,7 @@
   </div>
 
   <!-- ════ PANEL: Daily Weight ════ -->
-  <div class="panel" id="panel-weight">
+  <div class="panel active" id="panel-weight">
 
 
     <!-- Journey chip -->
@@ -2460,9 +2460,9 @@
 
   </div><!-- /panel-weight -->
   <!-- ════════════════════════════════════════════════
-       PANEL: Habits
+       PANEL: Journal (habits UI removed 2026-08-23 — habits live in Growth)
   ════════════════════════════════════════════════ -->
-  <div class="panel active" id="panel-habits">
+  <div class="panel" id="panel-habits">
 
     <!-- Day navigator -->
     <div class="habit-nav">
@@ -2471,14 +2471,13 @@
       <button class="habit-nav-btn" onclick="habitNavDay(1)" aria-label="Next day">›</button>
     </div>
 
-    <!-- Nightly Check-In — daily process-adherence verdict, switches framing to
-         "Tonight" at 8pm local. Reinforces the cal-target / exercise / sleep
-         triad with streak mechanics. Renders into #nrc-card-body. -->
-    <div class="card" id="nrc-card" style="display:none">
-      <div id="nrc-card-body"></div>
-    </div>
-
-    <!-- Journal — free-form notes timestamped to-the-minute, cross-referenced
+    <!-- Habits UI removed 2026-08-23: habits now live in the Growth app
+         (ethanmackay15.github.io/growth). This tab keeps only the day-nav +
+         Journal. The habits DATA layer + Sheet sync stay in this file — the
+         Train tab's exercise mirror writes through setHabitForDate, and
+         ?type=habits remains diagnostic-load-bearing. Nightly Check-In
+         (abandoned 2026-05-23) fully deleted same day. -->
+    <!-- Journal    <!-- Journal — free-form notes timestamped to-the-minute, cross-referenced
          with WHOOP / weight / habits when answering personal-assistant questions -->
     <div class="card" id="journal-card">
       <div class="journal-header">
@@ -2491,28 +2490,6 @@
       <div id="journal-today-list" class="journal-list"></div>
       <button class="journal-history-toggle" id="journal-history-btn" onclick="toggleJournalHistory()" hidden>Show history</button>
       <div id="journal-history-list" class="journal-list" hidden></div>
-    </div>
-
-    <!-- Habits — title is intentionally undated; the day-nav above is the source of truth. -->
-    <div class="card">
-      <h2>Habits</h2>
-      <div id="habit-list"></div>
-      <div class="habit-add-row">
-        <input class="habit-add-input" id="habit-add-input" type="text" placeholder="Add custom habit…" onkeydown="if(event.key==='Enter')addCustomHabit()" />
-        <button class="habit-add-btn" onclick="addCustomHabit()">Add</button>
-      </div>
-    </div>
-
-    <!-- 7-Day Goals -->
-    <div class="card" style="margin-top:18px">
-      <h2>7-Day Goals</h2>
-      <div class="streak-grid" id="habit-streaks"></div>
-    </div>
-
-    <!-- Heatmap overview -->
-    <div class="card" style="margin-top:18px">
-      <h2>Last 28 Days</h2>
-      <div id="habit-heatmap"></div>
     </div>
 
     <!-- Habit Insights card removed 2026-05-26 (broken render + unused) -->
@@ -4396,8 +4373,8 @@ async function syncOnVisibility(forceEvenIfHidden) {
     // Library was previously init-only, which meant a manual refresh (or PWA
     // resume) never picked up new foods added to the sheet. 2026-05-02: added
     // pullFoodLibraryFromSheets so the sync badge actually refreshes it.
-    const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, deletedPlanRemote, _sleep] = await Promise.all([
-      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets(), pullDeletedPlanIdsFromSheets(), pullGhSleepFromSheets()
+    const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, deletedPlanRemote] = await Promise.all([
+      pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets(), pullDeletedPlanIdsFromSheets()
     ]);
     // 2026-07-18 AUTOPOP-FIX: keep the local tombstone store current from other
     // devices on every resume/poll (hygiene for the next boot's seed diff).
@@ -4924,124 +4901,9 @@ async function pullDeletedPlanIdsFromSheets() {
   } catch(e) { return null; }
 }
 
-// ── WHOOP Sleep (read-only, for nightly check-in streak grading) ──────────────
-// WHOOP cycle convention: a sleep entry's `date` is the CYCLE day (wake-to-wake),
-// so the sleep that ended on the morning of day d belongs to cycle d-1. The
-// nightly check-in for "today d" should read the cycle-(d-1) entry. Naps
-// (`nap:true`) are filtered out — only the main overnight sleep counts.
-const WHOOP_SLEEP_KEY = 'whoop_sleep_v1';
-
-function getWhoopSleepByDate() {
-  try {
-    const arr = JSON.parse(localStorage.getItem(WHOOP_SLEEP_KEY)) || [];
-    const out = {};
-    arr.forEach(e => { if (e && e.date) out[e.date] = e.performance; });
-    return out;
-  } catch(e) { return {}; }
-}
-
-// Performance for the night that ended on the morning of `wakeDate` (YYYY-MM-DD).
-// Returns a number 0–100, or null if no entry.
-function getSleepPerformanceForWakeDate(wakeDate) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(wakeDate)) return null;
-  const d = new Date(wakeDate + 'T12:00:00');
-  d.setDate(d.getDate() - 1);
-  const cycleDate = d.toISOString().slice(0, 10);
-  const map = getWhoopSleepByDate();
-  const v = map[cycleDate];
-  return (typeof v === 'number') ? v : null;
-}
-
-async function pullWhoopSleepFromSheets() {
-  const url = getSheetsUrl(); if (!url) return null;
-  try {
-    const res  = await noCacheFetch(url + '?type=whoopSleep');
-    const data = await res.json();
-    if (!data.ok || !Array.isArray(data.entries)) return null;
-    // Project to the minimal shape used by the nightly check-in. Filter out naps
-    // (we only want the main overnight). Keep last 90 days to bound localStorage.
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
-    const projected = [];
-    data.entries.forEach(e => {
-      if (!e || e.nap === true) return;
-      const dt = e.date ? new Date(e.date) : null;
-      if (!dt || isNaN(dt)) return;
-      if (dt < cutoff) return;
-      const perf = (typeof e.performance === 'number') ? e.performance : null;
-      if (perf == null) return;
-      projected.push({ date: dt.toISOString().slice(0, 10), performance: perf });
-    });
-    // Dedup by date — if multiple entries share a cycle date (rare), keep the
-    // one with the higher performance (typically the main sleep, not a nap-
-    // misclassified short cycle).
-    const byDate = {};
-    projected.forEach(e => {
-      if (byDate[e.date] == null || e.performance > byDate[e.date]) {
-        byDate[e.date] = e.performance;
-      }
-    });
-    const dedup = Object.keys(byDate).map(d => ({ date: d, performance: byDate[d] }));
-    safeSetItem(WHOOP_SLEEP_KEY, JSON.stringify(dedup));
-    return dedup;
-  } catch(e) { return null; }
-}
-
-// ── Google Health Sleep (read-only, for nightly check-in streak grading) ──────
-// Stage 2 (2026-06-06): the nightly check-in grades sleep on Google Health
-// (Fitbit) HOURS ASLEEP, replacing WHOOP's sleep-performance %, which Google
-// Health doesn't provide. WHOOP is being retired as the worn device; this is the
-// in-app consumer repoint. GH `?type=ghSleep` entry convention: `date` is the
-// night-of date (went to bed that evening, woke the next morning), so the sleep
-// that ended on the morning of day d has entry.date == d-1 — the same offset the
-// check-in already applies (cycleDate = date - 1). Naps are filtered out.
-const GH_SLEEP_KEY = 'gh_sleep_v1';
-
-function getGhSleepByDate() {
-  try {
-    const arr = JSON.parse(localStorage.getItem(GH_SLEEP_KEY)) || [];
-    const out = {};
-    arr.forEach(e => { if (e && e.date) out[e.date] = e.asleep_min; });
-    return out;
-  } catch(e) { return {}; }
-}
-
-async function pullGhSleepFromSheets() {
-  const url = getSheetsUrl(); if (!url) return null;
-  try {
-    const res  = await noCacheFetch(url + '?type=ghSleep');
-    const data = await res.json();
-    if (!data.ok || !Array.isArray(data.entries)) return null;
-    // Project to the minimal shape used by the nightly check-in. Filter out naps
-    // (only the main overnight counts). Keep last 90 days to bound localStorage.
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
-    const projected = [];
-    data.entries.forEach(e => {
-      if (!e || e.nap === true) return;
-      const dt = e.date ? new Date(e.date) : null;
-      if (!dt || isNaN(dt)) return;
-      if (dt < cutoff) return;
-      // asleep_min = total minutes actually asleep (in-bed minus awake). Fall back
-      // to summing stage minutes if an older row left the field blank.
-      let mins = (typeof e.asleep_min === 'number') ? e.asleep_min : null;
-      if (mins == null) {
-        const sum = (Number(e.light_min)||0) + (Number(e.rem_min)||0) + (Number(e.deep_min)||0);
-        mins = sum > 0 ? sum : null;
-      }
-      if (mins == null) return;
-      projected.push({ date: dt.toISOString().slice(0, 10), asleep_min: mins });
-    });
-    // Dedup by date — keep the longest sleep if multiple rows share a date.
-    const byDate = {};
-    projected.forEach(e => {
-      if (byDate[e.date] == null || e.asleep_min > byDate[e.date]) {
-        byDate[e.date] = e.asleep_min;
-      }
-    });
-    const dedup = Object.keys(byDate).map(d => ({ date: d, asleep_min: byDate[d] }));
-    safeSetItem(GH_SLEEP_KEY, JSON.stringify(dedup));
-    return dedup;
-  } catch(e) { return null; }
-}
+// (WHOOP/GH sleep readers deleted 2026-08-23 — they existed solely to grade the
+//  Nightly Check-In, dead since 2026-05-23. ghSleep data stays in the Sheet via
+//  the companion script; diagnostics pull it by curl, not through this app.)
 
 // ── Meal Plan Template ────────────────────────────────────────────────────────
 // Exact daily quantities from your Daily Meal Plan spreadsheet.
@@ -6436,128 +6298,18 @@ function habitNavDay(delta) {
   dt.setDate(dt.getDate() + delta);
   habitViewDate = dt.toISOString().slice(0,10);
   renderHabits();
-  if (typeof renderJournal === 'function') renderJournal();
 }
 
-// ── Render habits ────────────────────────────────────────────────────────────
+// ── Render habits (thinned 2026-08-23) ──────────────────────────────────────
+// Habits UI moved to the Growth app; this tab is now Journal-only. Kept under
+// the old name because ~6 call sites (switchTab, sync repaints, day rollover)
+// still invoke renderHabits() to refresh the active panel.
 function renderHabits() {
   const td = today();
-  // 2026-05-16: keep the global header date in sync with whichever day the
-  // user is viewing on the Habits tab (was previously frozen on today).
   if (typeof setHeaderDateLabel === 'function') setHeaderDateLabel(habitViewDate);
-
   const label = document.getElementById('habit-nav-label');
-  if (habitViewDate === td) label.textContent = 'Today';
-  else label.textContent = fmtDate(habitViewDate);
-
-  const habits = getHabitsList();
-  const dayData = getHabitsForDate(habitViewDate);
-  const list = document.getElementById('habit-list');
-
-  if (!habits.length) {
-    list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">No habits configured. Add one below!</div>';
-  } else {
-    list.innerHTML = habits.map(h => {
-      const entry = dayData[h] || { done: false, notes: '', duration: null };
-      const isDefault = DEFAULT_HABITS.includes(h);
-      const isExercise = (h === 'exercise');
-
-      // Default binary habit UI for all habits.
-      const hAttr = attrEsc(h);
-      return `
-        <div class="habit-item">
-          <button class="habit-toggle ${entry.done?'done':''}" onclick="toggleHabit('${hAttr}')" aria-label="${entry.done?'Mark '+esc(h)+' not done':'Mark '+esc(h)+' done'}" title="${entry.done?'Mark not done':'Mark done'}">
-            ${entry.done ? '✓' : ''}
-          </button>
-          <div class="habit-info">
-            <span class="habit-name">${esc(h)}</span>
-            ${entry.done ? `
-              ${isExercise ? '' : `<button class="habit-notes-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-                ${entry.notes ? 'Edit notes' : 'Add notes'}
-              </button>`}
-              <textarea class="habit-notes" style="display:${(isExercise || entry.notes)?'block':'none'}" placeholder="${isExercise ? 'What did you do?' : 'How did it go?'}"
-                onchange="setHabitForDate('${habitViewDate}','${hAttr}',{notes:this.value})">${esc(entry.notes||'')}</textarea>
-            ` : ''}
-          </div>
-          ${!isDefault ? `<button class="habit-remove-btn" onclick="removeCustomHabit('${hAttr}')" aria-label="Remove habit ${esc(h)}" title="Remove habit">✕</button>` : ''}
-        </div>
-      `;
-    }).join('');
-  }
-
-  renderHabitStreaks();
-  renderHabitHeatmap();
-  // renderHabitInsights() removed 2026-05-26 (section deleted — broken render + unused)
-  // Nightly Check-In disabled 2026-05-23 per Ethan — card stays hidden (style="display:none" inline).
-  // renderNightlyCheckIn();
-}
-
-function toggleHabit(habit) {
-  const dayData = getHabitsForDate(habitViewDate);
-  const current = dayData[habit] || { done: false, notes: '', duration: null };
-  const willBeDone = !current.done;
-  setHabitForDate(habitViewDate, habit, { done: willBeDone });
-  renderHabits();
-  // Celebrate if this toggle completes all 4 core habits for today
-  if (willBeDone && habitViewDate === today()) {
-    checkCoreHabitsCelebration(habitViewDate);
-  }
-}
-
-// Fires a celebration the first time all 4 core habits are completed in a single day
-function checkCoreHabitsCelebration(date) {
-  const dayData = getHabitsForDate(date);
-  const allCoreDone = DEFAULT_HABITS.every(h => dayData[h] && dayData[h].done);
-  if (!allCoreDone) return;
-  const key = 'habit_celebration_' + date;
-  if (localStorage.getItem(key)) return; // already celebrated today
-  safeSetItem(key, '1');
-  celebrateAllHabitsDone();
-}
-
-function celebrateAllHabitsDone() {
-  fireworks();
-  // Big, warm, once-a-day toast
-  const t = document.createElement('div');
-  t.className = 'habit-celebration';
-  t.innerHTML = `
-    <div class="habit-celebration-emoji">🎉</div>
-    <div class="habit-celebration-title">All three habits done!</div>
-    <div class="habit-celebration-sub">Exercise. Meditation. Stretch. A full stack day.</div>
-  `;
-  document.body.appendChild(t);
-  // Animate in, then fade out
-  requestAnimationFrame(() => t.classList.add('show'));
-  setTimeout(() => {
-    t.classList.remove('show');
-    setTimeout(() => t.remove(), 500);
-  }, 3800);
-}
-
-// ── Custom habits ────────────────────────────────────────────────────────────
-function addCustomHabit() {
-  const input = document.getElementById('habit-add-input');
-  const name = input.value.trim().toLowerCase();
-  if (!name) return;
-  const habits = getHabitsList();
-  if (habits.includes(name)) { showToast('Habit already exists'); return; }
-  habits.push(name);
-  saveHabitsList(habits);
-  input.value = '';
-  renderHabits();
-  showToast(`✓ Added "${name}"`);
-}
-
-async function removeCustomHabit(habit) {
-  if (!(await confirmAsync(`Remove "${habit}" from your habits?`))) return;
-  const habits = getHabitsList().filter(h => h !== habit);
-  saveHabitsList(habits);
-  // Also remove data for this habit from all dates
-  const data = getHabitsData();
-  Object.keys(data).forEach(date => { delete data[date][habit]; });
-  saveHabitsData(data);
-  renderHabits();
-  showToast(`Removed "${habit}"`);
+  if (label) label.textContent = (habitViewDate === td) ? 'Today' : fmtDate(habitViewDate);
+  if (typeof renderJournal === 'function') renderJournal();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -7022,547 +6774,11 @@ function calcTotal30(habit) {
   return count;
 }
 
-// 7-day minimums per habit
-const HABIT_7D_GOALS = {
-  'exercise': 4,
-  'meditation': 4,
-  'stretch': 2,
-};
-const DEFAULT_7D_GOAL = 3;
+// (HABIT_7D_GOALS / calcTotal7 deleted 2026-08-23 — weekly aims live in Growth.)
 
-function calcTotal7(habit) {
-  const data = getHabitsData();
-  let count = 0;
-  const td = today();
-  for (let i = 0; i < 7; i++) {
-    const dt = new Date(td + 'T12:00:00');
-    dt.setDate(dt.getDate() - i);
-    const d = dt.toISOString().slice(0,10);
-    if (data[d] && data[d][habit] && data[d][habit].done) count++;
-  }
-  return count;
-}
+// (Nightly Check-In deleted 2026-08-23 — abandoned 2026-05-23, never revived.)
 
-// ═══════════════════════════════════════════════════════════════════════════
-// NIGHTLY CHECK-IN
-// Daily process-adherence verdict, switches framing to "Tonight" at 8pm local.
-// Three criteria: calories under target, exercise as a rolling 4-of-last-7
-// check (so rest days don't break a perfect day), last night's sleep
-// minutes-asleep >= NRC_SLEEP_MIN_THRESHOLD. Skip days drop the calorie criterion.
-// Missing Google Health (Fitbit) sleep data doesn't punish (shown as "—" and
-// treated as OK so a data gap can't break a streak). Confetti fires once per day.
-// ═══════════════════════════════════════════════════════════════════════════
-const NRC_LAST_ANIMATED_KEY = 'nightly_review_last_animated_v1';
-const NRC_REVIEW_HOUR       = 20;   // 8pm local — switches "Today" framing on
-const NRC_SLEEP_MIN_THRESHOLD = 420; // minutes asleep required (7h) — Google Health
-                                     // (Fitbit) hours-asleep; replaced WHOOP perf %
-                                     // in Stage 2 (2026-06-06). Tunable to taste.
-const NRC_EXERCISE_WINDOW   = 7;    // rolling window (days) for exercise check
-const NRC_EXERCISE_TARGET   = 4;    // required exercises within the window
-const NRC_MILESTONES        = [3, 7, 14, 30]; // streak lengths that bump animation
-
-// Date string (YYYY-MM-DD) the nightly check-in should grade: today if past
-// NRC_REVIEW_HOUR local, otherwise yesterday.
-function nrcReviewDate() {
-  const now = new Date();
-  if (now.getHours() < NRC_REVIEW_HOUR) {
-    now.setDate(now.getDate() - 1);
-  }
-  return now.toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
-}
-
-// Build a context object that batches all localStorage reads once. Pass into
-// nrcGradeDay to avoid re-parsing JSON for every iteration of the streak walk.
-function nrcBuildContext() {
-  // 2026-05-22 (App Review #8): added manualByDate tracking so the calorie grade
-  // can detect the autopop tautology — if a day's food rows are all `plan-*` IDs
-  // with no manual edits, the day isn't "finalized" and the cal grade should
-  // show "pending" rather than tick ✓ against itself.
-  const ctx = { calByDate: {}, calCountByDate: {}, manualByDate: {}, habitsData: {}, skipSet: new Set(), sleepByDate: {}, calTarget: 2500 };
-  try {
-    const targets = (typeof getFoodTargets === 'function') ? getFoodTargets() : null;
-    if (targets && typeof targets.cal === 'number' && targets.cal > 0) ctx.calTarget = targets.cal;
-  } catch(e) {}
-  try {
-    const entries = (typeof getFoodEntries === 'function') ? getFoodEntries() : [];
-    entries.forEach(e => {
-      if (!e || !e.date) return;
-      ctx.calByDate[e.date] = (ctx.calByDate[e.date] || 0) + (Number(e.calories) || 0);
-      ctx.calCountByDate[e.date] = (ctx.calCountByDate[e.date] || 0) + 1;
-      // A row is "manual" if it isn't a plan-autopop entry. Plan rows are tagged
-      // either via the `plan` boolean OR via the `plan-` id prefix convention.
-      const isPlan = e.plan === true || (e.id && String(e.id).startsWith('plan-'));
-      if (!isPlan) ctx.manualByDate[e.date] = (ctx.manualByDate[e.date] || 0) + 1;
-    });
-  } catch(e) {}
-  try {
-    ctx.habitsData = (typeof getHabitsData === 'function') ? getHabitsData() : {};
-  } catch(e) { ctx.habitsData = {}; }
-  try {
-    ctx.skipSet = (typeof getSkipDates === 'function') ? getSkipDates() : new Set();
-  } catch(e) { ctx.skipSet = new Set(); }
-  try {
-    ctx.sleepByDate = (typeof getGhSleepByDate === 'function') ? getGhSleepByDate() : {};
-  } catch(e) { ctx.sleepByDate = {}; }
-  return ctx;
-}
-
-// Grade a single date against the perfect-day criteria. Returns shape:
-// { cal: {ok, total, target, present}, exercise: {ok, note, present},
-//   sleep: {ok, perf, present}, isSkip, requiredCount, metCount, overall }
-// Pass `ctx` from nrcBuildContext() to avoid repeated localStorage parses.
-function nrcGradeDay(date, ctx) {
-  ctx = ctx || nrcBuildContext();
-  const isSkip = ctx.skipSet.has(date);
-  const calTarget = ctx.calTarget;
-
-  // Calories — with autopop-tautology guard (App Review #8, 2026-05-22).
-  // If `date` is today AND the only food rows are plan-autopop entries (no manual
-  // edits yet), treat the day as not-finalized: calPending=true, calOk=false. The
-  // verdict then surfaces "pending finalize" instead of grading the plan against
-  // itself (which would always tick ✓ tautologically).
-  const calTotal = ctx.calByDate[date] || 0;
-  const calCount = ctx.calCountByDate[date] || 0;
-  const manualCount = ctx.manualByDate[date] || 0;
-  const calPresent = calCount > 0;
-  const isToday = (date === (new Date()).toLocaleDateString('en-CA'));
-  const calPending = isToday && calPresent && manualCount === 0;
-  const calOk = calPresent && !calPending && calTotal <= calTarget;
-
-  // Exercise — rolling 4-of-last-7 (window includes the grading date itself).
-  // Rest days don't break a perfect day; the streak rewards a sustained pattern.
-  // Today's habit row is surfaced in the verdict but is not by itself required.
-  let exCount = 0;
-  const exBase = new Date(date + 'T12:00:00');
-  for (let i = 0; i < NRC_EXERCISE_WINDOW; i++) {
-    const d = new Date(exBase); d.setDate(d.getDate() - i);
-    const ds = d.toLocaleDateString('en-CA');
-    const h = (ctx.habitsData[ds] || {}).exercise;
-    if (h && h.done) exCount++;
-  }
-  const exOk = exCount >= NRC_EXERCISE_TARGET;
-  const todayHabit = (ctx.habitsData[date] || {}).exercise;
-  const todayDone  = !!(todayHabit && todayHabit.done);
-  const todayNote  = (todayHabit && todayHabit.notes) ? String(todayHabit.notes) : '';
-
-  // Sleep — last night's sleep credited to date `date` (= GH night-of date,
-  // i.e. date - 1). Graded on Google Health minutes-asleep (Stage 2, 2026-06-06).
-  let sleepMin = null;
-  try {
-    const d = new Date(date + 'T12:00:00');
-    d.setDate(d.getDate() - 1);
-    const cycleDate = d.toISOString().slice(0, 10);
-    const v = ctx.sleepByDate[cycleDate];
-    if (typeof v === 'number') sleepMin = v;
-  } catch(e) {}
-  const sleepPresent = sleepMin != null;
-  // Data-gap rule: missing sleep => treat as OK (don't punish for sync gaps).
-  const sleepOk = !sleepPresent || sleepMin >= NRC_SLEEP_MIN_THRESHOLD;
-
-  let required, met;
-  if (isSkip) {
-    // Skip day: drop the cal check entirely. Exercise + sleep still required.
-    required = 2;
-    met = (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
-  } else if (calPending) {
-    // Cal slot is "not yet decided" (today, autopop-only, no manual edits).
-    // Verdict drops to exercise + sleep so the day reads "pending finalize"
-    // rather than getting marked missed for an undecided metric. App Review #8.
-    required = 2;
-    met = (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
-  } else {
-    required = 3;
-    met = (calOk ? 1 : 0) + (exOk ? 1 : 0) + (sleepOk ? 1 : 0);
-  }
-  const overall = met === required;
-
-  return {
-    cal:      { ok: calOk,    total: calTotal, target: calTarget, present: calPresent, pending: calPending },
-    exercise: { ok: exOk,     count: exCount,  window: NRC_EXERCISE_WINDOW, target: NRC_EXERCISE_TARGET, todayDone, todayNote },
-    sleep:    { ok: sleepOk,  min: sleepMin, present: sleepPresent },
-    isSkip,
-    requiredCount: required,
-    metCount: met,
-    overall,
-  };
-}
-
-// Walk backward from `endDate` (inclusive) counting consecutive perfect days.
-// Also computes the best streak across the lookback window. Returns
-// { currentStreak, bestStreak, bestStreakEnd } where bestStreakEnd is the
-// YYYY-MM-DD on which the best streak ended (its most recent day).
-// `ctx` is the batched-data context from nrcBuildContext().
-function nrcComputeStreak(endDate, lookbackDays, ctx) {
-  ctx = ctx || nrcBuildContext();
-  const LOOKBACK = Math.max(lookbackDays || 120, 30);
-  const end = new Date(endDate + 'T12:00:00');
-  let current = 0;
-  let runningTrue = false;
-  let runLen = 0;
-  let best = 0;
-  let bestEnd = null;
-  let runEnd = null;
-
-  for (let i = 0; i < LOOKBACK; i++) {
-    const d = new Date(end);
-    d.setDate(d.getDate() - i);
-    const ds = d.toLocaleDateString('en-CA');
-    const g = nrcGradeDay(ds, ctx);
-
-    // Tail-from-end current streak (only counts from i=0 forward, breaks on first miss)
-    if (i === current && g.overall) current++;
-
-    // Best streak — walk all of history. Since we're going backward, a "run"
-    // begins on the most recent miss-adjacent day and grows as we step further
-    // back through consecutive overall=true days.
-    if (g.overall) {
-      if (!runningTrue) { runningTrue = true; runLen = 1; runEnd = ds; }
-      else              { runLen += 1; }
-      if (runLen > best) { best = runLen; bestEnd = runEnd; }
-    } else {
-      runningTrue = false;
-      runLen = 0;
-      runEnd = null;
-    }
-  }
-  // The current streak is always ≤ the best streak by construction.
-  if (current > best) { best = current; bestEnd = endDate; }
-  return { currentStreak: current, bestStreak: best, bestStreakEnd: bestEnd };
-}
-
-// One-line formatter: "12 (Apr 14–25)" or "" if no best streak.
-function nrcFormatBestStreak(best, bestEnd) {
-  if (!best || best < 2 || !bestEnd) return '';
-  const end = new Date(bestEnd + 'T12:00:00');
-  const start = new Date(end);
-  start.setDate(start.getDate() - (best - 1));
-  const sameMonth = start.getMonth() === end.getMonth();
-  const sMonth = start.toLocaleDateString('en-US', { month: 'short' });
-  const eMonth = end.toLocaleDateString('en-US', { month: 'short' });
-  if (sameMonth) {
-    return `${best} (${sMonth} ${start.getDate()}–${end.getDate()})`;
-  }
-  return `${best} (${sMonth} ${start.getDate()} – ${eMonth} ${end.getDate()})`;
-}
-
-function nrcRenderConfettiLayer(big) {
-  // Generate ~30 (or ~45 for big) pieces with randomized trajectories. Colors
-  // pick from a green/gold/blue palette to fit the "perfect day" mood.
-  const palette = ['#10b981','#34d399','#f59e0b','#fbbf24','#60a5fa','#a78bfa','#f472b6'];
-  const count = big ? 45 : 30;
-  let html = '<div class="nrc-confetti-layer">';
-  for (let i = 0; i < count; i++) {
-    const angle = (Math.random() * Math.PI * 2);
-    const dist  = 70 + Math.random() * 90;
-    const tx = Math.cos(angle) * dist;
-    const ty = Math.sin(angle) * dist - 30; // bias upward
-    const rot = (Math.random() * 720 - 360) | 0;
-    const color = palette[i % palette.length];
-    const delay = (Math.random() * 0.25).toFixed(2);
-    html += `<span class="nrc-confetti-piece" style="background:${color};--nrc-tx:${tx.toFixed(0)}px;--nrc-ty:${ty.toFixed(0)}px;--nrc-rot:${rot}deg;animation-delay:${delay}s;"></span>`;
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderNightlyCheckIn() {
-  const card = document.getElementById('nrc-card');
-  const body = document.getElementById('nrc-card-body');
-  if (!card || !body) return;
-
-  const reviewDate = nrcReviewDate();
-  const ctx = nrcBuildContext();
-  const grade = nrcGradeDay(reviewDate, ctx);
-
-  // Compute the streak going INTO the review date (exclusive). When today is
-  // perfect, the displayed streak is priorStreak+1. When today is partial or
-  // missed, the chip carries the prior streak (yesterday's run still standing)
-  // — locking or breaking happens once today is graded.
-  const priorDate = (() => {
-    const d = new Date(reviewDate + 'T12:00:00'); d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString('en-CA');
-  })();
-  const priorInfo = nrcComputeStreak(priorDate, 120, ctx);
-  const streakIntoToday = priorInfo.currentStreak;
-  const streakIncludingToday = grade.overall ? streakIntoToday + 1 : 0;
-  // Best streak: priorInfo.bestStreak is computed across all of history pre-today;
-  // if today's perfect-day completion creates a new high, take it.
-  let bestStreak    = priorInfo.bestStreak;
-  let bestStreakEnd = priorInfo.bestStreakEnd;
-  if (streakIncludingToday > bestStreak) {
-    bestStreak    = streakIncludingToday;
-    bestStreakEnd = reviewDate;
-  }
-  // Chip value: locked count if perfect today, else carrying count.
-  const chipStreak = grade.overall ? streakIncludingToday : streakIntoToday;
-  // Verdict subtext uses the "locked" count when perfect.
-  const currentStreak = streakIncludingToday;
-
-  // Framing — does the review date == today (local)?
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  const isToday = reviewDate === todayStr;
-  const headline = isToday ? 'TONIGHT\'S CHECK-IN' : 'YESTERDAY\'S CHECK-IN';
-
-  // Streak chip — always shows streak. No more "X of Y" duplication with the
-  // verdict; the verdict carries "X of 3" on its own.
-  let streakHtml;
-  if (chipStreak >= 1) {
-    streakHtml = `<span class="nrc-streak active">🔥 ${chipStreak} ${chipStreak === 1 ? 'day' : 'days'}</span>`;
-  } else {
-    streakHtml = `<span class="nrc-streak broken">Streak: —</span>`;
-  }
-
-  // Rows — cal row hidden on skip days. App Review #8 (2026-05-22): when the
-  // calorie grade is `pending` (today, only plan-autopop entries, no manual
-  // edits), show "Pending — finalize the day" instead of grading the plan
-  // against the target tautologically. The verdict math also treats pending
-  // as not-counting (see verdict block below).
-  const rowsHtml = [];
-  if (!grade.isSkip) {
-    const c = grade.cal;
-    let calValue;
-    if (c.pending) {
-      calValue = `<span class="nrc-value"><em style="color:var(--muted)">Pending — finalize the day</em></span>`;
-    } else if (!c.present) {
-      calValue = `<span class="nrc-value"><em style="color:var(--muted)">No entries yet</em></span>`;
-    } else {
-      const delta = c.total - c.target;
-      const deltaCls = delta <= 0 ? 'under' : 'over';
-      const deltaStr = (delta === 0) ? '±0' : (delta < 0 ? `${delta}` : `+${delta}`);
-      calValue = `<span class="nrc-value">${Math.round(c.total).toLocaleString()} / ${Math.round(c.target).toLocaleString()}<span class="nrc-delta ${deltaCls}">${deltaStr}</span></span>`;
-    }
-    const markCls = c.ok ? 'ok' : (c.pending ? 'pending' : (c.present ? 'miss' : 'pending'));
-    const markChar = c.ok ? '✓' : (c.pending ? '◯' : (c.present ? '✗' : '◯'));
-    rowsHtml.push(`
-      <div class="nrc-row">
-        <span class="nrc-mark ${markCls}">${markChar}</span>
-        <span class="nrc-label">Calories</span>
-        ${calValue}
-      </div>
-    `);
-  }
-
-  // Exercise — rolling 4-of-last-7. Surface today's note (or "rest day") as a
-  // sub-line so the user can tell at a glance what today contributed.
-  {
-    const e = grade.exercise;
-    const markCls = e.ok ? 'ok' : 'miss';
-    const markChar = e.ok ? '✓' : '✗';
-    let sub;
-    if (e.todayDone) sub = e.todayNote ? `today: ${esc(e.todayNote)}` : 'today: done';
-    else             sub = 'today: rest';
-    const tally = `${e.count} of last ${e.window}`;
-    rowsHtml.push(`
-      <div class="nrc-row">
-        <span class="nrc-mark ${markCls}">${markChar}</span>
-        <span class="nrc-label">Exercise</span>
-        <span class="nrc-value">${tally}<span class="nrc-delta">· ${sub}</span></span>
-      </div>
-    `);
-  }
-
-  // Sleep
-  {
-    const s = grade.sleep;
-    let markCls, markChar, valueText;
-    const fmtSleep = (m) => `${Math.floor(m/60)}h ${Math.round(m%60)}m`;
-    const thr = `${(NRC_SLEEP_MIN_THRESHOLD/60).toFixed(1).replace(/\.0$/,'')}h`;
-    if (!s.present) {
-      markCls = 'pending';
-      markChar = '—';
-      valueText = '<em style="color:var(--muted)">No Fitbit data</em>';
-    } else if (s.ok) {
-      markCls = 'ok';
-      markChar = '✓';
-      valueText = `${fmtSleep(s.min)} <span class="nrc-delta under">(≥ ${thr})</span>`;
-    } else {
-      markCls = 'miss';
-      markChar = '✗';
-      valueText = `${fmtSleep(s.min)} <span class="nrc-delta over">(target ${thr})</span>`;
-    }
-    rowsHtml.push(`
-      <div class="nrc-row">
-        <span class="nrc-mark ${markCls}">${markChar}</span>
-        <span class="nrc-label">Sleep</span>
-        <span class="nrc-value">${valueText}</span>
-      </div>
-    `);
-  }
-
-  // Verdict block
-  let verdictHtml = '';
-  if (grade.overall) {
-    const bestStr = nrcFormatBestStreak(bestStreak, bestStreakEnd);
-    let headlineEmoji = '🎉';
-    let headlineText = grade.isSkip ? 'Rest Day ✓' : 'Perfect Day';
-    let subText = '';
-    if (currentStreak >= 30)      { headlineEmoji = '🏆'; subText = '30-day streak — legendary.'; }
-    else if (currentStreak >= 14) { headlineEmoji = '🔥'; subText = `${currentStreak}-day streak — two full weeks straight.`; }
-    else if (currentStreak >= 7)  { headlineEmoji = '🔥'; subText = `${currentStreak}-day streak — one week locked in.`; }
-    else if (currentStreak >= 3)  { headlineEmoji = '🔥'; subText = `${currentStreak}-day streak — momentum building.`; }
-    else                          { subText = `${currentStreak}-day streak — keep it going.`; }
-    if (bestStr && bestStreak > currentStreak) subText += ` Best: ${bestStr}.`;
-    verdictHtml = `
-      <div class="nrc-verdict perfect">
-        <div class="nrc-verdict-headline">${headlineEmoji} ${headlineText}${grade.isSkip ? '<span class="nrc-rest-day-tag">skip day</span>' : ''}</div>
-        <div class="nrc-verdict-sub">${esc(subText)}</div>
-      </div>
-    `;
-  } else if (grade.metCount >= Math.max(1, grade.requiredCount - 1)) {
-    let leftLabel;
-    // App Review #8: when cal is pending, the cal row is "not graded yet" — don't
-    // surface "Tighten calories" (which would imply over-target). Skip to the
-    // exercise/sleep branches; the row itself reads "Pending — finalize the day."
-    if (!grade.cal.ok && !grade.isSkip && !grade.cal.pending) {
-      leftLabel = grade.cal.present ? 'Tighten calories' : 'Log your food';
-    } else if (!grade.exercise.ok) {
-      const need = grade.exercise.target - grade.exercise.count;
-      leftLabel = grade.exercise.todayDone
-        ? `${need} more workout${need === 1 ? '' : 's'} this week`
-        : `Exercise today to hit ${grade.exercise.target} of ${grade.exercise.window}`;
-    } else {
-      leftLabel = 'Sleep needed last night to lock today';
-    }
-    verdictHtml = `
-      <div class="nrc-verdict partial">
-        <div class="nrc-verdict-headline">Almost there — ${grade.metCount} of ${grade.requiredCount}</div>
-        <div class="nrc-verdict-sub">${esc(leftLabel)}.</div>
-      </div>
-    `;
-  } else {
-    verdictHtml = `
-      <div class="nrc-verdict missed">
-        <div class="nrc-verdict-headline">Tomorrow's a new day</div>
-        <div class="nrc-verdict-sub">${grade.metCount} of ${grade.requiredCount} today. Reset, try again.</div>
-      </div>
-    `;
-  }
-
-  // Animation gating — fire confetti once per graded day, only on a perfect day.
-  let lastAnimated = '';
-  try { lastAnimated = localStorage.getItem(NRC_LAST_ANIMATED_KEY) || ''; } catch(e) {}
-  const shouldAnimate = grade.overall && lastAnimated !== reviewDate;
-  const isMilestone = NRC_MILESTONES.includes(currentStreak);
-  const confettiHtml = shouldAnimate ? nrcRenderConfettiLayer(isMilestone) : '';
-
-  body.innerHTML = `
-    <div class="nrc-header">
-      <div class="nrc-title"><span class="nrc-emoji">${grade.overall ? '🌙' : '🌙'}</span>${headline}</div>
-      ${streakHtml}
-    </div>
-    <div class="nrc-divider"></div>
-    ${rowsHtml.join('')}
-    ${verdictHtml}
-    ${confettiHtml}
-  `;
-  card.style.display = '';
-
-  if (shouldAnimate) {
-    card.classList.add('nrc-confetti-on');
-    if (isMilestone) card.classList.add('nrc-confetti-big');
-    try { safeSetItem(NRC_LAST_ANIMATED_KEY, reviewDate); } catch(e) {}
-    setTimeout(() => {
-      card.classList.remove('nrc-confetti-on');
-      card.classList.remove('nrc-confetti-big');
-    }, isMilestone ? 2400 : 1700);
-  }
-}
-
-function renderHabitStreaks() {
-  const habits = getHabitsList();
-  const data = getHabitsData();
-  const td = today();
-  const container = document.getElementById('habit-streaks');
-  // Ring geometry — radius 32, circumference = 2π*32 ≈ 201.06
-  const RING_R = 32;
-  const RING_C = 2 * Math.PI * RING_R;
-  container.innerHTML = habits.map(h => {
-    const last7 = calcTotal7(h);
-    const goal = HABIT_7D_GOALS[h] !== undefined ? HABIT_7D_GOALS[h] : DEFAULT_7D_GOAL;
-    const onTrack7 = last7 >= goal;
-
-    const total30 = calcTotal30(h);
-    const goal30 = Math.round((goal / 7) * 30);
-    const pct30 = Math.round((total30 / 30) * 100);
-    const onTrack30 = total30 >= goal30;
-
-    // Ring fill: 7-day count over 7-day goal, capped at 100% visually
-    const ringPct = goal > 0 ? Math.min(1, last7 / goal) : 0;
-    const filled = (ringPct * RING_C).toFixed(2);
-    const dasharray = `${filled} ${RING_C.toFixed(2)}`;
-    const ringClass = onTrack7 ? '' : 'behind';
-
-    // Build 7-day sparkline (oldest left, today rightmost)
-    const sparkDots = [];
-    for (let i = 6; i >= 0; i--) {
-      const dt = new Date(td + 'T12:00:00');
-      dt.setDate(dt.getDate() - i);
-      const dStr = dt.toISOString().slice(0,10);
-      const done = !!(data[dStr] && data[dStr][h] && data[dStr][h].done);
-      const isToday = i === 0;
-      sparkDots.push(`<div class="streak-spark-dot${done ? ' done' : ''}${isToday ? ' today' : ''}" title="${dStr}${done ? ' \u2713' : ''}"></div>`);
-    }
-
-    return `
-      <div class="streak-card">
-        <div class="streak-name">${esc(h)}</div>
-        <div class="streak-ring">
-          <svg viewBox="0 0 78 78" aria-hidden="true">
-            <circle class="streak-ring-track" cx="39" cy="39" r="${RING_R}"></circle>
-            <circle class="streak-ring-fill ${ringClass}" cx="39" cy="39" r="${RING_R}" stroke-dasharray="${dasharray}"></circle>
-          </svg>
-          <div class="streak-ring-center">
-            <div class="streak-ring-num ${onTrack7 ? 'on-track' : 'behind'}">${last7}</div>
-            <div class="streak-ring-target">/ ${goal} GOAL</div>
-          </div>
-        </div>
-        <div class="streak-spark">${sparkDots.join('')}</div>
-        <div class="streak-30d ${onTrack30 ? 'on-track' : 'behind'}">30-DAY · <strong>${total30}/${goal30}</strong> (${pct30}%)</div>
-      </div>
-    `;
-  }).join('');
-}
-
-// ── Weekly grid ──────────────────────────────────────────────────────────────
-function renderHabitHeatmap() {
-  const habits = getHabitsList();
-  const data = getHabitsData();
-  const td = today();
-
-  // Build 28 days ending today
-  const days = [];
-  for (let i = 27; i >= 0; i--) {
-    const dt = new Date(td + 'T12:00:00');
-    dt.setDate(dt.getDate() - i);
-    days.push(dt.toISOString().slice(0,10));
-  }
-
-  const container = document.getElementById('habit-heatmap');
-  container.innerHTML = habits.map(h => {
-    let doneCount = 0;
-    const squares = days.map(d => {
-      const dayData = data[d] && data[d][h];
-      const isFuture = d > td;
-      const isToday = d === td;
-      let cls = 'missed';
-      if (isFuture) cls = 'future';
-      else if (dayData && dayData.done) { cls = 'done'; doneCount++; }
-      if (isToday) cls += ' today';
-      return `<div class="hm-sq ${cls}" title="${fmtDate(d)}${dayData && dayData.done ? ' \u2713' : ''}"></div>`;
-    }).join('');
-    const pct = Math.round((doneCount / 28) * 100);
-    return `
-      <div class="habit-heatmap-row">
-        <div class="hm-label"><span>${esc(h)}</span><span class="hm-pct">${pct}%</span></div>
-        <div class="hm-squares">${squares}</div>
-      </div>`;
-  }).join('') + `
-    <div class="hm-dates">
-      <span>${fmtDateShort(days[0])}</span>
-      <span>${fmtDateShort(days[13])}</span>
-      <span>Today</span>
-    </div>`;
-}
+// (renderHabitStreaks / renderHabitHeatmap deleted 2026-08-23 — grid lives in Growth.)
 
 // ── Habits Sheets Sync ───────────────────────────────────────────────────────
 // ── Habit Insights removed 2026-05-26 (section deleted — broken render + unused) ──
@@ -8256,9 +7472,9 @@ function mergeJournalEntries(local, remote) {
     // poll — which is precisely why this bug kept surviving "fixed" in testing).
     // Gate each domain's apply on having no pending writes for that domain.
     const pendingBoot = _pendingByDomain();
-    const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, deletedPlanRemote, _sleep] = await Promise.all([
+    const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, deletedPlanRemote] = await Promise.all([
       pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(),
-      pullDexaFromSheets(), pullSkipDatesFromSheets(), pullDeletedPlanIdsFromSheets(), pullGhSleepFromSheets()
+      pullDexaFromSheets(), pullSkipDatesFromSheets(), pullDeletedPlanIdsFromSheets()
     ]);
     // 2026-07-18 AUTOPOP-FIX: union remote autopop-deletion tombstones BEFORE
     // seedTodayPlanOnce (below) runs, so the seed diff never re-adds a row that
