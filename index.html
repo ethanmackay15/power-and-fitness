@@ -2901,34 +2901,72 @@ function updateSyncUI(status, msg) {
 // Never baked into this file: the repo is public.
 const API_KEY_LS = 'sheets_api_key_v1';
 let _keyPromptCancelled = false;
+// In-memory mirror of the key. If localStorage.setItem fails (private mode,
+// quota), a prompted key would otherwise never stick and every request would
+// re-prompt — the same loop the 8/24 race fix killed, back via another door.
+let _memApiKey = '';
 // Read-only: NEVER prompts. While server enforcement is off, requests carry an
 // empty key and just work — devices see zero nagging until the API_KEY Script
 // Property is set. The prompt fires only from the unauthorized paths below.
 function getApiKey() {
-  try { return localStorage.getItem(API_KEY_LS) || ''; } catch(e) { return ''; }
+  try { return localStorage.getItem(API_KEY_LS) || _memApiKey; } catch(e) { return _memApiKey; }
 }
-function promptForApiKey() {
+// Race-safe recovery from a server `unauthorized`. `failedKey` = the key the
+// FAILING REQUEST was actually sent with, not whatever is stored now. At boot
+// several pulls are in flight together; the first prompt stores a fresh key
+// while the other requests' unauthorized replies (sent earlier, keyless) are
+// still landing. Clearing unconditionally on each of those wiped the
+// just-entered key once per in-flight request — the 8/24 mobile prompt-loop
+// bug. Only clear + re-prompt when the stored key is the one the server
+// actually rejected; otherwise retry silently with the fresher stored key.
+// Returns the key to retry with ('' = user cancelled).
+function recoverApiKey(failedKey) {
+  const stored = getApiKey();
+  if (stored && stored !== failedKey) return stored;
   if (_keyPromptCancelled) return '';    // don't nag every sync cycle after a cancel
-  const k = (prompt('Enter your data passphrase (one-time on this device):') || '').trim();
-  if (k) { try { localStorage.setItem(API_KEY_LS, k); } catch(e) {} }
+  clearApiKey();
+  const k = (prompt(failedKey
+    ? 'Passphrase rejected by the server — re-enter your data passphrase:'
+    : 'Enter your data passphrase (one-time on this device):') || '').trim();
+  if (k) { _memApiKey = k; try { localStorage.setItem(API_KEY_LS, k); } catch(e) {} }
   else _keyPromptCancelled = true;
   return k;
 }
 function clearApiKey() {
+  _memApiKey = '';
   try { localStorage.removeItem(API_KEY_LS); } catch(e) {}
 }
 
-// Helper: POST to Sheets with CORS, falling back to no-cors if redirect fails
+// Helper: POST to Sheets with CORS, falling back to no-cors if redirect fails.
+// 8/24: now reads the response body — pre-gate this path was blind to a 200
+// {ok:false} reply, so an unauthorized/rejected bulk sync showed green "Synced"
+// while the server dropped the write.
 async function sheetsPost(url, payload) {
-  payload = Object.assign({ key: getApiKey() }, payload);
+  const sentKey = getApiKey();
+  const post = (key) => fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(Object.assign({ key }, payload)), redirect:'follow' });
+  let res;
   try {
-    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload), redirect:'follow' });
+    res = await post(sentKey);
     if (!res.ok && res.status !== 0) throw new Error('HTTP ' + res.status);
-    return res;
   } catch(e) {
-    // Fallback: no-cors (opaque response, can't verify, but data may still arrive)
-    return fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload), mode:'no-cors' });
+    // Network/redirect failure only — no-cors last resort (opaque response,
+    // can't verify, but data may still arrive)
+    return fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(Object.assign({ key: getApiKey() }, payload)), mode:'no-cors' });
   }
+  const probe = await res.clone().json().catch(() => null);
+  if (probe && probe.ok === false) {
+    if (probe.error === 'unauthorized') {
+      const k = recoverApiKey(sentKey);
+      if (k) {
+        const res2 = await post(k);
+        const probe2 = await res2.clone().json().catch(() => null);
+        if (!probe2 || probe2.ok !== false) return res2;
+        throw new Error(probe2.error || 'Server returned ok:false');
+      }
+    }
+    throw new Error(probe.error || 'Server returned ok:false');
+  }
+  return res;
 }
 
 async function pushToSheets(entries) {
@@ -2938,7 +2976,11 @@ async function pushToSheets(entries) {
     await sheetsPost(url, {action:'sync',entries});
     updateSyncUI('green', 'Synced to Google Sheets');
     setTimeout(()=>{ const d=document.getElementById('header-sync-dot'); if(d&&d.classList.contains('green')) updateSyncUI('green','Connected to Google Sheets'); }, 3000);
-  } catch(err) { updateSyncUI('red','Sync failed — check your connection'); }
+  } catch(err) {
+    updateSyncUI('red', /unauthorized/i.test(String(err && err.message))
+      ? 'Sync failed — passphrase needed'
+      : 'Sync failed — check your connection');
+  }
 }
 
 async function pullFromSheets() {
@@ -2966,10 +3008,11 @@ async function pullFromSheets() {
 // Strict POST that requires a readable JSON response. No no-cors fallback —
 // a failed write must surface as an error so the queue can retry it.
 async function sheetsPostJson(url, payload) {
+  const sentKey = getApiKey();
   const res = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body:    JSON.stringify(Object.assign({ key: getApiKey() }, payload)),
+    body:    JSON.stringify(Object.assign({ key: sentKey }, payload)),
     redirect:'follow',
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -2977,9 +3020,9 @@ async function sheetsPostJson(url, payload) {
   try { json = await res.json(); }
   catch (e) { throw new Error('Invalid JSON response from server'); }
   if (!json || json.ok !== true) {
-    // Wrong/stale passphrase: clear + prompt now so the queue's retry of this
+    // Wrong/stale passphrase: recover (race-safe) so the queue's retry of this
     // write carries the freshly entered key.
-    if (json && json.error === 'unauthorized') { clearApiKey(); promptForApiKey(); }
+    if (json && json.error === 'unauthorized') { recoverApiKey(sentKey); }
     throw new Error((json && json.error) || 'Server returned ok:false');
   }
   return json;
@@ -2993,19 +3036,20 @@ async function sheetsPostJson(url, payload) {
 // intermediate cache (browser, CDN, future SW) treats each pull as unique.
 async function noCacheFetch(url, opts) {
   const sep = url.includes('?') ? '&' : '?';
-  const make = () => fetch(
-    url + sep + '_=' + Date.now() + '&key=' + encodeURIComponent(getApiKey()),
+  const make = (key) => fetch(
+    url + sep + '_=' + Date.now() + '&key=' + encodeURIComponent(key),
     Object.assign({ cache: 'no-store' }, opts || {})
   );
-  let res = await make();
+  const sentKey = getApiKey();
+  let res = await make(sentKey);
   // Central unauthorized handling for ALL GET pulls: probe a clone (so callers
-  // can still res.json() normally), and on a wrong/stale passphrase clear it,
-  // re-prompt via getApiKey(), and retry the same URL once.
+  // can still res.json() normally), and on a wrong/stale passphrase recover
+  // (race-safe — prompts only if no fresher key exists) and retry once.
   try {
     const probe = await res.clone().json();
     if (probe && probe.ok === false && probe.error === 'unauthorized') {
-      clearApiKey();
-      if (promptForApiKey()) res = await make();
+      const k = recoverApiKey(sentKey);
+      if (k) res = await make(k);
     }
   } catch(e) { /* non-JSON response — pass through untouched */ }
   return res;
@@ -3214,7 +3258,11 @@ function _isTransientWriteError(msg) {
   // (google-apps-script.js) — genuinely transient contention, not a poison write.
   // Classifying it permanent let 10 unlucky lock-timeouts dead-letter a valid
   // deleteFood, which then resurrected the row (see getPendingDeleteFoodIds).
-  return /Load failed|Failed to fetch|NetworkError|Network request failed|The network connection was lost|The Internet connection appears to be offline|timed out|Sheet busy|HTTP 5\d\d|HTTP 0\b/i.test(String(msg || ''));
+  // 2026-08-24: 'unauthorized' is transient too — it resolves the moment the
+  // passphrase is (re-)entered. Classifying it permanent burned all 10 attempts
+  // in minutes on a keyless device and DEAD-LETTERED every queued write
+  // (weights, food edits, habit mirrors) — silent data loss.
+  return /Load failed|Failed to fetch|NetworkError|Network request failed|The network connection was lost|The Internet connection appears to be offline|timed out|Sheet busy|unauthorized|HTTP 5\d\d|HTTP 0\b/i.test(String(msg || ''));
 }
 
 // Flush the queue in FIFO order. Stops on first failure (per-item backoff
@@ -4288,6 +4336,9 @@ function updateBackupStatus() {
 async function manualForceRefresh() {
   const sheetsUrl = getSheetsUrl();
   if (!sheetsUrl) { showToast('No Sheets URL configured'); return; }
+  // An explicit refresh tap re-arms the passphrase prompt — a mis-tapped
+  // Cancel earlier in the session shouldn't leave the app mute-unauthorized.
+  _keyPromptCancelled = false;
   // If queue has pending work, flush it first.
   if (typeof getQueueStatus === 'function' && getQueueStatus() !== 'idle') {
     updateSyncUI('yellow', 'Finishing pending writes…');
@@ -4376,6 +4427,11 @@ async function syncOnVisibility(forceEvenIfHidden) {
     const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, deletedPlanRemote] = await Promise.all([
       pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(), pullDexaFromSheets(), pullSkipDatesFromSheets(), pullDeletedPlanIdsFromSheets()
     ]);
+    // 8/24: if EVERY pull failed (offline, or unauthorized with no key entered)
+    // don't fall through to the green "Synced just now" below — that painted a
+    // lying green badge (and stamped the last-sync time) over stale data. Leave
+    // the red status the individual pulls set.
+    if (!remote && !foodRemote && !libraryData && !habitsRemote && !dexaRemote && !skipDatesRemote && !deletedPlanRemote) return;
     // 2026-07-18 AUTOPOP-FIX: keep the local tombstone store current from other
     // devices on every resume/poll (hygiene for the next boot's seed diff).
     if (deletedPlanRemote) mergeDeletedPlanIds(deletedPlanRemote);
@@ -7450,7 +7506,10 @@ function mergeJournalEntries(local, remote) {
 
   // Re-sync when user returns to the tab (handles multi-device usage)
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) syncOnVisibility();
+    // Coming back to the foreground re-arms the passphrase prompt: a cancelled
+    // prompt stays quiet for the rest of THAT visit, but the next app-open
+    // gets one fresh chance instead of a whole session of silent failures.
+    if (!document.hidden) { _keyPromptCancelled = false; syncOnVisibility(); }
   });
 
   // Try Sheets sync

@@ -183,7 +183,7 @@
     </div>
   </div>
 
-  <p class="foot"><span id="dataStatus">Chargement…</span> · Édition Michelin · v9 · 2026-08-23 · Le <b>couvert</b> auto-fetches your live <b>Daily Meal Plan</b> (<code>?type=mealplan</code>); the <b>à la carte</b> treats are curated here. The <b>3,050 ceiling</b> (maintenance 2,850 + 200 — the 7/03 appetite-led cut from +400) loads live from the sheet's <b>Config</b> tab (<code>?type=config</code>), with 2,850/3,050 baked as the offline fallback. Touchez to compose the evening — totals &amp; room update live. Rien is written back to the sheet. Falls back to a saved snapshot if the kitchen is unreachable.</p>
+  <p class="foot"><span id="dataStatus">Chargement…</span> · Édition Michelin · v10 · 2026-08-24 (passphrase prompt-loop + timeout fix) · Le <b>couvert</b> auto-fetches your live <b>Daily Meal Plan</b> (<code>?type=mealplan</code>); the <b>à la carte</b> treats are curated here. The <b>3,050 ceiling</b> (maintenance 2,850 + 200 — the 7/03 appetite-led cut from +400) loads live from the sheet's <b>Config</b> tab (<code>?type=config</code>), with 2,850/3,050 baked as the offline fallback. Touchez to compose the evening — totals &amp; room update live. Rien is written back to the sheet. Falls back to a saved snapshot if the kitchen is unreachable.</p>
 </div>
 
 <script>
@@ -232,28 +232,38 @@ function fmt(n){return Math.round(n).toLocaleString();}
 // this origin (Power, dashboards, Growth) — one entry per browser covers all.
 const API_KEY_LS='sheets_api_key_v1';
 let _keyPromptCancelled=false;
+let _memApiKey='';// in-memory fallback: if localStorage.setItem fails (private mode/quota) the key still sticks for this page
 // getApiKey never prompts — zero nagging while server enforcement is off. The
 // prompt fires only when the server answers unauthorized.
-function getApiKey(){try{return localStorage.getItem(API_KEY_LS)||'';}catch(e){return '';}}
-function promptForApiKey(){if(_keyPromptCancelled)return '';const k=(prompt('Enter your data passphrase (one-time on this device):')||'').trim();if(k){try{localStorage.setItem(API_KEY_LS,k);}catch(e){}}else _keyPromptCancelled=true;return k;}
-function clearApiKey(){try{localStorage.removeItem(API_KEY_LS);}catch(e){}}
+function getApiKey(){try{return localStorage.getItem(API_KEY_LS)||_memApiKey;}catch(e){return _memApiKey;}}
+// Race-safe (v10): failedKey = the key the FAILING request was sent with. When
+// concurrent fetches all get unauthorized, the first prompt stores a fresh key;
+// clearing unconditionally on the later replies wiped it once per in-flight
+// request (the 8/24 mobile prompt-loop). Only clear+prompt when the stored key
+// is the one the server rejected; otherwise retry silently with the fresher key.
+function recoverApiKey(failedKey){const stored=getApiKey();if(stored&&stored!==failedKey)return stored;if(_keyPromptCancelled)return '';clearApiKey();const k=(prompt(failedKey?'Passphrase rejected by the server — re-enter your data passphrase:':'Enter your data passphrase (one-time on this device):')||'').trim();if(k){_memApiKey=k;try{localStorage.setItem(API_KEY_LS,k);}catch(e){}}else _keyPromptCancelled=true;return k;}
+function clearApiKey(){_memApiKey='';try{localStorage.removeItem(API_KEY_LS);}catch(e){}}
 async function fetchType(type){
-  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),6500);
-  const go=()=>fetch(WEBAPP_URL+'?type='+type+'&_='+Date.now()+'&key='+encodeURIComponent(getApiKey()),{cache:'no-store',signal:ctl.signal});
-  try{
-    let r=await go();
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    let j=await r.json();
-    if(j&&j.ok===false&&j.error==='unauthorized'){ // wrong/missing passphrase: clear, prompt, retry once
-      clearApiKey();
-      if(promptForApiKey()){
-        r=await go(); if(!r.ok) throw new Error('HTTP '+r.status);
-        j=await r.json();
-      }
-    }
-    if(!j||j.ok!==true) throw new Error('bad '+type);
-    return j;
-  } finally { clearTimeout(to); }
+  // Per-attempt controller+timer (8/24): the passphrase prompt blocks the event
+  // loop, so a timer started pre-prompt fires the instant the dialog closes — a
+  // shared controller aborted the post-prompt retry immediately, stranding the
+  // page on the offline fallback right after a CORRECT passphrase entry.
+  const attempt=async(key)=>{
+    const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),6500);
+    try{
+      const r=await fetch(WEBAPP_URL+'?type='+type+'&_='+Date.now()+'&key='+encodeURIComponent(key),{cache:'no-store',signal:ctl.signal});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return await r.json();
+    } finally { clearTimeout(to); }
+  };
+  const sentKey=getApiKey();
+  let j=await attempt(sentKey);
+  if(j&&j.ok===false&&j.error==='unauthorized'){ // wrong/missing passphrase: recover (race-safe), retry with a fresh budget
+    const k=recoverApiKey(sentKey);
+    if(k) j=await attempt(k);
+  }
+  if(!j||j.ok!==true) throw new Error('bad '+type);
+  return j;
 }
 // Build the couvert from the live meal plan: group planTemplate by meal, drop 0-cal rows (pills/seasoning).
 function planToFloor(mp){
