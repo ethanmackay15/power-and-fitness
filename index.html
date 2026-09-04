@@ -2053,6 +2053,8 @@
   <label>Actions</label>
   <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="forcePull()">Pull from Sheets</button>
   <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="forcePush()">Push all to Sheets</button>
+  <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="retryFailedWrites()">Retry failed writes</button>
+  <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="discardFailedWrites()">Discard failed writes</button>
   <button class="btn-outline" style="width:100%;color:var(--bad);border-color:var(--bad)" onclick="disconnectSheets()">Disconnect</button>
 </div>
 
@@ -2589,7 +2591,11 @@ const DEFAULT_PHASES = [
   {type:'cut',   start:'2026-09-20', end:'2026-10-24', short:'Cut'},
   {type:'maint', start:'2026-10-25', end:'2026-10-31', short:'Maintenance'},
   {type:'cut',   start:'2026-11-01', end:'2026-11-13', short:'Cut'},
-  {type:'rev',   start:'2026-11-14', end:'2027-01-23', short:'Reverse'},
+  {type:'rev',   start:'2026-11-14', end:'2027-01-16', short:'Reverse'},
+  {type:'cut',   start:'2027-01-17', end:'2027-02-13', short:'Cut'},
+  {type:'bulk',  start:'2027-02-14', end:'2027-04-03', short:'Bulk'},
+  {type:'cut',   start:'2027-04-04', end:'2027-05-01', short:'Cut'},
+  {type:'bulk',  start:'2027-05-02', end:'2027-06-30', short:'Bulk'},
 ];
 function activePhases() {
   return (SHARED_CONFIG && Array.isArray(SHARED_CONFIG.phases) && SHARED_CONFIG.phases.length)
@@ -2770,11 +2776,21 @@ const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/
 const TREAT_DAY_START = window.TREAT_DAY_START || '2026-06-13';
 const isTreatDay = d => d >= TREAT_DAY_START && new Date(d + 'T12:00:00').getDay() === 6;
 const daysBetween = (a, b) => Math.round((new Date(b+'T12:00:00') - new Date(a+'T12:00:00')) / 86400000);
-const addDays = (d, n) => { const dt = new Date(d+'T12:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
+// Pure calendar-day shift — no timezone round-trip. The old local-noon-Date →
+// toISOString/toLocaleDateString pattern returned the WRONG day on devices far
+// east of UTC (foodNavDay stuck in Tokyo; addDays off-by-one at UTC+13/14).
+const shiftDate = (d, n) => {
+  const p = String(d).split('-').map(Number);
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10);
+};
+const addDays = shiftDate;
 const fmtDate = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); };
 const fmtDateShort = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}); };
 const fmtMonYear = d => { const dt = new Date(d+'T12:00:00'); return dt.toLocaleDateString('en-US',{month:'short',year:'numeric'}); };
-const esc = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+// The innerHTML trick escapes & < > but NOT double quotes — a name like
+// `Subway 6" Turkey` would terminate a double-quoted attribute (aria-label,
+// title) and shed junk attributes onto the element. Escape " too (9/04).
+const esc = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML.replace(/"/g,'&quot;'); };
 // Quantity / unit display normalizers (added 2026-05-22 per App Review v1 #3+#4).
 // fmtQty: round to 1 decimal max, drop trailing zero. Fixes the "249.916 g" autopop
 // back-conversion artifact and any other float-precision crud from imported entries.
@@ -2805,10 +2821,17 @@ const fmtUnit = u => {
   const k = String(u || '').trim().toLowerCase();
   return UNIT_DISPLAY[k] || u;
 };
-// Escape a string for safe embedding inside a single-quoted HTML attribute value
-// (e.g. onclick="fn('${attrEsc(name)}')"). HTML-escape covers <,>,&,"; we also
-// escape ' so the attribute can't be broken out of by names containing apostrophes.
+// Escape a string for a PLAIN attribute value (placeholder, value, aria-label).
+// HTML-escape covers <,>,&,"; we also escape ' so single-quoted attributes hold.
 const attrEsc = s => esc(String(s == null ? '' : s)).replace(/'/g, '&#39;');
+// Escape a string destined for a single-quoted JS STRING inside an inline
+// handler: onclick="fn('${jsAttrEsc(name)}')". ORDER MATTERS and attrEsc is
+// WRONG for this context: the HTML parser decodes entities BEFORE the JS
+// engine parses the handler, so &#39; round-trips back to a raw ' and still
+// breaks the string — "Farmer's Carry" killed every Train-tab chip (verified
+// 9/04). Escape for the JS layer first (\ then '), THEN HTML-escape for the
+// attribute layer.
+const jsAttrEsc = s => esc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 // Cross-device-unique ID. crypto.randomUUID is supported in all modern browsers
 // (Safari 15.4+, Chrome 92+); falls back to a device-prefixed random ID for older
 // engines. Device prefix prevents the rare same-ms cross-device collision in the
@@ -2900,41 +2923,143 @@ function updateSyncUI(status, msg) {
 // (Power, plan/treat dashboards, Growth) — one entry per browser covers all.
 // Never baked into this file: the repo is public.
 const API_KEY_LS = 'sheets_api_key_v1';
+// Keep a same-tab session copy as well. On some private/PWA browser setups
+// persistent localStorage is unavailable or can be evicted mid-visit; the
+// in-memory fallback below then vanished on a reload and asked again. Session
+// storage lasts for the current app visit without extending the key's lifetime.
+const API_KEY_SESSION = 'sheets_api_key_session_v1';
+// REALITY CHECK (2026-09-04): "one entry per browser covers all apps" is FALSE
+// on iOS 16.4+ / macOS Safari 17+ — each INSTALLED (home-screen / Dock) web
+// app has an ISOLATED data store, so the Power PWA, the Growth PWA, and Safari
+// tabs each need one passphrase entry of their own. A first prompt per context
+// is expected; repeated prompts in the SAME context are the bug.
 let _keyPromptCancelled = false;
 // In-memory mirror of the key. If localStorage.setItem fails (private mode,
 // quota), a prompted key would otherwise never stick and every request would
 // re-prompt — the same loop the 8/24 race fix killed, back via another door.
 let _memApiKey = '';
+// Ask the browser for durable storage so the key (and everything else in
+// localStorage) is exempt from best-effort eviction. No-op where unsupported;
+// runs once at script parse.
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); } catch(e) {}
 // Read-only: NEVER prompts. While server enforcement is off, requests carry an
 // empty key and just work — devices see zero nagging until the API_KEY Script
 // Property is set. The prompt fires only from the unauthorized paths below.
+// localStorage FIRST: it's the durable, cross-tab copy. The session copy only
+// covers this-visit survival when localStorage is unavailable/evicted — if it
+// took precedence, a stale session copy in one tab could outrank (and, via
+// recoverApiKey, clear) a fresher key another tab just stored.
 function getApiKey() {
-  try { return localStorage.getItem(API_KEY_LS) || _memApiKey; } catch(e) { return _memApiKey; }
+  try { const k = localStorage.getItem(API_KEY_LS); if (k) return k; } catch(e) {}
+  try { const k = sessionStorage.getItem(API_KEY_SESSION); if (k) return k; } catch(e) {}
+  return _memApiKey;
 }
-// Race-safe recovery from a server `unauthorized`. `failedKey` = the key the
-// FAILING REQUEST was actually sent with, not whatever is stored now. At boot
-// several pulls are in flight together; the first prompt stores a fresh key
-// while the other requests' unauthorized replies (sent earlier, keyless) are
-// still landing. Clearing unconditionally on each of those wiped the
-// just-entered key once per in-flight request — the 8/24 mobile prompt-loop
-// bug. Only clear + re-prompt when the stored key is the one the server
-// actually rejected; otherwise retry silently with the fresher stored key.
-// Returns the key to retry with ('' = user cancelled).
-function recoverApiKey(failedKey) {
-  const stored = getApiKey();
-  if (stored && stored !== failedKey) return stored;
-  if (_keyPromptCancelled) return '';    // don't nag every sync cycle after a cancel
-  clearApiKey();
-  const k = (prompt(failedKey
-    ? 'Passphrase rejected by the server — re-enter your data passphrase:'
-    : 'Enter your data passphrase (one-time on this device):') || '').trim();
-  if (k) { _memApiKey = k; try { localStorage.setItem(API_KEY_LS, k); } catch(e) {} }
-  else _keyPromptCancelled = true;
-  return k;
+function storeApiKey(k) {
+  _memApiKey = k;
+  try { sessionStorage.setItem(API_KEY_SESSION, k); } catch(e) {}
+  try { localStorage.setItem(API_KEY_LS, k); } catch(e) {}
 }
 function clearApiKey() {
   _memApiKey = '';
+  try { sessionStorage.removeItem(API_KEY_SESSION); } catch(e) {}
   try { localStorage.removeItem(API_KEY_LS); } catch(e) {}
+}
+// Passphrase entry modal — replaces window.prompt (2026-09-04). prompt()'s
+// input field applies OS autocorrect/autocapitalize with no way to turn it
+// off, and the passphrase is one letter from a dictionary word — iOS/macOS
+// silently "corrected" it on entry, the mangled key was stored without
+// validation, and every subsequent sync cycle re-prompted with "rejected".
+// This input disables all of that and stays visible so a mangle can be seen.
+function _promptKeyModal(message) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-bg open';
+    overlay.style.zIndex = '1200';
+    overlay.innerHTML = `
+      <div class="modal-box" style="max-width:420px">
+        <h3 style="margin-bottom:8px">Data passphrase</h3>
+        <div style="font-size:0.92rem;color:var(--text);line-height:1.4">${esc(message)}</div>
+        <input type="text" id="key-modal-input" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off"
+          style="width:100%;margin-top:12px;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.95rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);color:var(--text);outline:none">
+        <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
+          <button class="btn-outline" id="key-modal-cancel" style="width:auto;padding:8px 16px">Cancel</button>
+          <button class="btn" id="key-modal-ok" style="width:auto;padding:8px 16px">Unlock</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#key-modal-input');
+    input.focus();
+    const finish = (v) => { overlay.remove(); resolve(v); };
+    overlay.querySelector('#key-modal-cancel').onclick = () => finish(null);
+    overlay.querySelector('#key-modal-ok').onclick = () => finish(input.value);
+    overlay.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); finish(null); }
+      else if (e.key === 'Enter') { e.preventDefault(); finish(input.value); }
+    });
+  });
+}
+// Probe an entered key against the server BEFORE storing it. Returns true
+// (accepted), false (rejected), null (network failure — can't tell).
+// Deliberately a bare fetch, NOT noCacheFetch, which would recurse into
+// recoverApiKey on the very unauthorized reply this is testing for.
+async function validateApiKey(k) {
+  try {
+    const url = getSheetsUrl(); if (!url) return null;
+    const res = await fetch(url + '?type=lastModified&_=' + Date.now() + '&key=' + encodeURIComponent(k), { cache: 'no-store' });
+    const json = await res.json();
+    if (json && json.ok === false && json.error === 'unauthorized') return false;
+    return true;
+  } catch(e) { return null; }
+}
+// Race-safe recovery from a server `unauthorized`. `failedKey` = the key the
+// FAILING REQUEST was actually sent with, not whatever is stored now. Only
+// clear + re-prompt when the stored key is the one the server actually
+// rejected; otherwise retry silently with the fresher stored key (the 8/24
+// race fix — never clear unconditionally).
+// 2026-09-04: now ASYNC. The old blocking prompt() implicitly serialized
+// concurrent unauthorized handlers; the shared _pendingKeyPrompt promise
+// replaces that lock — every concurrent handler awaits the SAME modal instead
+// of stacking fresh ones over a cleared store. The entered key is VALIDATED
+// against the server before it's stored, and a rejection re-opens the modal
+// echoing exactly what was tried — the silent store-a-mangled-key hole (the
+// September reprompt bug) is closed. Returns the key to retry with ('' =
+// cancelled / gave up).
+let _pendingKeyPrompt = null;
+async function recoverApiKey(failedKey) {
+  const stored = getApiKey();
+  if (stored && stored !== failedKey) return stored;
+  if (_keyPromptCancelled) return '';    // don't nag every sync cycle after a cancel
+  if (_pendingKeyPrompt) return _pendingKeyPrompt;
+  _pendingKeyPrompt = (async () => {
+    try {
+      let msg = failedKey
+        ? 'Passphrase rejected by the server — re-enter your data passphrase:'
+        : 'Enter your data passphrase (one-time on this device):';
+      for (let tries = 0; tries < 3; tries++) {
+        const raw = await _promptKeyModal(msg);
+        if (raw == null || !raw.trim()) {          // cancelled or empty
+          // Clear only the key this prompt was recovering FROM — another tab
+          // may have stored a fresh correct key while the modal sat open, and
+          // an unconditional clear would wipe it (QC finding, 9/04).
+          if (getApiKey() === failedKey) clearApiKey();
+          _keyPromptCancelled = true;
+          return '';
+        }
+        const k = raw.trim();
+        const verdict = await validateApiKey(k);
+        if (verdict === false) {
+          msg = 'The server rejected “' + k + '” — check it (autocorrect?) and re-enter:';
+          continue;
+        }
+        storeApiKey(k);                             // accepted (or network-unknown: store optimistically)
+        return k;
+      }
+      if (getApiKey() === failedKey) clearApiKey(); // same cross-tab guard as the cancel branch
+      _keyPromptCancelled = true;
+      return '';
+    } finally { _pendingKeyPrompt = null; }
+  })();
+  return _pendingKeyPrompt;
 }
 
 // Helper: POST to Sheets with CORS, falling back to no-cors if redirect fails.
@@ -2956,7 +3081,7 @@ async function sheetsPost(url, payload) {
   const probe = await res.clone().json().catch(() => null);
   if (probe && probe.ok === false) {
     if (probe.error === 'unauthorized') {
-      const k = recoverApiKey(sentKey);
+      const k = await recoverApiKey(sentKey);
       if (k) {
         const res2 = await post(k);
         const probe2 = await res2.clone().json().catch(() => null);
@@ -3022,7 +3147,7 @@ async function sheetsPostJson(url, payload) {
   if (!json || json.ok !== true) {
     // Wrong/stale passphrase: recover (race-safe) so the queue's retry of this
     // write carries the freshly entered key.
-    if (json && json.error === 'unauthorized') { recoverApiKey(sentKey); }
+    if (json && json.error === 'unauthorized') { await recoverApiKey(sentKey); }
     throw new Error((json && json.error) || 'Server returned ok:false');
   }
   return json;
@@ -3048,7 +3173,7 @@ async function noCacheFetch(url, opts) {
   try {
     const probe = await res.clone().json();
     if (probe && probe.ok === false && probe.error === 'unauthorized') {
-      const k = recoverApiKey(sentKey);
+      const k = await recoverApiKey(sentKey);
       if (k) res = await make(k);
     }
   } catch(e) { /* non-JSON response — pass through untouched */ }
@@ -3112,6 +3237,21 @@ function _readDeadLetter() {
   catch (e) { return []; }
 }
 function _writeDeadLetter(q) { safeSetItem(DEAD_WRITES_KEY, JSON.stringify(q)); }
+
+// Cross-tab mutual exclusion for queue state (2026-09-04). _readQueue/_writeQueue
+// are read-modify-write over shared localStorage; with the app open in two tabs
+// an interleaved enqueue/flush could silently drop a just-queued write (tab B
+// rewrites the queue from a snapshot that predates tab A's push). Web Locks
+// serialize the RMW sections across tabs; where unsupported, fall back to
+// running unlocked — identical to the old behavior.
+function _withQueueLock(fn) {
+  try {
+    if (navigator.locks && navigator.locks.request) {
+      return navigator.locks.request('power_queue_v1', () => Promise.resolve().then(fn));
+    }
+  } catch(e) {}
+  return Promise.resolve().then(fn);
+}
 
 function getQueueStatus() {
   // Maxed-out items now live in the dead-letter list (not the queue), so
@@ -3185,6 +3325,11 @@ function enqueueWrite(op, payload) {
     ts:      new Date().toISOString(),
   };
   const key = _coalesceKey(op, payload);
+  // 2026-09-04: the whole read-coalesce-write section runs under the cross-tab
+  // queue lock. Callers are fire-and-forget (no caller uses the return value),
+  // so the async wrapper is transparent; same-tab enqueues still land in call
+  // order (lock grants are FIFO).
+  return _withQueueLock(() => {
   let q = _readQueue();
   if (key) {
     // 2026-07-18 AUTOPOP-FIX (op-aware coalesce). Normally a newer write for the
@@ -3210,6 +3355,7 @@ function enqueueWrite(op, payload) {
   _updateQueueStatusUI();
   _scheduleQueueFlush();
   return item.id;
+  });
 }
 
 function _scheduleQueueFlush() {
@@ -3275,6 +3421,19 @@ async function flushQueue() {
   }
   const url = getSheetsUrl();
   if (!url) return;
+  // Single flusher across tabs (2026-09-04): with the app open twice, both
+  // tabs' pollers used to flush concurrently — duplicate POSTs plus interleaved
+  // queue rewrites. ifAvailable: a tab that finds another flush holding the
+  // lock just skips; its own debounce/backoff timers retry later.
+  try {
+    if (navigator.locks && navigator.locks.request) {
+      return navigator.locks.request('power_queue_flush_v1', { ifAvailable: true },
+        lock => lock ? _flushQueueBody(url) : undefined);
+    }
+  } catch(e) {}
+  return _flushQueueBody(url);
+}
+async function _flushQueueBody(url) {
   _queueFlushing = true;
   try {
     while (true) {
@@ -3286,16 +3445,19 @@ async function flushQueue() {
         // permanently-failing head item block every write behind it (head-of-
         // line blocking — the 5/27/6/02 data-loss class). Move it aside, keep
         // its lastError for inspection, and continue with the next item.
-        _writeDeadLetter([..._readDeadLetter(), item]);
-        _writeQueue(q.filter(it => it.id !== item.id));
+        await _withQueueLock(() => {
+          _writeDeadLetter([..._readDeadLetter(), item]);
+          _writeQueue(_readQueue().filter(it => it.id !== item.id));
+        });
         continue;
       }
       try {
         const body = _opToPayload(item.op, item.payload);
         await sheetsPostJson(url, body);
         // Success: remove this specific item (queue may have grown during await)
-        const q2 = _readQueue();
-        _writeQueue(q2.filter(it => it.id !== item.id));
+        await _withQueueLock(() => {
+          _writeQueue(_readQueue().filter(it => it.id !== item.id));
+        });
       } catch (err) {
         // Failure: record error, then break out (backoff elsewhere). 2026-06-15:
         // split the counter by error class. Transient network failures bump
@@ -3305,17 +3467,19 @@ async function flushQueue() {
         // measures. This stops a flaky mobile connection from permanently
         // stranding a valid write. See _isTransientWriteError.
         const msg = String((err && err.message) || err);
-        const q2  = _readQueue();
-        const idx = q2.findIndex(it => it.id === item.id);
-        if (idx >= 0) {
-          if (_isTransientWriteError(msg)) {
-            q2[idx].netAttempt = (q2[idx].netAttempt || 0) + 1;
-          } else {
-            q2[idx].attempt = (q2[idx].attempt || 0) + 1;
+        await _withQueueLock(() => {
+          const q2  = _readQueue();
+          const idx = q2.findIndex(it => it.id === item.id);
+          if (idx >= 0) {
+            if (_isTransientWriteError(msg)) {
+              q2[idx].netAttempt = (q2[idx].netAttempt || 0) + 1;
+            } else {
+              q2[idx].attempt = (q2[idx].attempt || 0) + 1;
+            }
+            q2[idx].lastError = msg;
+            _writeQueue(q2);
           }
-          q2[idx].lastError = msg;
-          _writeQueue(q2);
-        }
+        });
         break;
       }
     }
@@ -3572,9 +3736,46 @@ async function forcePush() {
     updateSyncUI('yellow', 'Finishing pending writes…');
     try { await flushQueue(); } catch (e) {}
   }
-  const data = load();
-  data.entries.forEach(e => { if (e && e.date && e.weight) enqueueWrite('setWeight', e); });
-  showToast('✓ Queued ' + data.entries.length + ' weight entries for push');
+  // 9/04: chunked direct batches instead of one queued setWeight PER entry —
+  // the old path enqueued ~800 sequential POSTs (~15–30 min of "Saving…" with
+  // O(n²) queue rewrites). The backend 'sync' action upserts an array, so 100
+  // rows per POST is safe; on failure just retap (each batch is idempotent).
+  const url = getSheetsUrl();
+  if (!url) { showToast('No Sheets URL configured'); return; }
+  const entries = load().entries.filter(e => e && e.date && e.weight);
+  if (!entries.length) { showToast('No weight entries to push'); return; }
+  try {
+    for (let i = 0; i < entries.length; i += 100) {
+      updateSyncUI('yellow', 'Pushing weights ' + (i + 1) + '–' + Math.min(i + 100, entries.length) + ' of ' + entries.length + '…');
+      await sheetsPostJson(url, { action: 'sync', entries: entries.slice(i, i + 100) });
+    }
+    updateSyncUI('green', 'Pushed ' + entries.length + ' weight entries');
+    showToast('✓ Pushed ' + entries.length + ' weight entries');
+  } catch (err) {
+    updateSyncUI('red', 'Push incomplete — tap again to retry');
+    showToast('⚠ Push failed partway — tap "Push all to Sheets" again');
+  }
+}
+
+// Settings → dead-letter recovery (2026-09-04). Failed writes park in the
+// dead-letter list, and a non-empty list pins EVERY domain's merge to
+// preserve-local mode (getQueueStatus() === 'error') until cleared — cross-
+// device deletes stop propagating app-wide. The only handles used to be
+// window.__queue.* in devtools, unreachable on the iOS PWA where this bites.
+function retryFailedWrites() {
+  const dead = _readDeadLetter();
+  if (!dead.length) { showToast('No failed writes'); return; }
+  _writeDeadLetter([]);
+  dead.forEach(it => enqueueWrite(it.op, it.payload));
+  showToast('↻ Retrying ' + dead.length + ' failed write' + (dead.length > 1 ? 's' : ''));
+  flushQueue();
+}
+function discardFailedWrites() {
+  const dead = _readDeadLetter();
+  if (!dead.length) { showToast('No failed writes'); return; }
+  _writeDeadLetter([]);
+  _updateQueueStatusUI();
+  showToast('✕ Discarded ' + dead.length + ' failed write' + (dead.length > 1 ? 's' : ''));
 }
 function disconnectSheets() {
   setSheetsUrl('');
@@ -3586,8 +3787,12 @@ function disconnectSheets() {
 
 // ─── Weight Calculations ──────────────────────────────────────────────────────
 function rollingAvg(entries, date, n=7) {
-  const valid = entries.filter(e=>e.weight&&e.date<=date)
-    .sort((a,b)=>a.date.localeCompare(b.date)).slice(-n);
+  // True n-DAY window, not last-n-ENTRIES (9/04): after a no-scale gap the old
+  // .slice(-n) blended readings from up to ~2 weeks back into the "7-day avg,"
+  // lagging the real trend exactly when re-entry is being judged.
+  const cutoff = addDays(date, -(n - 1));
+  const valid = entries.filter(e=>e.weight&&e.date<=date&&e.date>=cutoff)
+    .sort((a,b)=>a.date.localeCompare(b.date));
   if (!valid.length) return null;
   return valid.reduce((s,e)=>s+e.weight,0)/valid.length;
 }
@@ -4160,7 +4365,11 @@ function fireworks() {
 
 // ─── Export / Import ──────────────────────────────────────────────────────────
 function exportData() {
-  // Bundle weight + food entries into one backup file
+  // Bundle every local store into one backup file. 9/04: journal, DEXA,
+  // training log, and the deletion tombstones were missing — a restore after
+  // device loss silently dropped them (and losing tombstones re-resurrects
+  // deleted autopop rows until the next Sheet pull). Note: foodEntries is the
+  // local mirror, pruned to FOOD_MIRROR_WINDOW_DAYS — the Sheet holds full history.
   const data = load();
   data.foodEntries = getFoodEntries();
   data.foodTargets = getFoodTargets();
@@ -4168,6 +4377,10 @@ function exportData() {
   data.skipDates = [...getSkipDates()];
   data.habitsData = getHabitsData();
   data.habitsList = getHabitsList();
+  data.journalEntries = getJournalDataLocal();
+  data.dexaScans = getDexaScans();
+  data.trainingLog = getTrainingData();
+  data.deletedPlanIds = [...getDeletedPlanIds()];
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=`body-tracker-backup-${today()}.json`; a.click();
@@ -4204,8 +4417,24 @@ function importData(e) {
       if (Array.isArray(parsed.habitsList)) {
         saveHabitsList(parsed.habitsList);
       }
-      save(parsed);
+      // 9/04 additions — restore the stores exportData now writes (absent in
+      // older backups; each guarded).
+      if (Array.isArray(parsed.journalEntries)) saveJournalDataLocal(parsed.journalEntries);
+      if (Array.isArray(parsed.dexaScans)) saveDexaScans(parsed.dexaScans);
+      if (parsed.trainingLog && typeof parsed.trainingLog === 'object') saveTrainingData(parsed.trainingLog);
+      if (Array.isArray(parsed.deletedPlanIds)) parsed.deletedPlanIds.forEach(id => { try { recordDeletedPlanId(id); } catch(_) {} });
+      // 9/04 fix: store ONLY the weight entries. save(parsed) used to embed the
+      // ENTIRE backup blob (incl. the full food array) inside the weight store,
+      // re-serialized on every weight write and re-embedded in every future
+      // export — a quota-growth compounder.
+      save({ entries: parsed.entries });
       showToast(`✓ Imported ${parsed.entries.length} weight + ${foodCount} food entries`);
+      // Honest-restore warning: merges treat the Sheet as source of truth when
+      // the queue is idle, so within ~60s the next poll overwrites this import
+      // with whatever the Sheet holds. Restoring AGAINST the Sheet requires an
+      // explicit push. (Deliberately not automated — auto-pushing an old backup
+      // over good Sheet data is the worse failure mode.)
+      setTimeout(() => showToast('⚠ Note: the Sheet still wins on next sync — use "Push all to Sheets" if this restore should overwrite it'), TOAST_DURATION_MS + 200);
       renderWeight();
       updateBackupStatus();
     } catch(err){showToast('⚠ Could not read that file');}
@@ -4431,7 +4660,12 @@ async function syncOnVisibility(forceEvenIfHidden) {
     // don't fall through to the green "Synced just now" below — that painted a
     // lying green badge (and stamped the last-sync time) over stale data. Leave
     // the red status the individual pulls set.
-    if (!remote && !foodRemote && !libraryData && !habitsRemote && !dexaRemote && !skipDatesRemote && !deletedPlanRemote) return;
+    // 2026-09-04: track partial failures too — one surviving pull (e.g. weight)
+    // used to paint green over six failures, and green stamps LAST_SYNC_KEY, so
+    // the "Synced Xm ago" badge lied afterward as well.
+    const _pulls = [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, deletedPlanRemote];
+    const _failedPulls = _pulls.filter(p => !p).length;
+    if (_failedPulls === _pulls.length) return;
     // 2026-07-18 AUTOPOP-FIX: keep the local tombstone store current from other
     // devices on every resume/poll (hygiene for the next boot's seed diff).
     if (deletedPlanRemote) mergeDeletedPlanIds(deletedPlanRemote);
@@ -4479,7 +4713,8 @@ async function syncOnVisibility(forceEvenIfHidden) {
       // foods appear without requiring a tab-switch.
       if (document.getElementById('panel-food')?.classList.contains('active')) populateFoodSelect();
     }
-    updateSyncUI('green', 'Synced just now');
+    if (_failedPulls > 0) updateSyncUI('yellow', 'Partial sync — ' + _failedPulls + ' of ' + _pulls.length + ' pulls failed');
+    else updateSyncUI('green', 'Synced just now');
     // Re-render visible tab.
     if (document.getElementById('panel-food')   && document.getElementById('panel-food').classList.contains('active'))   renderFood();
     if (document.getElementById('panel-habits') && document.getElementById('panel-habits').classList.contains('active')) renderHabits();
@@ -5334,7 +5569,20 @@ function getFoodEntries() {
     return deduped;
   } catch(e) { return []; }
 }
-function saveFoodEntriesDB(entries) { safeSetItem(FOOD_ENTRIES_KEY, JSON.stringify(entries)); }
+// Rolling-window prune for the LOCAL food mirror (2026-09-04). The mirror held
+// every row since April (~740KB, growing ~2MB/yr) against iOS's ~5MB
+// localStorage cap — at quota, safeSetItem starts failing and local edits
+// silently stop persisting. The app's UI only renders recent days; the Sheet
+// remains the complete history (curl/dashboard pulls are unaffected), and the
+// nightly JSON backup shrinks to this window by design. Day-nav past the
+// window shows an empty day locally — acceptable; the Sheet has the rows.
+const FOOD_MIRROR_WINDOW_DAYS = 120;
+function pruneFoodWindow(entries) {
+  if (!Array.isArray(entries)) return entries;
+  const cutoff = addDays(today(), -FOOD_MIRROR_WINDOW_DAYS);
+  return entries.filter(e => e && e.date >= cutoff);
+}
+function saveFoodEntriesDB(entries) { safeSetItem(FOOD_ENTRIES_KEY, JSON.stringify(pruneFoodWindow(entries))); }
 
 function getAllFoods() {
   // Dedup by name (case-insensitive) — keep first occurrence
@@ -5355,9 +5603,9 @@ function getAllFoods() {
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 function foodNavDay(dir) {
-  const d = new Date(foodCurrentDate + 'T12:00:00');
-  d.setDate(d.getDate() + dir);
-  foodCurrentDate = d.toLocaleDateString('en-CA', {timeZone:'America/Los_Angeles'});
+  // shiftDate, not Date round-trips (9/04): the old local-noon → LA-format
+  // pattern returned the SAME date east of ~UTC+4 (forward nav stuck in Tokyo).
+  foodCurrentDate = shiftDate(foodCurrentDate, dir);
   // Clear search filter when switching days
   const searchEl = document.getElementById('food-search');
   if (searchEl) searchEl.value = '';
@@ -5482,6 +5730,9 @@ function logFood() {
   if (!food) { showToast('Select a food first'); return; }
   const qty = parseFloat(document.getElementById('food-qty').value) || 0;
   if (qty <= 0) { showToast('Enter a valid amount'); return; }
+  // A blank/0 serving in the library (bad Sheet row) would make r Infinity and
+  // sync NaN calories; updateFoodPreview already guards this — mirror it here.
+  if (!(food.serving > 0)) { showToast('⚠ This food has no serving size set — fix it in the library first'); return; }
   const r = qty / food.serving;
   // Capture actual time: use current clock time if logging for today, otherwise use meal default
   const meal = document.getElementById('food-meal').value;
@@ -6223,6 +6474,10 @@ function mergeFoodEntries(local, remote) {
   // tombstone pull lands) and stops a resurrection pushed by another device from
   // re-displaying here (the idle "source-of-truth" path was tombstone-blind).
   const deleted = getDeletedPlanIds();
+  // 9/04: prune remote to the local-mirror window up front so the callers'
+  // JSON.stringify(merged) !== JSON.stringify(local) comparison stabilizes
+  // (an unpruned remote vs the pruned store would "differ" on every poll).
+  if (Array.isArray(remote)) remote = pruneFoodWindow(remote);
   if (typeof getQueueStatus === 'function' && getQueueStatus() === 'idle' && Array.isArray(remote)) {
     return remote.filter(e => !_isStaleRemotePlanEntry(e) && !deleted.has(e.id));
   }
@@ -6350,9 +6605,7 @@ function removeHabitDataForDate(date, habit) {
 
 // ── Habit nav ────────────────────────────────────────────────────────────────
 function habitNavDay(delta) {
-  const dt = new Date(habitViewDate + 'T12:00:00');
-  dt.setDate(dt.getDate() + delta);
-  habitViewDate = dt.toISOString().slice(0,10);
+  habitViewDate = shiftDate(habitViewDate, delta);
   renderHabits();
 }
 
@@ -6558,7 +6811,7 @@ function renderTraining() {
     // Workout picker — every plan workout is selectable on any date.
     const chips = plan.map(d => {
       const on = day && String(day.day).toLowerCase() === String(d.day).toLowerCase();
-      return `<button class="train-chip ${on ? 'on' : ''}" onclick="selectTrainingWorkout('${attrEsc(String(d.day))}')">${esc(d.focus || d.day)}</button>`;
+      return `<button class="train-chip ${on ? 'on' : ''}" onclick="selectTrainingWorkout('${jsAttrEsc(String(d.day))}')">${esc(d.focus || d.day)}</button>`;
     }).join('');
     const picker = `<div class="train-chips">${chips}</div>`;
 
@@ -6593,12 +6846,12 @@ function renderTraining() {
         const wtInput = on ? `<span class="train-wt-wrap">
             <input class="train-wt" type="number" inputmode="decimal" min="0" max="2000" step="0.5"
               placeholder="${attrEsc(wtPh)}" value="${attrEsc(wtVal)}"
-              onchange="setTrainingWeight('${attrEsc(e)}', this.value)"
+              onchange="setTrainingWeight('${jsAttrEsc(e)}', this.value)"
               aria-label="${attrEsc(wtAria)}">
             <span class="train-wt-unit">lb</span>
           </span>` : '';
         return `<div class="train-ex-row">
-          <button class="train-ex ${on ? 'on' : ''}" onclick="toggleTrainingExercise('${attrEsc(e)}')" aria-label="${on ? 'Uncheck ' : 'Check '}${esc(e)}">
+          <button class="train-ex ${on ? 'on' : ''}" onclick="toggleTrainingExercise('${jsAttrEsc(e)}')" aria-label="${on ? 'Uncheck ' : 'Check '}${esc(e)}">
             <span class="train-box ${on ? 'on' : ''}">${on ? '✓' : ''}</span>
             <span class="train-ex-name">${esc(e)}</span>
             ${extra ? '<span class="train-ex-added">added</span>' : ''}
@@ -6646,9 +6899,7 @@ function renderTraining() {
 }
 
 function trainingNavDay(delta) {
-  const dt = new Date(trainingViewDate + 'T12:00:00');
-  dt.setDate(dt.getDate() + delta);
-  trainingViewDate = dt.toISOString().slice(0, 10);
+  trainingViewDate = shiftDate(trainingViewDate, delta);
   renderTraining();
 }
 
@@ -6794,8 +7045,14 @@ function mirrorTrainingToExerciseHabit(date) {
     lines.push('[plan] ' + focus);
   }
   const newNote = lines.filter(l => l.trim() !== '').join('\n');
+  // 9/04: only write done:false if the existing note carried a [plan] line —
+  // i.e. THIS mirror set the habit. Without the guard, deselecting a chip
+  // flipped an exercise habit to false even when it was set manually or
+  // Sheet-side with no note (the comment above always claimed this rule;
+  // now the code enforces it).
+  const wasMachineSet = /^\s*\[plan\]/im.test(existing);
   if (isWorkout) setHabitForDate(date, 'exercise', { done: true, notes: newNote });
-  else if (!newNote && !done.length) setHabitForDate(date, 'exercise', { done: false, notes: '' });
+  else if (!newNote && !done.length) { if (wasMachineSet) setHabitForDate(date, 'exercise', { done: false, notes: '' }); }
   else setHabitForDate(date, 'exercise', { notes: newNote });
 }
 
@@ -6935,7 +7192,8 @@ function renderDexaSection() {
   // 2026-05-25: DEXA small-multiples charts retired (drawDexaChart kept below as
   // dead code). Now renders all scans since the 3/21 cut-baseline as Weight/Lean/Fat rows in
   // the Body Composition table, above the static 15%/12% target rows. Data-driven,
-  // so adding/editing a scan via "+ Add scan" refreshes these rows on next render.
+  // (The old "+ Add scan" button was removed 2026-05-25; new scans land via the
+  // DEXA_SEED constant / Sheet, so these rows update only on a code edit.)
   const host = document.getElementById('bc-scan-rows');
   if (!host) return;
   // Scans are code-maintained via DEXA_SEED (no in-app entry as of 2026-05-25 —
@@ -7499,7 +7757,14 @@ function mergeJournalEntries(local, remote) {
     ensureTodayMealPlan();
     if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
   }
-  setTimeout(() => seedTodayPlanOnce(false), AUTOPOP_FALLBACK_MS);
+  setTimeout(() => {
+    // Don't cache-seed while the passphrase modal is open — unlike the old
+    // window.prompt, the modal doesn't freeze timers, so this fallback could
+    // fire mid-entry and seed today from stale local state (QC finding, 9/04).
+    // Wait for the modal to resolve, then seed via the normal path.
+    const go = () => seedTodayPlanOnce(false);
+    if (_pendingKeyPrompt) _pendingKeyPrompt.then(go, go); else go();
+  }, AUTOPOP_FALLBACK_MS);
 
   // Show backup status
   setTimeout(updateBackupStatus, 100);
