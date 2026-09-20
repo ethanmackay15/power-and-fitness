@@ -4880,6 +4880,20 @@ function ensureTodayMealPlan() {
   // suppress an item is the Sheet's "Autopopulate?" flag, not per-day deletion —
   // and strictly preferable to the daily plan silently half-loading. A durable
   // cross-device tombstone would close it if it ever bites.
+  // 2026-09-20 EMPTY-TEMPLATE-LOCK FIX — never mark the day initialized when the
+  // template produced nothing to seed. If the ?type=mealplan pull failed (transient
+  // Apps Script cold-start / Drive 5xx — common) and no usable cached template was
+  // available, createPlanEntries() returns []. The old code called
+  // markFoodDateInitialized(td) BEFORE computing the plan, so an empty-template
+  // first-open permanently marked the day seeded with ZERO rows, and the per-device
+  // init-date guard (top of this fn) then blocked every later re-seed — the day
+  // stayed empty even after a good template arrived on a subsequent sync. Canonical
+  // case: 9/20/26, cut day 1 after the maintenance week — synced clean, autopopped
+  // nothing, "No food logged for this day yet." Fix: compute the full expected set
+  // first; if it's empty, bail WITHOUT locking, so the next render/sync (with a
+  // loaded template) seeds normally. When the template IS loaded this is unchanged.
+  const fullPlan = createPlanEntries(td);
+  if (!fullPlan.length) return;
   markFoodDateInitialized(td);
   const existing   = getFoodEntries();
   const presentIds = new Set(existing.filter(e => e.date === td).map(e => e.id));
@@ -4889,7 +4903,7 @@ function ensureTodayMealPlan() {
   // cross-device resurrection, since the diff otherwise can't tell "deleted" from
   // "never seeded".
   const deletedIds = getDeletedPlanIds();
-  const missing    = createPlanEntries(td).filter(e => !presentIds.has(e.id) && !deletedIds.has(e.id));
+  const missing    = fullPlan.filter(e => !presentIds.has(e.id) && !deletedIds.has(e.id));
   if (missing.length) {
     saveFoodEntriesDB([...existing, ...missing]);
     // 2026-08-07 CLOBBER FIX (part 4): seed writes carry seedOnly so the backend
