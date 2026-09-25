@@ -3425,7 +3425,12 @@ function _isTransientWriteError(msg) {
   // passphrase is (re-)entered. Classifying it permanent burned all 10 attempts
   // in minutes on a keyless device and DEAD-LETTERED every queued write
   // (weights, food edits, habit mirrors) — silent data loss.
-  return /Load failed|Failed to fetch|NetworkError|Network request failed|The network connection was lost|The Internet connection appears to be offline|timed out|Sheet busy|unauthorized|HTTP 5\d\d|HTTP 0\b/i.test(String(msg || ''));
+  // 2026-09-25: Google's intermittent Drive failure ("Sorry, unable to open the
+  // file at this time") arrives as HTTP 404 + an HTML page after ~50s, and busy
+  // periods can return 429 or a 200 HTML error page ("Invalid JSON response").
+  // The web-app URL never changes, so these are always Google-side flakiness —
+  // classified permanent they dead-lettered valid writes (seen 9/24–25).
+  return /Load failed|Failed to fetch|NetworkError|Network request failed|The network connection was lost|The Internet connection appears to be offline|timed out|Sheet busy|unauthorized|HTTP 5\d\d|HTTP 0\b|HTTP 404|HTTP 429|Invalid JSON response/i.test(String(msg || ''));
 }
 
 // Flush the queue in FIFO order. Stops on first failure (per-item backoff
