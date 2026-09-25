@@ -2056,6 +2056,7 @@
   <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="retryFailedWrites()">Retry failed writes</button>
   <button class="btn-outline" style="width:100%;margin-bottom:8px" onclick="discardFailedWrites()">Discard failed writes</button>
   <button class="btn-outline" style="width:100%;color:var(--bad);border-color:var(--bad)" onclick="disconnectSheets()">Disconnect</button>
+  <div class="hint" id="device-diag" style="margin-top:12px;white-space:pre-line;font-family:monospace;font-size:11px"></div>
 </div>
 
 <script>
@@ -2551,11 +2552,13 @@ const CFG = {
   // The old 181.5 (recomp-to-152-lean) is the post-FIRST-BULK ultimate, not
   // the cut goal. (History: 2026-06-09 updated 174 → 181.5.)
   goalWeight:   174.4,
-  // 2026-07-09: pace-line rate 0.65 → 0.5 lb/wk. The plan is a deliberately
-  // sustainable 0.43–0.6 lb/wk cut; 0.65 drew a steeper descent than the plan,
-  // so on-plan progress read as "behind pace" on the chart. 0.5 matches the
-  // realized DEXA rate (~0.5 lb/wk).
-  goalRate:     0.5,
+  // 2026-09-22: pace-line rate 0.5 → 0.65 lb/wk (Ethan's final call — experienced
+  // enough for a steeper-but-sustainable cut). ~379/day deficit vs the 2,760
+  // TDEE → deficit-day intake ~2,380 with Saturday at maintenance. This is the
+  // OFFLINE FALLBACK; the live value comes from the Config tab's goalRate cell.
+  // History: 0.65 → 0.5 on 7/09 (0.65 read as "behind" vs realized ~0.5 on the
+  // OLD scale); back to 0.65 on 9/22 as a deliberate target on the 2,760 anchor.
+  goalRate:     0.65,
   bfTarget:     12,
   lastDexaDate: '2026-06-27',
   nextDexaDate: '2026-09-12'   // booked 2026-08-03 for 9/12 7:39am (cut-end at the 8/02–9/12 cut→break boundary; 7/18 scan logged)
@@ -2958,7 +2961,15 @@ function getApiKey() {
 function storeApiKey(k) {
   _memApiKey = k;
   try { sessionStorage.setItem(API_KEY_SESSION, k); } catch(e) {}
-  try { localStorage.setItem(API_KEY_LS, k); } catch(e) {}
+  // 2026-09-24: this write used to fail silently at quota, so the key never
+  // persisted and every iOS cold relaunch re-prompted. Free space and retry;
+  // if it still can't stick, say so instead of looping.
+  try { localStorage.setItem(API_KEY_LS, k); }
+  catch(e) {
+    let ok = false;
+    try { relieveStoragePressure(); localStorage.setItem(API_KEY_LS, k); ok = true; } catch(_) {}
+    if (!ok) showToast('⚠️ Storage full — passphrase could not be saved on this device. Export data, then clear old entries.');
+  }
 }
 function clearApiKey() {
   _memApiKey = '';
@@ -3148,7 +3159,12 @@ async function sheetsPostJson(url, payload) {
   if (!json || json.ok !== true) {
     // Wrong/stale passphrase: recover (race-safe) so the queue's retry of this
     // write carries the freshly entered key.
-    if (json && json.error === 'unauthorized') { await recoverApiKey(sentKey); }
+    // 2026-09-24: do NOT await the prompt here — this runs inside the queue
+    // flush, which holds the cross-tab flush lock. Awaiting parked EVERY queued
+    // write (e.g. the morning weight) behind an unanswered modal. Kick off the
+    // prompt, fail this attempt as transient, and let backoff retry with the
+    // new key.
+    if (json && json.error === 'unauthorized') { recoverApiKey(sentKey).then(function(k){ if (k) flushQueue(); }).catch(function(){}); }
     throw new Error((json && json.error) || 'Server returned ok:false');
   }
   return json;
@@ -3682,7 +3698,26 @@ function toggleSettings() {
   document.getElementById('settings-overlay').classList.toggle('open');
   if (document.getElementById('settings-panel').classList.contains('open')) {
     document.getElementById('sheets-url').value = getSheetsUrl();
+    renderDeviceDiag();
   }
+}
+// 2026-09-24 diagnostic (QC): tells us WHICH failure a device is in. A recent
+// "store created" on a device used for weeks = the browser wiped this app's
+// storage (key + template cache lost → reprompt + fallback-template seeds);
+// a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
+const STORE_BORN_KEY = 'device_store_born_v1';
+try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
+function renderDeviceDiag() {
+  const el = document.getElementById('device-diag'); if (!el) return;
+  let chars = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); chars += k.length + (localStorage.getItem(k) || '').length; } } catch(e) {}
+  const g = k => { try { return localStorage.getItem(k) || '—'; } catch(e) { return 'n/a'; } };
+  const n = k => { try { return (JSON.parse(localStorage.getItem(k) || '[]') || []).length; } catch(e) { return '?'; } };
+  el.textContent = 'Device diagnostics\n' +
+    'Storage used: ' + Math.round(chars / 1000) + 'K chars\n' +
+    'Store created: ' + g(STORE_BORN_KEY) + '\n' +
+    'Passphrase saved: ' + (g(API_KEY_LS) !== '—' ? 'yes' : 'NO') + '\n' +
+    'Last quota error: ' + g(QUOTA_LOG_KEY) + '\n' +
+    'Pending writes: ' + n(PENDING_WRITES_KEY) + ' · failed: ' + n(DEAD_WRITES_KEY);
 }
 
 // refreshMealPlanSourceUI / setMealPlanSource removed 2026-08-07 with the
@@ -4499,16 +4534,77 @@ function promptAsync(message, defaultValue, title) { return _appModal({ title, m
 // Wrapper around localStorage.setItem that catches QuotaExceededError and other write
 // failures so they don't silently corrupt local state. Returns true on success, false on failure.
 // Caller is responsible for stringifying objects before passing them in.
+// 2026-09-24 STORAGE-PRESSURE FIX. Root cause of the 9/24 cluster (passphrase
+// reprompt every ~10 min on the iOS PWA, desktop weight never reaching the
+// Sheet, stale-template autopop rows): a full ~5MB localStorage. storeApiKey
+// swallowed the failed write (key lived only in session → every iOS cold
+// relaunch re-prompted), queue writes failed (weight never enqueued), and the
+// template cache stopped refreshing (seeds came from an old plan). Now a quota
+// failure first frees space — strips legacy blobs, drops the regenerable
+// library cache, tightens the food mirror — then retries once.
+function _isQuotaError(e) {
+  return !!(e && (
+    e.name === 'QuotaExceededError' ||
+    e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    e.code === 22 || e.code === 1014
+  ));
+}
+const QUOTA_LOG_KEY = 'last_quota_error_v1';   // diagnostic: when/which key last hit quota
+function relieveStoragePressure() {
+  let freed = false;
+  // 1. Weight store: keep only {entries}. Pre-9/04 imports embedded whole
+  //    backup blobs here and nothing ever stripped them.
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Object.keys(d).some(k => k !== 'entries')) {
+        localStorage.setItem(KEY, JSON.stringify({ entries: Array.isArray(d.entries) ? d.entries : [] }));
+        freed = true;
+      }
+    }
+  } catch(e) {}
+  // 2. Food library cache is re-pulled every sync; safe to drop.
+  try {
+    if (localStorage.getItem(FOOD_LIBRARY_CACHE_KEY) != null) { localStorage.removeItem(FOOD_LIBRARY_CACHE_KEY); freed = true; }
+  } catch(e) {}
+  // 3. Food mirror → emergency window (the Sheet keeps full history).
+  try {
+    const raw = localStorage.getItem(FOOD_ENTRIES_KEY);
+    if (raw) {
+      const cutoff = addDays(today(), -FOOD_MIRROR_EMERGENCY_DAYS);
+      const arr = JSON.parse(raw);
+      const kept = Array.isArray(arr) ? arr.filter(e => e && e.date >= cutoff) : [];
+      if (Array.isArray(arr) && kept.length < arr.length) {
+        localStorage.setItem(FOOD_ENTRIES_KEY, JSON.stringify(kept));
+        freed = true;
+      }
+    }
+  } catch(e) {}
+  return freed;
+}
 function safeSetItem(key, value) {
   try {
     localStorage.setItem(key, value);
     return true;
-  } catch (e) {
-    const isQuota = e && (
-      e.name === 'QuotaExceededError' ||
-      e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
-      e.code === 22 || e.code === 1014
-    );
+  } catch (e0) {
+    let e = e0;
+    if (_isQuotaError(e0)) {
+      try { localStorage.setItem(QUOTA_LOG_KEY, new Date().toISOString() + ' ' + key); } catch(_) {}
+      if (relieveStoragePressure()) {
+        try { localStorage.setItem(key, value); return true; } catch (e1) { e = e1; }
+      }
+      // Shrinking the stored copy frees nothing for a write to the SAME key —
+      // for the food mirror, trim the incoming value itself to the emergency window.
+      if (_isQuotaError(e) && key === 'foodEntries_v1') {
+        try {
+          const cutoff = addDays(today(), -FOOD_MIRROR_EMERGENCY_DAYS);
+          const arr = JSON.parse(value);
+          if (Array.isArray(arr)) { localStorage.setItem(key, JSON.stringify(arr.filter(x => x && x.date >= cutoff))); return true; }
+        } catch (e2) { e = e2; }
+      }
+    }
+    const isQuota = _isQuotaError(e);
     if (isQuota) {
       showToast('⚠️ Browser storage full — last change was NOT saved. Export your data and clear old entries.');
     } else {
@@ -4709,7 +4805,12 @@ async function syncOnVisibility(forceEvenIfHidden) {
         setRawPlanTotalsFromTemplate(libraryData.planTemplate);
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
       }
-      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch(e) {}
+      if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) _templateFetchedAt = Date.now();
+      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE, fetchedAt: _templateFetchedAt || 0 })); } catch(e) {}
+      // 2026-09-24 (QC): if an earlier seed bailed on a stale template, seed now
+      // that a live one is here — otherwise today stayed unseeded until the Food
+      // tab was opened. No-op once the day is seeded (init-date + tombstone guards).
+      if (_mealPlanSeedReady) ensureTodayMealPlan();
       // If the food tab is active, refresh the dropdown immediately so the new
       // foods appear without requiring a tab-switch.
       if (document.getElementById('panel-food')?.classList.contains('active')) populateFoodSelect();
@@ -4834,6 +4935,10 @@ function ensureTodayMealPlan() {
   // Don't seed from a possibly-stale cached template before init() has resolved
   // the freshest available plan. The boot seed / next render re-calls this once ready.
   if (!_mealPlanSeedReady) return;
+  // 2026-09-24: no seeding from an unverified template while a Sheet exists to
+  // fetch the real one. Returns BEFORE marking the day initialized, so the seed
+  // runs as soon as the live template lands.
+  if (!templateIsFresh() && getSheetsUrl()) return;
   const td = today();
   if (getFoodInitDates().has(td)) return;  // already seeded on THIS device today
   // 2026-07-09: never autopop a day already marked as a skip day. Seeding a
@@ -4950,6 +5055,15 @@ const FOOD_ENTRIES_KEY    = 'foodEntries_v1';
 const CUSTOM_FOODS_KEY    = 'customFoods_v1';
 const FOOD_TARGETS_KEY    = 'foodTargets_v1';
 const FOOD_LIBRARY_CACHE_KEY = 'foodLibraryCache_v1';
+// 2026-09-24 STALE-TEMPLATE FIX. The autopop may only seed from a template that
+// is known-current: the live ?type=mealplan pull this session, or a cache
+// written within TEMPLATE_CACHE_MAX_AGE_MS. Never from the hardcoded fallback
+// array or an old cache. Canonical case (9/20, 9/21, 9/24): a device whose
+// cache had stopped refreshing (storage full / auth failures) seeded the
+// pre-9/13 plan — Beef 96/4, Fish Oil, Sardines 170 — alongside the live one.
+const TEMPLATE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
+let _templateFetchedAt = 0;   // ms epoch of the in-memory template's source; 0 = hardcoded fallback
+function templateIsFresh() { return _templateFetchedAt > 0 && (Date.now() - _templateFetchedAt) < TEMPLATE_CACHE_MAX_AGE_MS; }
 // 2026-05-15: cached raw (un-sanitized) plan totals so macro targets survive
 // reloads even before the next sheet sync completes.
 const RAW_PLAN_TOTALS_KEY = 'rawPlanTotals_v1';
@@ -5591,7 +5705,10 @@ function getFoodEntries() {
 // remains the complete history (curl/dashboard pulls are unaffected), and the
 // nightly JSON backup shrinks to this window by design. Day-nav past the
 // window shows an empty day locally — acceptable; the Sheet has the rows.
-const FOOD_MIRROR_WINDOW_DAYS = 120;
+// 2026-09-24: 120 → 60. At 120 days the mirror alone was ~885K chars (~1.8MB
+// in WebKit's UTF-16 accounting), which pushed the iOS PWA to quota.
+const FOOD_MIRROR_WINDOW_DAYS = 60;
+const FOOD_MIRROR_EMERGENCY_DAYS = 30;   // used only by relieveStoragePressure()
 function pruneFoodWindow(entries) {
   if (!Array.isArray(entries)) return entries;
   const cutoff = addDays(today(), -FOOD_MIRROR_WINDOW_DAYS);
@@ -7710,7 +7827,23 @@ function mergeJournalEntries(local, remote) {
       FOOD_DB = cached.foods;
       if (Array.isArray(cached.planTemplate) && cached.planTemplate.length) {
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(cached.planTemplate);
+        if (cached.fetchedAt) _templateFetchedAt = cached.fetchedAt;
       }
+    }
+  } catch(e) {}
+
+  // 2026-09-24: proactive storage trim on every boot (cheap, idempotent) so the
+  // PWA stays well under WebKit's ~5MB cap — strip any legacy blob riding in
+  // the weight store and re-apply the (now 60-day) food-mirror window.
+  try {
+    const d = load();
+    if (d && Object.keys(d).some(k => k !== 'entries')) save({ entries: Array.isArray(d.entries) ? d.entries : [] });
+  } catch(e) {}
+  try {
+    const raw = localStorage.getItem(FOOD_ENTRIES_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) { const kept = pruneFoodWindow(arr); if (kept.length < arr.length) saveFoodEntriesDB(kept); }
     }
   } catch(e) {}
 
@@ -7753,6 +7886,12 @@ function mergeJournalEntries(local, remote) {
           dates.delete(td);
           safeSetItem(FOOD_INIT_DATES_KEY, JSON.stringify([...dates]));
         }
+        ensureTodayMealPlan();
+        if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+      } else if (isLiveTemplate) {
+        // 2026-09-24: an earlier seed may have bailed on a stale template; the
+        // day isn't marked initialized in that case, so this now seeds it.
+        // Idempotent otherwise (init-date guard).
         ensureTodayMealPlan();
         if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
       }
@@ -7876,7 +8015,8 @@ function mergeJournalEntries(local, remote) {
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
       }
       // Update cache with fresh data from Sheets
-      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE })); } catch(e) {}
+      if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) _templateFetchedAt = Date.now();
+      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE, fetchedAt: _templateFetchedAt || 0 })); } catch(e) {}
       // Refresh the food dropdown if the food tab is visible
       if (document.getElementById('panel-food').classList.contains('active')) populateFoodSelect();
     }
