@@ -183,7 +183,7 @@
     </div>
   </div>
 
-  <p class="foot"><span id="dataStatus">Chargement…</span> · Édition Michelin · v12 · 2026-09-04 (passphrase-cancel no longer clears a fresher key stored by another tab) · v11 · 2026-09-04 (modal passphrase entry — autocorrect-proof + validated before storing; 20s retry-once ported from plan-dashboard so a cold Apps Script start no longer strands the page on the stale fallback) · v10 · 2026-08-24 (passphrase prompt-loop + timeout fix) · Le <b>couvert</b> auto-fetches your live <b>Daily Meal Plan</b> (<code>?type=mealplan</code>); the <b>à la carte</b> treats are curated here. The <b>3,050 ceiling</b> (maintenance 2,850 + 200 — the 7/03 appetite-led cut from +400) loads live from the sheet's <b>Config</b> tab (<code>?type=config</code>), with 2,850/3,050 baked as the offline fallback. Touchez to compose the evening — totals &amp; room update live. Rien is written back to the sheet. Falls back to a saved snapshot if the kitchen is unreachable.</p>
+  <p class="foot"><span id="dataStatus">Chargement…</span> · Édition Michelin · v13 · 2026-10-03 (passphrase: an open prompt closes itself when another tab saves the key; faster ~1 s key check; typed key survives a closed page) · v12 · 2026-09-04 (passphrase-cancel no longer clears a fresher key stored by another tab) · v11 · 2026-09-04 (modal passphrase entry — autocorrect-proof + validated before storing; 20s retry-once ported from plan-dashboard so a cold Apps Script start no longer strands the page on the stale fallback) · v10 · 2026-08-24 (passphrase prompt-loop + timeout fix) · Le <b>couvert</b> auto-fetches your live <b>Daily Meal Plan</b> (<code>?type=mealplan</code>); the <b>à la carte</b> treats are curated here. The <b>3,050 ceiling</b> (maintenance 2,850 + 200 — the 7/03 appetite-led cut from +400) loads live from the sheet's <b>Config</b> tab (<code>?type=config</code>), with 2,850/3,050 baked as the offline fallback. Touchez to compose the evening — totals &amp; room update live. Rien is written back to the sheet. Falls back to a saved snapshot if the kitchen is unreachable.</p>
 </div>
 
 <script>
@@ -242,7 +242,9 @@ let _memApiKey='';// in-memory fallback: if localStorage.setItem fails (private 
 // when localStorage is unavailable/evicted (if it took precedence, a stale
 // session copy in one tab could outrank a fresher key another tab stored).
 function getApiKey(){try{const k=localStorage.getItem(API_KEY_LS);if(k)return k;}catch(e){}try{const k=sessionStorage.getItem(API_KEY_SESSION);if(k)return k;}catch(e){}return _memApiKey;}
-function storeApiKey(k){_memApiKey=k;try{sessionStorage.setItem(API_KEY_SESSION,k);}catch(e){}try{localStorage.setItem(API_KEY_LS,k);}catch(e){}}
+// 2026-10-03: on a failed write, REMOVE the older stored key — getApiKey reads localStorage first,
+// so a stale wrong key left there outranked the new session/memory copy and re-prompted forever.
+function storeApiKey(k){_memApiKey=k;try{sessionStorage.setItem(API_KEY_SESSION,k);}catch(e){}try{localStorage.setItem(API_KEY_LS,k);}catch(e){try{localStorage.removeItem(API_KEY_LS);}catch(_){}}}
 function clearApiKey(){_memApiKey='';try{sessionStorage.removeItem(API_KEY_SESSION);}catch(e){}try{localStorage.removeItem(API_KEY_LS);}catch(e){}}
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});}catch(e){}
 // v11 (2026-09-04): modal passphrase entry replaces window.prompt. prompt()'s
@@ -255,7 +257,10 @@ try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().
 // async; concurrent unauthorized replies share ONE pending modal. The 8/24 race
 // rule is preserved: only clear/prompt when the stored key equals the key the
 // failing request was actually sent with — never clear unconditionally.
-function _promptKeyModal(message){return new Promise(function(res){
+// 2026-10-03: `failedKey` lets the modal close itself when another tab of this origin (Power, Growth,
+// the other dashboard — desktop Chrome shares one localStorage) stores a different key while it's open;
+// before, each open tab kept its own modal up after Ethan answered one. Resolves to {foreignKey} then.
+function _promptKeyModal(message,failedKey,rejected){return new Promise(function(res){
   var o=document.createElement('div');
   o.style.cssText='position:fixed;inset:0;background:rgba(15,18,25,.45);display:flex;align-items:center;justify-content:center;z-index:1200';
   o.innerHTML='<div style="background:#fff;border-radius:14px;padding:20px;max-width:420px;width:calc(100% - 48px);box-shadow:0 12px 40px rgba(0,0,0,.18);font:14px/1.45 Inter,system-ui,sans-serif;color:#1a1d24">'
@@ -267,7 +272,9 @@ function _promptKeyModal(message){return new Promise(function(res){
   document.body.appendChild(o);
   o.querySelector('#km-msg').textContent=message;
   var inp=o.querySelector('#km-in');inp.focus();
-  var fin=function(v){o.remove();res(v);};
+  var onF=function(){var k='';try{k=localStorage.getItem(API_KEY_LS)||'';}catch(e){}if(k&&k!==failedKey&&!(rejected&&rejected.has(k)))fin({foreignKey:k});};
+  var fin=function(v){window.removeEventListener('storage',onF);document.removeEventListener('visibilitychange',onF);o.remove();res(v);};
+  window.addEventListener('storage',onF);document.addEventListener('visibilitychange',onF);onF();
   o.querySelector('#km-cancel').onclick=function(){fin(null);};
   o.querySelector('#km-ok').onclick=function(){fin(inp.value);};
   o.addEventListener('keydown',function(e){if(e.key==='Escape'){e.preventDefault();fin(null);}else if(e.key==='Enter'){e.preventDefault();fin(inp.value);}});
@@ -275,7 +282,14 @@ function _promptKeyModal(message){return new Promise(function(res){
 // Probe an entered key BEFORE storing it: true=accepted, false=rejected,
 // null=network failure (can't tell). Bare fetch on purpose — fetchOnce would
 // recurse into recoverApiKey on the very unauthorized reply this tests for.
-async function validateApiKey(k){try{const r=await fetch(WEBAPP_URL+'?type=lastModified&_='+Date.now()+'&key='+encodeURIComponent(k),{cache:'no-store'});const j=await r.json();if(j&&j.ok===false&&j.error==='unauthorized')return false;return true;}catch(e){return null;}}
+// 2026-10-03: probes ?type=ping (~1 s; past the auth gate on every backend — newer ones answer {ok:true},
+// older ones an "Unknown type" JSON error, both = accepted). ?type=lastModified scans ~20 tabs (8–22 s)
+// and the key was only stored once it answered. One retry on a can't-tell verdict (Google's HTML
+// 404/429 page) before the optimistic store, and the typed key is parked while it's checked so a
+// killed/closed page re-validates it next open instead of asking again.
+async function validateApiKey(k){try{const r=await fetch(WEBAPP_URL+'?type=ping&_='+Date.now()+'&key='+encodeURIComponent(k),{cache:'no-store'});const j=await r.json();if(j&&j.ok===false&&j.error==='unauthorized')return false;return true;}catch(e){return null;}}
+async function validateApiKeyWithRetry(k){let v=await validateApiKey(k);if(v===null){await new Promise(function(r){setTimeout(r,1500);});v=await validateApiKey(k);}return v;}
+const API_KEY_PENDING='sheets_api_key_pending_v1';
 let _pendingKeyPrompt=null;
 async function recoverApiKey(failedKey){
   const stored=getApiKey();
@@ -284,13 +298,19 @@ async function recoverApiKey(failedKey){
   if(_pendingKeyPrompt)return _pendingKeyPrompt;
   _pendingKeyPrompt=(async function(){
     try{
+      let parked='';try{parked=localStorage.getItem(API_KEY_PENDING)||'';}catch(e){}
+      if(parked&&parked!==failedKey){const v=await validateApiKeyWithRetry(parked);try{localStorage.removeItem(API_KEY_PENDING);}catch(e){}if(v!==false){storeApiKey(parked);return parked;}}
       let msg=failedKey?'Passphrase rejected by the server — re-enter your data passphrase:':'Enter your data passphrase (one-time on this device):';
+      const rejected=new Set();// keys this loop saw rejected — never accepted as a "foreign" key
       for(let tries=0;tries<3;tries++){
-        const raw=await _promptKeyModal(msg);
+        const raw=await _promptKeyModal(msg,failedKey,rejected);
+        if(raw&&typeof raw==='object')return raw.foreignKey;
         if(raw==null||!raw.trim()){if(getApiKey()===failedKey)clearApiKey();_keyPromptCancelled=true;return '';}
         const k=raw.trim();
-        const verdict=await validateApiKey(k);
-        if(verdict===false){msg='The server rejected “'+k+'” — check it (autocorrect?) and re-enter:';continue;}
+        try{localStorage.setItem(API_KEY_PENDING,k);}catch(e){}
+        const verdict=await validateApiKeyWithRetry(k);
+        try{localStorage.removeItem(API_KEY_PENDING);}catch(e){}
+        if(verdict===false){rejected.add(k);msg='The server rejected “'+k+'” — check it (autocorrect?) and re-enter:';continue;}
         storeApiKey(k);return k;
       }
       if(getApiKey()===failedKey)clearApiKey();_keyPromptCancelled=true;return '';

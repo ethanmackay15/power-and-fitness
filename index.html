@@ -2910,6 +2910,10 @@ function save(data) { safeSetItem(KEY, JSON.stringify(data)); }
 function getSheetsUrl() { try { return localStorage.getItem(SHEETS_URL_KEY) || ''; } catch(e) { return ''; } }
 function setSheetsUrl(url) { safeSetItem(SHEETS_URL_KEY, url); }
 
+// 2026-10-03: toast only on a TRANSITION into a given red message. The badge is
+// repainted on every 60 s poll and every queue change; re-toasting the same
+// "⚠ Sync error — n failed" each time made one stuck write nag every minute.
+let _lastRedToast = null;
 function updateSyncUI(status, msg) {
   const cls = 'sync-dot ' + (status === 'green' ? 'green' : status === 'yellow' ? 'yellow' : status === 'red' ? 'red' : 'gray');
   const dot = document.getElementById('header-sync-dot');
@@ -2917,7 +2921,10 @@ function updateSyncUI(status, msg) {
   if (dot) dot.className = cls;
   if (msgEl) msgEl.textContent = msg;
   if (status === 'green') { try { safeSetItem(LAST_SYNC_KEY, new Date().toISOString()); } catch(e){} }
-  if (status === 'red') showToast('⚠ ' + msg);
+  if (status === 'red') { if (_lastRedToast !== msg) showToast('⚠ ' + msg); _lastRedToast = msg; }
+  // Re-arm on a real recovery only — the weight pull's mid-sync green
+  // "Connected" doesn't count while failed writes are still parked.
+  else if (status === 'green' && !(typeof getQueueStatus === 'function' && getQueueStatus() === 'error')) _lastRedToast = null;
 }
 
 // ─── Passphrase (added 2026-08-23) ───────────────────────────────────────────
@@ -2968,7 +2975,13 @@ function storeApiKey(k) {
   catch(e) {
     let ok = false;
     try { relieveStoragePressure(); localStorage.setItem(API_KEY_LS, k); ok = true; } catch(_) {}
-    if (!ok) showToast('⚠️ Storage full — passphrase could not be saved on this device. Export data, then clear old entries.');
+    if (!ok) {
+      // 2026-10-03: getApiKey reads localStorage FIRST, so an older (wrong)
+      // key left there would outrank the new one held in session/memory and
+      // re-prompt forever. Removing can't hit the quota.
+      try { localStorage.removeItem(API_KEY_LS); } catch(_) {}
+      showToast('⚠️ Storage full — passphrase could not be saved on this device. Export data, then clear old entries.');
+    }
   }
 }
 function clearApiKey() {
@@ -2982,7 +2995,12 @@ function clearApiKey() {
 // silently "corrected" it on entry, the mangled key was stored without
 // validation, and every subsequent sync cycle re-prompted with "rejected".
 // This input disables all of that and stays visible so a mangle can be seen.
-function _promptKeyModal(message) {
+// 2026-10-03: `failedKey` lets the modal close itself when ANOTHER tab of this
+// origin stores a different key while it's open (desktop Chrome: Power, both
+// dashboards and Growth share one localStorage). Before, each open tab kept its
+// own modal up after Ethan answered one — "prompted multiple times in a row."
+// Resolves to { foreignKey } in that case.
+function _promptKeyModal(message, failedKey, rejected) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-bg open';
@@ -3001,7 +3019,18 @@ function _promptKeyModal(message) {
     document.body.appendChild(overlay);
     const input = overlay.querySelector('#key-modal-input');
     input.focus();
-    const finish = (v) => { overlay.remove(); resolve(v); };
+    const onForeignKey = () => {
+      let k = ''; try { k = localStorage.getItem(API_KEY_LS) || ''; } catch(e) {}
+      if (k && k !== failedKey && !(rejected && rejected.has(k))) finish({ foreignKey: k });
+    };
+    const finish = (v) => {
+      window.removeEventListener('storage', onForeignKey);
+      document.removeEventListener('visibilitychange', onForeignKey);
+      overlay.remove(); resolve(v);
+    };
+    window.addEventListener('storage', onForeignKey);
+    document.addEventListener('visibilitychange', onForeignKey);
+    onForeignKey();   // a key stored before the modal opened (e.g. during the parked-key check)
     overlay.querySelector('#key-modal-cancel').onclick = () => finish(null);
     overlay.querySelector('#key-modal-ok').onclick = () => finish(input.value);
     overlay.addEventListener('keydown', e => {
@@ -3014,15 +3043,34 @@ function _promptKeyModal(message) {
 // (accepted), false (rejected), null (network failure — can't tell).
 // Deliberately a bare fetch, NOT noCacheFetch, which would recurse into
 // recoverApiKey on the very unauthorized reply this is testing for.
+// 2026-10-03: probes ?type=ping, not ?type=lastModified. lastModified scans
+// ~20 tabs (8–12 s warm, ~22 s cold) and the key was only stored once it
+// answered — an iOS PWA suspended/killed in that window lost the key and
+// prompted again next open. The auth gate runs before routing, so ping
+// answers in ~1 s on any backend: v2026-10-03a+ returns {ok:true}; older
+// ones return an "Unknown type" JSON error, which is still "not unauthorized"
+// = accepted.
 async function validateApiKey(k) {
   try {
     const url = getSheetsUrl(); if (!url) return null;
-    const res = await fetch(url + '?type=lastModified&_=' + Date.now() + '&key=' + encodeURIComponent(k), { cache: 'no-store' });
+    const res = await fetchWithTimeout(url + '?type=ping&_=' + Date.now() + '&key=' + encodeURIComponent(k), { cache: 'no-store' }, 20000);
     const json = await res.json();
     if (json && json.ok === false && json.error === 'unauthorized') return false;
     return true;
   } catch(e) { return null; }
 }
+// A null verdict (Google's HTML 404/429 error page, or a dropped connection)
+// used to store the typed key unverified — a typo then broke every open tab.
+// One retry after a beat settles most of those before falling back to the
+// optimistic store.
+async function validateApiKeyWithRetry(k) {
+  let v = await validateApiKey(k);
+  if (v === null) { await new Promise(r => setTimeout(r, 1500)); v = await validateApiKey(k); }
+  return v;
+}
+// The typed key is parked here while it's being validated, so an app killed
+// mid-check re-validates it silently on next open instead of asking again.
+const API_KEY_PENDING = 'sheets_api_key_pending_v1';
 // Race-safe recovery from a server `unauthorized`. `failedKey` = the key the
 // FAILING REQUEST was actually sent with, not whatever is stored now. Only
 // clear + re-prompt when the stored key is the one the server actually
@@ -3044,11 +3092,23 @@ async function recoverApiKey(failedKey) {
   if (_pendingKeyPrompt) return _pendingKeyPrompt;
   _pendingKeyPrompt = (async () => {
     try {
+      // 2026-10-03: a key typed on a previous visit whose check never finished
+      // (app killed mid-validation) is re-checked silently instead of asking.
+      let parked = ''; try { parked = localStorage.getItem(API_KEY_PENDING) || ''; } catch(e) {}
+      if (parked && parked !== failedKey) {
+        const v = await validateApiKeyWithRetry(parked);
+        try { localStorage.removeItem(API_KEY_PENDING); } catch(e) {}
+        if (v !== false) { storeApiKey(parked); return parked; }
+      }
       let msg = failedKey
         ? 'Passphrase rejected by the server — re-enter your data passphrase:'
         : 'Enter your data passphrase (one-time on this device):';
+      const rejected = new Set();   // keys this loop saw rejected — never accept them as a "foreign" key
       for (let tries = 0; tries < 3; tries++) {
-        const raw = await _promptKeyModal(msg);
+        const raw = await _promptKeyModal(msg, failedKey, rejected);
+        // Another tab stored a key while the modal was open — use it (the 8/24
+        // rule already trusts a stored key that differs from the failed one).
+        if (raw && typeof raw === 'object') return raw.foreignKey;
         if (raw == null || !raw.trim()) {          // cancelled or empty
           // Clear only the key this prompt was recovering FROM — another tab
           // may have stored a fresh correct key while the modal sat open, and
@@ -3058,8 +3118,11 @@ async function recoverApiKey(failedKey) {
           return '';
         }
         const k = raw.trim();
-        const verdict = await validateApiKey(k);
+        try { localStorage.setItem(API_KEY_PENDING, k); } catch(e) {}
+        const verdict = await validateApiKeyWithRetry(k);
+        try { localStorage.removeItem(API_KEY_PENDING); } catch(e) {}
         if (verdict === false) {
+          rejected.add(k);
           msg = 'The server rejected “' + k + '” — check it (autocorrect?) and re-enter:';
           continue;
         }
@@ -3125,9 +3188,13 @@ async function pullFromSheets() {
   updateSyncUI('yellow','Pulling from Google Sheets...');
   try {
     const res = await noCacheFetch(url); const json = await res.json();
-    if (!json.ok || !Array.isArray(json.entries)) { updateSyncUI('red','Pull failed — invalid response'); return null; }
+    // 2026-10-03: yellow, not red — red fires a toast, and this runs on every
+    // 60 s poll, so one flaky Google minute popped "⚠ Could not reach Google
+    // Sheets" over whatever Ethan was doing. Write failures still go red via
+    // the queue badge; the next poll retries the read.
+    if (!json.ok || !Array.isArray(json.entries)) { updateSyncUI('yellow','Pull failed — will retry'); return null; }
     updateSyncUI('green','Connected to Google Sheets'); return json.entries;
-  } catch(err) { updateSyncUI('red','Could not reach Google Sheets'); return null; }
+  } catch(err) { updateSyncUI('yellow','Could not reach Google Sheets — will retry'); return null; }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -3142,16 +3209,42 @@ async function pullFromSheets() {
 // Phase 2: replace dirty-flag/replaceFoodForDates paths with enqueueWrite().
 // ═════════════════════════════════════════════════════════════════════════════
 
+// 2026-10-03: no request had a timeout. One that never settled pinned
+// _syncInFlight (every poll + manual refresh silently no-op'd while the badge
+// said "Connected"), or held the queue-flush lock so every later write sat
+// queued for the rest of the session; across midnight it also kept today from
+// ever autopopulating (reproduced). Apps Script cold starts reach ~45 s, so the
+// budgets are generous. The abort surfaces as "Request timed out" — transient
+// for the write queue; retries are safe because every write is an idempotent
+// upsert/delete. A body read that overruns the budget fails too (the next
+// poll / backoff retries).
+const GET_TIMEOUT_MS  = 75000;
+const POST_TIMEOUT_MS = 90000;
+async function fetchWithTimeout(url, opts, ms) {
+  if (typeof AbortController === 'undefined') return fetch(url, opts);
+  const ctl = new AbortController();
+  // The timer is deliberately NOT cleared when headers arrive: it also bounds
+  // the caller's body read (aborting an already-consumed response is a no-op).
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    return await fetch(url, Object.assign({}, opts || {}, { signal: ctl.signal }));
+  } catch (e) {
+    clearTimeout(t);
+    if (ctl.signal.aborted) throw new Error('Request timed out');
+    throw e;
+  }
+}
+
 // Strict POST that requires a readable JSON response. No no-cors fallback —
 // a failed write must surface as an error so the queue can retry it.
 async function sheetsPostJson(url, payload) {
   const sentKey = getApiKey();
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method:  'POST',
     headers: { 'Content-Type': 'text/plain' },
     body:    JSON.stringify(Object.assign({ key: sentKey }, payload)),
     redirect:'follow',
-  });
+  }, POST_TIMEOUT_MS);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   let json;
   try { json = await res.json(); }
@@ -3178,9 +3271,10 @@ async function sheetsPostJson(url, payload) {
 // intermediate cache (browser, CDN, future SW) treats each pull as unique.
 async function noCacheFetch(url, opts) {
   const sep = url.includes('?') ? '&' : '?';
-  const make = (key) => fetch(
+  const make = (key) => fetchWithTimeout(
     url + sep + '_=' + Date.now() + '&key=' + encodeURIComponent(key),
-    Object.assign({ cache: 'no-store' }, opts || {})
+    Object.assign({ cache: 'no-store' }, opts || {}),
+    GET_TIMEOUT_MS
   );
   const sentKey = getApiKey();
   let res = await make(sentKey);
@@ -3242,6 +3336,39 @@ const BACKGROUND_POLL_INTERVAL_MS = 60000;
 
 let _queueFlushTimer = null;
 let _queueFlushing   = false;
+
+// Food sync overlay state (2026-10-03; see mergeFoodEntries).
+// id → { op: 'upsert'|'delete', token } for food enqueues still waiting on the
+// cross-tab queue lock — enqueueWrite is async, and until its lock callback
+// runs the write is in neither the queue nor the Sheet.
+const _enqueuingFoodOps = new Map();
+// id → { op, at } for food writes this tab confirmed on the Sheet. A pull that
+// STARTED before the confirmation may have been served the pre-write row, so a
+// merge treats writes confirmed after the pull began as still pending.
+const _recentFoodFlushes = new Map();
+// 'seed' (QC fix): a machine seed is insert-if-absent on the server, so in the
+// merge the Sheet's row wins whenever one exists — the local seed row only fills
+// in while the Sheet has none. (As 'upsert', a stuck/dead seed batch pinned ~40
+// rows to their default quantities over edits made on other devices.)
+function _foodOpKind(op) {
+  if (op === 'seedFood') return 'seed';
+  return (op === 'addFood' || op === 'updateFood') ? 'upsert' : (op === 'deleteFood' ? 'delete' : null);
+}
+// 2026-10-03 TOCTOU guard for the NON-food domains (weight, habit, journal,
+// training, dexa, skip). Every sync snapshots `pending` BEFORE its pulls, but a
+// write enqueued AND flushed while those 15–40 s pulls were in flight left the
+// domain looking idle at merge time — the stale snapshot then overwrote it
+// (reproduced: log a weight at t+3 s, POST lands t+8 s, slow pull resolves
+// t+21 s → the weight vanished and the log form came back until the next poll;
+// Train check-offs vanished until the tab was re-entered). Stamp the domain on
+// every local enqueue and every confirmed flush; a sync skips applying any
+// domain stamped after it started (the next poll applies it cleanly).
+const _domainWriteAt = {};
+function _stampDomainWrite(op, payload) {
+  const k = _coalesceKey(op, payload);
+  if (k) _domainWriteAt[k.split(':')[0]] = Date.now();
+}
+function _domainQuietSince(domain, t) { return (_domainWriteAt[domain] || 0) < t; }
 
 function _readQueue() {
   try { return JSON.parse(localStorage.getItem(PENDING_WRITES_KEY)) || []; }
@@ -3342,6 +3469,17 @@ function enqueueWrite(op, payload) {
     ts:      new Date().toISOString(),
   };
   const key = _coalesceKey(op, payload);
+  _stampDomainWrite(op, payload);
+  // 2026-10-03: visible to the food merge overlay until the lock callback has
+  // persisted it (a merge in that gap would otherwise drop the optimistic row).
+  const foodKind = _foodOpKind(op);
+  const foodIds  = !foodKind ? []
+    : (op === 'seedFood' ? ((payload && payload.entries) || []).map(e => e && e.id).filter(Boolean)
+                         : (payload && payload.id ? [payload.id] : []));
+  foodIds.forEach(id => _enqueuingFoodOps.set(id, { op: foodKind, token: item.id }));
+  const _settleFood = () => {
+    foodIds.forEach(id => { const v = _enqueuingFoodOps.get(id); if (v && v.token === item.id) _enqueuingFoodOps.delete(id); });
+  };
   // 2026-09-04: the whole read-coalesce-write section runs under the cross-tab
   // queue lock. Callers are fire-and-forget (no caller uses the return value),
   // so the async wrapper is transparent; same-tab enqueues still land in call
@@ -3372,7 +3510,7 @@ function enqueueWrite(op, payload) {
   _updateQueueStatusUI();
   _scheduleQueueFlush();
   return item.id;
-  });
+  }).finally(_settleFood);
 }
 
 function _scheduleQueueFlush() {
@@ -3389,6 +3527,11 @@ function _opToPayload(op, payload) {
     case 'addFood':
     case 'updateFood':            return { action: 'syncFood', entries: [payload] };
     case 'deleteFood':            return { action: 'deleteFood', id: payload.id };
+    // 2026-10-03: the day's autopop seed as ONE batched upsert (was one POST per
+    // row — ~40 sequential POSTs, 1.5–3 min of "Saving (40)…", and a long
+    // window in which the seed could be lost while later edits went through).
+    // Entries all carry seedOnly → insert-if-absent server-side.
+    case 'seedFood':              return { action: 'syncFood', entries: (payload && payload.entries) || [] };
     case 'setWeight':             return { action: 'sync', entries: [payload] };
     case 'deleteWeight':          return { action: 'delete', date: payload.date };
     case 'setHabit':              return { action: 'setHabit', entry: payload };
@@ -3420,7 +3563,7 @@ function _isTransientWriteError(msg) {
   // 2026-07-18: "Sheet busy — try again" is the doPost LockService timeout
   // (google-apps-script.js) — genuinely transient contention, not a poison write.
   // Classifying it permanent let 10 unlucky lock-timeouts dead-letter a valid
-  // deleteFood, which then resurrected the row (see getPendingDeleteFoodIds).
+  // deleteFood, which then resurrected the row (see _pendingFoodOps).
   // 2026-08-24: 'unauthorized' is transient too — it resolves the moment the
   // passphrase is (re-)entered. Classifying it permanent burned all 10 attempts
   // in minutes on a keyless device and DEAD-LETTERED every queued write
@@ -3430,7 +3573,19 @@ function _isTransientWriteError(msg) {
   // periods can return 429 or a 200 HTML error page ("Invalid JSON response").
   // The web-app URL never changes, so these are always Google-side flakiness —
   // classified permanent they dead-lettered valid writes (seen 9/24–25).
-  return /Load failed|Failed to fetch|NetworkError|Network request failed|The network connection was lost|The Internet connection appears to be offline|timed out|Sheet busy|unauthorized|HTTP 5\d\d|HTTP 0\b|HTTP 404|HTTP 429|Invalid JSON response/i.test(String(msg || ''));
+  // 2026-10-03: Apps Script SERVICE errors come back as 200 {ok:false, error:
+  // err.message} from doPost's catch — "Service Spreadsheets failed while
+  // accessing document…", "We're sorry, a server error occurred", "Too many
+  // simultaneous invocations", "Document … is missing", "Exceeded maximum
+  // execution time". All Google-side and retryable; classified permanent they
+  // burned 10 attempts in ~3.5 min and stranded a valid weight (reproduced).
+  // Genuine poison ("Unknown action", a script TypeError) stays permanent so it
+  // can't head-of-line-block the queue forever.
+  return /Load failed|Failed to fetch|NetworkError|Network request failed|The network connection was lost|The Internet connection appears to be offline|timed out|Sheet busy|unauthorized|HTTP 5\d\d|HTTP 0\b|HTTP 404|HTTP 429|Invalid JSON response|Service Spreadsheets|Service invoked too many times|server error occurred|Too many simultaneous invocations|is missing \(perhaps|Exceeded maximum execution time|temporarily unavailable|Service unavailable|Internal error|Lock timeout|aborted/i.test(String(msg || ''));
+}
+
+function _isServiceError(msg) {
+  return /Service Spreadsheets|Service invoked too many times|server error occurred|Too many simultaneous invocations|is missing \(perhaps|Exceeded maximum execution time|temporarily unavailable|Service unavailable|Internal error|Lock timeout/i.test(String(msg || ''));
 }
 
 // Flush the queue in FIFO order. Stops on first failure (per-item backoff
@@ -3476,6 +3631,18 @@ async function _flushQueueBody(url) {
       try {
         const body = _opToPayload(item.op, item.payload);
         await sheetsPostJson(url, body);
+        // 2026-10-03: remember the confirmation for the food merge overlay (a
+        // pull already in flight may predate this write). Pruned to 10 min.
+        _stampDomainWrite(item.op, item.payload);
+        const fk = _foodOpKind(item.op);
+        const flushedIds = item.op === 'seedFood'
+          ? ((item.payload && item.payload.entries) || []).map(e => e && e.id).filter(Boolean)
+          : (fk && item.payload && item.payload.id ? [item.payload.id] : []);
+        if (flushedIds.length) {
+          const now = Date.now();
+          flushedIds.forEach(id => _recentFoodFlushes.set(id, { op: fk, at: now }));
+          _recentFoodFlushes.forEach((v, id) => { if (now - v.at > 600000) _recentFoodFlushes.delete(id); });
+        }
         // Success: remove this specific item (queue may have grown during await)
         await _withQueueLock(() => {
           _writeQueue(_readQueue().filter(it => it.id !== item.id));
@@ -3493,7 +3660,10 @@ async function _flushQueueBody(url) {
           const q2  = _readQueue();
           const idx = q2.findIndex(it => it.id === item.id);
           if (idx >= 0) {
-            if (_isTransientWriteError(msg)) {
+            // QC fix: a SERVICE-class error (not a dropped connection) that
+            // persists ~20 min counts toward the dead-letter cap, so one write
+            // the server keeps failing can't block the queue head forever.
+            if (_isTransientWriteError(msg) && !(_isServiceError(msg) && (q2[idx].netAttempt || 0) >= 40)) {
               q2[idx].netAttempt = (q2[idx].netAttempt || 0) + 1;
             } else {
               q2[idx].attempt = (q2[idx].attempt || 0) + 1;
@@ -3511,6 +3681,10 @@ async function _flushQueueBody(url) {
     // If items remain under the cap, schedule another attempt with backoff
     const remaining = _readQueue();
     const retryable = remaining.filter(it => (it.attempt || 0) < QUEUE_MAX_ATTEMPTS);
+    // 2026-10-03: an item that JUST hit the cap used to sit in the live queue
+    // with no timer (only retryable items scheduled one) — never dead-lettered,
+    // never retried, until some unrelated trigger. One quick pass moves it aside.
+    if (retryable.length === 0 && remaining.length > 0) setTimeout(() => flushQueue(), 1000);
     if (retryable.length > 0) {
       // Back off on the COMBINED failure count (permanent attempt + transient
       // netAttempt) so a write that keeps hitting "Load failed" still ramps to
@@ -3599,12 +3773,26 @@ if (typeof window !== 'undefined') {
     retryDead:  () => {
       const dead = _readDeadLetter();
       _writeDeadLetter([]);
-      dead.forEach(it => enqueueWrite(it.op, it.payload));
-      return dead.length;
+      const live = _liveDeadWrites(dead);
+      live.forEach(it => enqueueWrite(it.op, it.payload));
+      return live.length;
     },
     clearDead:  () => { _writeDeadLetter([]); _updateQueueStatusUI(); },
   };
 }
+// QC fix (2026-10-03): desktop Chrome tabs share one queue. A Power tab still
+// running OLDER code throws "Unknown queue op: seedFood" (permanent) and dead-
+// letters a write this build handles fine — put such writes back on load.
+(function requeueOpsUnknownToOldTabs() {
+  try {
+    const dead = _readDeadLetter();
+    const back = dead.filter(it => it && /Unknown queue op/.test(String(it.lastError || '')) &&
+      (() => { try { _opToPayload(it.op, it.payload); return true; } catch(e) { return false; } })());
+    if (!back.length) return;
+    _writeDeadLetter(dead.filter(it => back.indexOf(it) === -1));
+    back.forEach(it => enqueueWrite(it.op, it.payload));
+  } catch(e) {}
+})();
 // On load, if anything is already pending, attempt a flush after a beat.
 setTimeout(() => { if (_readQueue().length > 0) flushQueue(); }, 1000);
 
@@ -3710,6 +3898,9 @@ function toggleSettings() {
 // "store created" on a device used for weeks = the browser wiped this app's
 // storage (key + template cache lost → reprompt + fallback-template seeds);
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
+// Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
+// or PWA still running old code is visible at a glance. Bump on every deploy.
+const APP_BUILD = '2026-10-03a';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -3718,6 +3909,7 @@ function renderDeviceDiag() {
   const g = k => { try { return localStorage.getItem(k) || '—'; } catch(e) { return 'n/a'; } };
   const n = k => { try { return (JSON.parse(localStorage.getItem(k) || '[]') || []).length; } catch(e) { return '?'; } };
   el.textContent = 'Device diagnostics\n' +
+    'Build: ' + APP_BUILD + '\n' +
     'Storage used: ' + Math.round(chars / 1000) + 'K chars\n' +
     'Store created: ' + g(STORE_BORN_KEY) + '\n' +
     'Passphrase saved: ' + (g(API_KEY_LS) !== '—' ? 'yes' : 'NO') + '\n' +
@@ -3741,10 +3933,11 @@ async function saveSettings() {
     if (remote) { local.entries = mergeEntries(local.entries, remote); save(local); await pushToSheets(local.entries); }
     renderWeight();
     // Also pull food data from Sheets
+    const foodSnap = snapshotFoodSync();
     const remoteFood = await pullFoodFromSheets();
     if (remoteFood && remoteFood.length) {
       const localFood = getFoodEntries();
-      const merged = mergeFoodEntries(localFood, remoteFood);
+      const merged = mergeFoodEntries(localFood, remoteFood, foodSnap);
       saveFoodEntriesDB(merged);
       renderFood();
     }
@@ -3803,12 +3996,20 @@ async function forcePush() {
 // preserve-local mode (getQueueStatus() === 'error') until cleared — cross-
 // device deletes stop propagating app-wide. The only handles used to be
 // window.__queue.* in devtools, unreachable on the iOS PWA where this bites.
+// 2026-10-03: skip a dead write that a NEWER queued write for the same row
+// supersedes — re-enqueueing it would coalesce the newer value away and put
+// the stale one on the Sheet.
+function _liveDeadWrites(dead) {
+  const liveKeys = new Set(_readQueue().map(it => _coalesceKey(it.op, it.payload)).filter(Boolean));
+  return dead.filter(it => { const k = _coalesceKey(it.op, it.payload); return !k || !liveKeys.has(k); });
+}
 function retryFailedWrites() {
   const dead = _readDeadLetter();
   if (!dead.length) { showToast('No failed writes'); return; }
   _writeDeadLetter([]);
-  dead.forEach(it => enqueueWrite(it.op, it.payload));
-  showToast('↻ Retrying ' + dead.length + ' failed write' + (dead.length > 1 ? 's' : ''));
+  const live = _liveDeadWrites(dead);
+  live.forEach(it => enqueueWrite(it.op, it.payload));
+  showToast('↻ Retrying ' + live.length + ' failed write' + (live.length === 1 ? '' : 's') + (live.length < dead.length ? ' (' + (dead.length - live.length) + ' superseded, dropped)' : ''));
   flushQueue();
 }
 function discardFailedWrites() {
@@ -4708,6 +4909,10 @@ function handleDayRollover() {
   trainingViewDate = td;
   setHeaderDateLabel(td);
   if (typeof window.applyTreatDayTheme === 'function') window.applyTreatDayTheme();
+  // 2026-10-03: the Weight card is date-relative ("✓ Logged today" + hidden
+  // form). An overnight-resident PWA kept showing YESTERDAY's weigh-in as
+  // logged today — the weight merge only re-renders when data changed.
+  renderWeight();
   // 2026-08-07 CLOBBER FIX (part 1): do NOT seed the new day from here. This
   // runs at the top of syncOnVisibility — BEFORE the pulls — so on a resident
   // PWA's first resume of a new day it seeded from STALE local state: no rows
@@ -4749,6 +4954,12 @@ async function syncOnVisibility(forceEvenIfHidden) {
   // in unrelated areas (weight, habits, etc.).
   // Manual force-refresh drains the queue first, so it can skip this guard.
   const pending = forceEvenIfHidden ? { weight:0, food:0, habit:0, dexa:0, journal:0, skip:0 } : _pendingByDomain();
+  // Food is NOT gated on `pending` any more (2026-10-03) — the per-id overlay in
+  // mergeFoodEntries protects unconfirmed local writes, so a stuck food write
+  // can no longer freeze the Food tab. The snapshot must predate the pulls.
+  const foodSnap = snapshotFoodSync();
+  const syncStartedAt = foodSnap.at;   // TOCTOU guard for the other domains (see _domainWriteAt)
+  const quiet = d => _domainQuietSince(d, syncStartedAt);
   updateSyncUI('yellow', 'Re-syncing...');
   _syncInFlight = (async () => {
     try {
@@ -4771,29 +4982,31 @@ async function syncOnVisibility(forceEvenIfHidden) {
     // 2026-07-18 AUTOPOP-FIX: keep the local tombstone store current from other
     // devices on every resume/poll (hygiene for the next boot's seed diff).
     if (deletedPlanRemote) mergeDeletedPlanIds(deletedPlanRemote);
-    if (remote && pending.weight === 0) {
+    if (remote && pending.weight === 0 && quiet('weight')) {
       const local = load();
       const merged = mergeEntries(local.entries, remote);
       if (JSON.stringify(merged) !== JSON.stringify(local.entries)) {
         local.entries = merged; save(local); renderWeight();
       }
     }
-    if (foodRemote && pending.food === 0) {
+    let droppedToday = null;
+    if (foodRemote) {
       const localFood = getFoodEntries();
-      const mergedFood = mergeFoodEntries(localFood, foodRemote);
+      const mergedFood = mergeFoodEntries(localFood, foodRemote, foodSnap);
+      droppedToday = _droppedTodayIds(localFood, mergedFood);
       if (JSON.stringify(mergedFood) !== JSON.stringify(localFood)) saveFoodEntriesDB(mergedFood);
     }
-    if (habitsRemote && habitsRemote.length && pending.habit === 0) {
+    if (habitsRemote && habitsRemote.length && pending.habit === 0 && quiet('habit')) {
       const localHabits = getHabitsData();
       const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
       if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) saveHabitsData(mergedHabits);
     }
-    if (dexaRemote && pending.dexa === 0) {
+    if (dexaRemote && pending.dexa === 0 && quiet('dexa')) {
       const localDexa = getDexaScans();
       const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
       if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) saveDexaScans(mergedDexa);
     }
-    if (skipDatesRemote && pending.skip === 0) {
+    if (skipDatesRemote && pending.skip === 0 && quiet('skip')) {
       const mergedSkip = mergeSkipDates(skipDatesRemote);
       const localArr  = [...getSkipDates()].sort();
       const mergedArr = [...mergedSkip].sort();
@@ -4820,7 +5033,15 @@ async function syncOnVisibility(forceEvenIfHidden) {
       // foods appear without requiring a tab-switch.
       if (document.getElementById('panel-food')?.classList.contains('active')) populateFoodSelect();
     }
-    if (_failedPulls > 0) updateSyncUI('yellow', 'Partial sync — ' + _failedPulls + ' of ' + _pulls.length + ' pulls failed');
+    // 2026-10-03: re-fill any template row today is missing on the Sheet (see
+    // ensureTodayMealPlan). Only with BOTH the food rows and the tombstones
+    // fresh from this sync — never against stale local state.
+    if (foodRemote && deletedPlanRemote && skipDatesRemote) ensureTodayMealPlan({ heal: true, skipIds: droppedToday });
+    // 2026-10-03: the pulls succeeding says nothing about this device's WRITES —
+    // green "Synced just now" used to paint over "Saving (n)…" and over a red
+    // "Sync error — n failed", hiding writes that never reached the Sheet.
+    if (getQueueStatus() !== 'idle') _updateQueueStatusUI();
+    else if (_failedPulls > 0) updateSyncUI('yellow', 'Partial sync — ' + _failedPulls + ' of ' + _pulls.length + ' pulls failed');
     else updateSyncUI('green', 'Synced just now');
     // Re-render visible tab.
     if (document.getElementById('panel-food')   && document.getElementById('panel-food').classList.contains('active'))   renderFood();
@@ -4830,9 +5051,12 @@ async function syncOnVisibility(forceEvenIfHidden) {
     // Journal pull is non-critical — keep it isolated so a journal failure
     // doesn't trip the outer catch and flag the whole re-sync as failed.
     try {
-      if (typeof pullJournalFromSheets === 'function' && pending.journal === 0) {
+      // Pending re-read here: this pull runs AFTER the main batch, so the
+      // sync-start snapshot is stale for it; guard on its own start time.
+      const jStart = Date.now();
+      if (typeof pullJournalFromSheets === 'function' && _pendingByDomain().journal === 0) {
         const journalRemote = await pullJournalFromSheets();
-        if (journalRemote) {
+        if (journalRemote && _pendingByDomain().journal === 0 && _domainQuietSince('journal', jStart)) {
           const localJ = getJournalDataLocal();
           const mergedJ = mergeJournalEntries(localJ, journalRemote);
           if (JSON.stringify(mergedJ) !== JSON.stringify(localJ)) {
@@ -4936,7 +5160,43 @@ async function syncOnVisibility(forceEvenIfHidden) {
 // renders seed today as before.
 let _mealPlanSeedReady = false;
 
-function ensureTodayMealPlan() {
+// 2026-10-03 SELF-HEALING SEED. `heal: true` re-runs the seed diff even on a day
+// this device already seeded. Callers pass it ONLY right after a sync whose food
+// AND tombstone pulls both succeeded, so "present" = the Sheet's rows (+ this
+// device's unconfirmed writes, via the merge overlay) and "deleted" = every
+// device's tombstones. Canonical case (10/03): the device Ethan logged breakfast
+// on lost its 38 seed writes but delivered his 4 edits, so the Sheet held only
+// those 4 rows for ~1h and every device mirrored them — the once-per-device-per-
+// day gate below meant nothing ever re-filled the day until a second device
+// happened to seed it. The invariant is now: the Sheet carries every template
+// row for today unless it was deleted. Safe to repeat: seedOnly writes are
+// insert-if-absent server-side and refused for tombstoned ids, and each id is
+// healed at most once per session so a refused write can't loop.
+const _healedSeedIds = new Set();
+// QC fix (same day): heal may only RE-FILL the rows this device's first seed of
+// the day intended — never rows that appeared in the template since. Without
+// this, a mid-day template edit meant for tomorrow (rename/swap/add) landed in
+// TODAY next to the original rows — the 9/20–9/24 phantom-row pattern. The
+// first seed records its full id set per date; no record → no heal (a device
+// that never seeded today gets the normal first seed instead).
+const SEEDED_PLAN_IDS_KEY = 'seededPlanIds_v1';   // { 'YYYY-MM-DD': [plan ids] }, last 3 dates
+function _readSeededPlanIds() {
+  try { return JSON.parse(localStorage.getItem(SEEDED_PLAN_IDS_KEY)) || {}; } catch(e) { return {}; }
+}
+function _recordSeededPlanIds(date, ids) {
+  // Union: the normal (non-heal) seed runs at most once per day per device plus
+  // the 6/09 fallback→live corrective re-diff; both are legitimate intent.
+  const all = _readSeededPlanIds();
+  all[date] = [...new Set([...(all[date] || []), ...ids])];
+  Object.keys(all).sort().slice(0, -3).forEach(d => { delete all[d]; });
+  safeSetItem(SEEDED_PLAN_IDS_KEY, JSON.stringify(all));
+}
+function ensureTodayMealPlan(opts) {
+  const heal = !!(opts && opts.heal);
+  // ids a sync just dropped from local (the Sheet no longer has them) — maybe a
+  // delete from another device whose tombstone this sync didn't see yet. Skip
+  // them this pass; if they're still missing next poll, heal then.
+  const skipIds = (opts && opts.skipIds) || null;
   // Don't seed from a possibly-stale cached template before init() has resolved
   // the freshest available plan. The boot seed / next render re-calls this once ready.
   if (!_mealPlanSeedReady) return;
@@ -4945,7 +5205,7 @@ function ensureTodayMealPlan() {
   // runs as soon as the live template lands.
   if (!templateIsFresh() && getSheetsUrl()) return;
   const td = today();
-  if (getFoodInitDates().has(td)) return;  // already seeded on THIS device today
+  if (!heal && getFoodInitDates().has(td)) return;  // already seeded on THIS device today
   // 2026-07-09: never autopop a day already marked as a skip day. Seeding a
   // skip day writes plausible-looking plan rows to the Sheet for a day whose
   // real intake is untracked — the documented "skip days understate intake"
@@ -5002,8 +5262,17 @@ function ensureTodayMealPlan() {
   // nothing, "No food logged for this day yet." Fix: compute the full expected set
   // first; if it's empty, bail WITHOUT locking, so the next render/sync (with a
   // loaded template) seeds normally. When the template IS loaded this is unchanged.
-  const fullPlan = createPlanEntries(td);
+  let fullPlan = createPlanEntries(td);
   if (!fullPlan.length) return;
+  if (heal) {
+    const rec = _readSeededPlanIds()[td];
+    if (!Array.isArray(rec) || !rec.length) return;
+    const allowed = new Set(rec);
+    fullPlan = fullPlan.filter(e => allowed.has(e.id) && !(skipIds && skipIds.has(e.id)));
+    if (!fullPlan.length) return;
+  } else {
+    _recordSeededPlanIds(td, fullPlan.map(e => e.id));
+  }
   markFoodDateInitialized(td);
   const existing   = getFoodEntries();
   const presentIds = new Set(existing.filter(e => e.date === td).map(e => e.id));
@@ -5013,7 +5282,12 @@ function ensureTodayMealPlan() {
   // cross-device resurrection, since the diff otherwise can't tell "deleted" from
   // "never seeded".
   const deletedIds = getDeletedPlanIds();
-  const missing    = fullPlan.filter(e => !presentIds.has(e.id) && !deletedIds.has(e.id));
+  const pendingOps = _pendingFoodOps();   // a delete still in this device's queue counts as deleted
+  let missing = fullPlan.filter(e => !presentIds.has(e.id) && !deletedIds.has(e.id) && pendingOps.get(e.id) !== 'delete');
+  if (heal) {
+    missing = missing.filter(e => !_healedSeedIds.has(e.id));
+    missing.forEach(e => _healedSeedIds.add(e.id));
+  }
   if (missing.length) {
     saveFoodEntriesDB([...existing, ...missing]);
     // 2026-08-07 CLOBBER FIX (part 4): seed writes carry seedOnly so the backend
@@ -5023,7 +5297,8 @@ function ensureTodayMealPlan() {
     // add/update writes stay full upserts. This is the durable backstop for any
     // seed that still fires against stale state, whatever the ordering. An older
     // deployed backend ignores the extra field (unchanged upsert behavior).
-    missing.forEach(e => enqueueWrite('addFood', { ...e, seedOnly: true }));
+    // 2026-10-03: one batched write for the whole seed (see 'seedFood').
+    enqueueWrite('seedFood', { date: td, entries: missing.map(e => ({ ...e, seedOnly: true })) });
   }
 }
 
@@ -6502,7 +6777,14 @@ async function pullFoodFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    const res  = await noCacheFetch(url + '?type=food');
+    // 2026-10-03: pull only the local-mirror window. The full dump had grown to
+    // 1.2 MB (every row since April), re-downloaded on boot AND every 60s poll,
+    // though pruneFoodWindow throws away everything older than the window anyway
+    // — it was the slowest pull and the one the Food tab waits on. ?since= is
+    // served since backend v2026-09-04b; an older backend ignores it and returns
+    // everything, which pruneFoodWindow then trims (same result).
+    const since = addDays(today(), -FOOD_MIRROR_WINDOW_DAYS);
+    const res  = await noCacheFetch(url + '?type=food&since=' + since);
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.entries)) return null;
     // Normalize dates — Sheets may return full Date strings instead of YYYY-MM-DD
@@ -6526,34 +6808,9 @@ async function pullFoodLibraryFromSheets() {
   } catch(e) { return null; }
 }
 
-// Normalize food name for dedup: lowercase, & → and, strip punctuation, collapse whitespace
-function normFoodName(n) { return (n||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
-
-// Returns the set of food entry ids that have a pending deleteFood op in the
-// write queue. Used by mergeFoodEntries as a tombstone — prevents remote
-// entries the user just queued for deletion from being re-added by a sync
-// that runs before the delete propagates to the Sheet.
-// 2026-05-16: added to fix "I deleted the olive oil entry but it keeps
-// coming back" — symptom of the queue-pending race against fresh remote pull.
-function getPendingDeleteFoodIds() {
-  try {
-    // 2026-07-18 AUTOPOP-FIX: include the DEAD-LETTER list, not just the live
-    // queue. A deleteFood that exhausts its retries moves to the dead-letter list
-    // and leaves the live queue — but the Sheet row was never removed, so without
-    // this the tombstone evaporated while getQueueStatus()==='error' pinned the
-    // merge onto the non-idle path forever, and the row resurrected on every sync.
-    // A dead-lettered delete is still the user's intent to delete; honor it.
-    const q  = (typeof _readQueue === 'function')      ? _readQueue()      : [];
-    const dq = (typeof _readDeadLetter === 'function') ? _readDeadLetter() : [];
-    const ids = new Set();
-    for (const it of [...q, ...dq]) {
-      if (it && it.op === 'deleteFood' && it.payload && it.payload.id) {
-        ids.add(it.payload.id);
-      }
-    }
-    return ids;
-  } catch(e) { return new Set(); }
-}
+// (normFoodName + getPendingDeleteFoodIds removed 2026-10-03: the per-id overlay
+// in mergeFoodEntries / _pendingFoodOps replaced the name-dedupe and the pending-
+// delete tombstone, including the 7/18 dead-letter rule.)
 
 // 2026-05-16: predicate — should a remote PLAN entry be excluded as STALE?
 // "Stale" means: the plan no longer includes this food on this date, but a
@@ -6592,92 +6849,80 @@ function _isStaleRemotePlanEntry(e) {
   return false;
 }
 
-function mergeFoodEntries(local, remote) {
-  // ARCHITECTURAL FIX (2026-04-29 evening): when the pending-writes queue is
-  // idle, the sheet IS the source of truth — overwrite local entirely. The
-  // old merge logic preserved local entries that didn't appear in remote,
-  // which incorrectly resurrected entries deleted on other devices (and
-  // preserved stale qty/macros on entries edited elsewhere).
-  // We only fall back to merge when the queue is NOT idle, i.e. there are
-  // pending local writes that haven't reached the sheet yet — those need to
-  // be preserved until the queue flushes.
-  // 2026-05-16: even on the source-of-truth path, filter out stale remote
-  // plan entries (food was removed from the plan but old Sheet rows persist).
-  // Otherwise every sync re-introduces Apple (Gala) Snack / Olive Oil / etc.
-  // 2026-07-18 AUTOPOP-FIX: also filter out durably-tombstoned plan ids (rows the
-  // user deleted, on this or ANY device). This is the catch-all that makes a
-  // deleted autopop row stay gone regardless of seed ORDER — it covers the
-  // warm-resume day-rollover path (a resident PWA re-seeds today before the
-  // tombstone pull lands) and stops a resurrection pushed by another device from
-  // re-displaying here (the idle "source-of-truth" path was tombstone-blind).
+// ── Food sync overlay (2026-10-03) ──────────────────────────────────────────
+// The Sheet is the source of truth for food, EXCEPT for rows this device has
+// written but the Sheet hasn't confirmed yet. Those are tracked per id here and
+// overlaid on the remote snapshot by mergeFoodEntries.
+//
+// Why (the 10/03 "full meal plan isn't showing on desktop" bug + its siblings):
+// the old merge was all-or-nothing on GLOBAL queue state. Queue idle → local
+// was replaced by remote wholesale; any pending/dead-lettered write anywhere →
+// local won for EVERY row (edits and deletes from other devices stopped
+// propagating); and syncOnVisibility skipped the food merge entirely while any
+// food write was pending — one write stuck on a transient error (retried
+// forever by design) froze this device's Food tab on stale rows indefinitely.
+// Per-id overlay removes all three: remote wins everywhere except the specific
+// ids with unconfirmed local writes. (State: _enqueuingFoodOps /
+// _recentFoodFlushes, declared with the queue state so enqueueWrite can't hit
+// them in their TDZ.)
+//
+// Every food id with an unconfirmed local write → 'upsert' | 'delete'. Includes
+// the dead-letter list: a write that exhausted its retries never reached the
+// Sheet, and it's still the user's intent (the 7/18 rule: a dead-lettered
+// delete must keep hiding the row). Later ops win: dead letter < live queue < in-flight.
+function _pendingFoodOps() {
+  const ops = new Map();
+  try {
+    for (const it of [..._readDeadLetter(), ..._readQueue()]) {
+      const kind = it && _foodOpKind(it.op);
+      if (!kind || !it.payload) continue;
+      if (it.op === 'seedFood') (it.payload.entries || []).forEach(e => { if (e && e.id) ops.set(e.id, kind); });
+      else if (it.payload.id) ops.set(it.payload.id, kind);
+    }
+  } catch(e) {}
+  _enqueuingFoodOps.forEach((v, id) => ops.set(id, v.op));
+  return ops;
+}
+// Today's ids a merge just removed from local (see ensureTodayMealPlan skipIds).
+function _droppedTodayIds(before, after) {
+  const td = today();
+  const kept = new Set(after.filter(e => e && e.date === td).map(e => e.id));
+  return new Set(before.filter(e => e && e.date === td && !kept.has(e.id)).map(e => e.id));
+}
+// Take this BEFORE starting a food pull; pass it to mergeFoodEntries.
+function snapshotFoodSync() {
+  return { at: Date.now(), ops: _pendingFoodOps() };
+}
+
+function mergeFoodEntries(local, remote, snap) {
+  // 2026-07-18 AUTOPOP-FIX: durably-tombstoned plan ids (rows the user deleted,
+  // on this or ANY device) never display, whichever side carries them.
   const deleted = getDeletedPlanIds();
-  // 9/04: prune remote to the local-mirror window up front so the callers'
-  // JSON.stringify(merged) !== JSON.stringify(local) comparison stabilizes
-  // (an unpruned remote vs the pruned store would "differ" on every poll).
-  if (Array.isArray(remote)) remote = pruneFoodWindow(remote);
-  if (typeof getQueueStatus === 'function' && getQueueStatus() === 'idle' && Array.isArray(remote)) {
-    return remote.filter(e => !_isStaleRemotePlanEntry(e) && !deleted.has(e.id));
-  }
-  if (!Array.isArray(remote)) remote = [];
-  // 2026-05-16: tombstone set — ids the user has queued for deletion. Don't
-  // resurrect these from remote until the queue flushes the delete through.
-  const pendingDeletes = getPendingDeleteFoodIds();
-  // BUGFIX (2026-04-29): the original dedupe-by-name logic discarded legitimate
-  // multiple-quantity entries (e.g., logging two Rx Bars on the same day).
-  // Dedupe-by-name is now ONLY applied when one side is a plan entry — that's
-  // the original intent (suppress plan-vs-manual dupes), without rejecting
-  // legitimate manual-vs-manual duplicates of the same food.
-  const map = {};
-  // For each (date, meal, food) key, track whether ANY local entry with that
-  // key is a plan entry. Used to decide whether to suppress remote dupes.
-  const localPlanKeys = new Set();
+  if (!Array.isArray(remote)) return local;
+  // 9/04: prune remote to the local-mirror window so the callers'
+  // JSON.stringify(merged) !== JSON.stringify(local) comparison stabilizes.
+  remote = pruneFoodWindow(remote);
+  // Ids whose LOCAL version must win: pending when the pull started, confirmed
+  // while it was in flight, or pending now.
+  const ops = new Map(snap && snap.ops ? snap.ops : []);
+  if (snap && snap.at) _recentFoodFlushes.forEach((v, id) => { if (v.at >= snap.at) ops.set(id, v.op); });
+  _pendingFoodOps().forEach((op, id) => ops.set(id, op));
 
-  local.forEach(e => {
-    const ne = normalizeEntryMeal(e);
-    // 2026-07-18: drop a locally-present row that's since been tombstoned — e.g. a
-    // warm-resume rollover seed that re-added it before the tombstone synced in.
-    if (deleted.has(ne.id)) return;
-    map[ne.id] = ne;
-    const isPlan = ne.plan === true || (ne.id && String(ne.id).startsWith('plan-'));
-    if (isPlan) {
-      const foodKey = ne.food_id || normFoodName(ne.food_name);
-      localPlanKeys.add(ne.date + '|' + ne.meal + '|' + foodKey);
-    }
-  });
-
+  const out = new Map();
   remote.forEach(e => {
-    const ne = normalizeEntryMeal(e);
-    if (map[ne.id]) return; // already in local under same id
-    // 2026-05-16: tombstone — if a deleteFood for this id is queued, the user
-    // just deleted it locally and the write hasn't reached the Sheet yet.
-    // Don't resurrect from remote.
-    if (pendingDeletes.has(ne.id)) return;
-    // 2026-07-18: durable tombstone — never resurrect a plan id the user deleted
-    // (this or any device), even after the delete has flushed off the live queue.
-    if (deleted.has(ne.id)) return;
-    // 2026-05-16: filter remote plan entries that match a current removal rule
-    // (Olive Oil, Apple (Gala) Snack, etc.). The Sheet's Food tab may still
-    // have legacy rows; we just don't surface them to the app.
-    if (_isStaleRemotePlanEntry(ne)) return;
-    const isPlan = ne.plan === true || (ne.id && String(ne.id).startsWith('plan-'));
-    const foodKey = ne.food_id || normFoodName(ne.food_name);
-    const key = ne.date + '|' + ne.meal + '|' + foodKey;
-    // Only suppress remote if EITHER side is a plan entry — that's the
-    // plan-vs-manual dedupe case. Manual-vs-manual dupes are legitimate
-    // (e.g., two separate Rx Bar logs on the same day) and must be kept.
-    if (isPlan && localPlanKeys.has(key)) return;
-    if (isPlan) {
-      // Track this so a later non-plan remote entry doesn't double up
-      localPlanKeys.add(key);
-    } else if (localPlanKeys.has(key)) {
-      // Local has a plan version of this food; remote is a manual edit of it.
-      // The original code suppressed this. Preserving that behavior: skip.
-      return;
-    }
-    map[ne.id] = ne;
+    if (!e || !e.id) return;
+    // 2026-05-16: stale legacy plan rows (food since removed from the plan).
+    if (_isStaleRemotePlanEntry(e) || deleted.has(e.id)) return;
+    out.set(e.id, normalizeEntryMeal(e));
   });
-
-  return Object.values(map);
+  local.forEach(e => {
+    if (!e || !e.id || deleted.has(e.id)) return;
+    const op = ops.get(e.id);
+    if (op === 'upsert' || (op === 'seed' && !out.has(e.id))) out.set(e.id, normalizeEntryMeal(e));
+  });
+  // A queued delete hides the row until the Sheet confirms it (5/16 tombstone).
+  ops.forEach((op, id) => { if (op === 'delete') out.delete(id); });
+  return pruneFoodWindow([...out.values()]);
 }
 
 
@@ -6714,7 +6959,9 @@ function getHabitsForDate(date) {
   return data[date] || {};
 }
 
-function setHabitForDate(date, habit, fields) {
+// `extra` (2026-10-03): additional fields for the setHabit payload only (the
+// Train mirror's planMirror/planLine/unsetIfMachine), never stored locally.
+function setHabitForDate(date, habit, fields, extra) {
   const data = getHabitsData();
   if (!data[date]) data[date] = {};
   if (!data[date][habit]) data[date][habit] = { done: false, notes: '', duration: null };
@@ -6727,12 +6974,12 @@ function setHabitForDate(date, habit, fields) {
   // We now push explicit FALSE rows on toggle-off so the sheet is the source of truth.
   // mergeHabitsData reads 'TRUE'/'FALSE' as boolean correctly.
   const e = data[date][habit];
-  enqueueWrite('setHabit', {
+  enqueueWrite('setHabit', Object.assign({
     date, habit,
     done:     e.done ? 'TRUE' : 'FALSE',
     notes:    e.notes || '',
     duration: (e.duration != null ? String(e.duration) : ''),
-  });
+  }, extra || {}));
 }
 
 function removeHabitDataForDate(date, habit) {
@@ -6841,7 +7088,12 @@ function mergeTrainingLog(remoteEntries) {
   }
   const merged = getTrainingData();
   const ts = s => { const t = Date.parse(s); return isNaN(t) ? 0 : t; };
+  // 2026-10-03: a row with a queued local write is the user's latest intent —
+  // never let the remote copy re-add an exercise whose UNcheck is still queued.
+  const queued = new Set();
+  try { _readQueue().forEach(it => { if (it && it.op === 'setTrainingExercise' && it.payload) queued.add(it.payload.date + '|' + it.payload.exercise); }); } catch(e) {}
   remoteEntries.forEach(r => {
+    if (queued.has(r.date + '|' + r.exercise)) return;
     if (!merged[r.date]) merged[r.date] = {};
     const le = merged[r.date][r.exercise];
     const re = { done: isDone(r), focus: r.focus || '', updated: r.updated || '', weight: r.weight != null ? String(r.weight) : '' };
@@ -6857,8 +7109,11 @@ function mergeTrainingLog(remoteEntries) {
 async function ensureTrainingLoaded() {
   const plan = await pullTrainingPlanFromSheets();
   if (plan && plan.length) saveTrainingPlan(plan);
+  const tStart = Date.now();
   const log = await pullTrainingLogFromSheets();
-  if (log) mergeTrainingLog(log);
+  // 2026-10-03 TOCTOU guard: a check-off/max-weight written while this pull was
+  // in flight wins (the stale snapshot used to erase it until the tab reopened).
+  if (log && _domainQuietSince('training', tStart)) mergeTrainingLog(log);
   renderTraining();
 }
 
@@ -7188,9 +7443,14 @@ function mirrorTrainingToExerciseHabit(date) {
   // Sheet-side with no note (the comment above always claimed this rule;
   // now the code enforces it).
   const wasMachineSet = /^\s*\[plan\]/im.test(existing);
-  if (isWorkout) setHabitForDate(date, 'exercise', { done: true, notes: newNote });
-  else if (!newNote && !done.length) { if (wasMachineSet) setHabitForDate(date, 'exercise', { done: false, notes: '' }); }
-  else setHabitForDate(date, 'exercise', { notes: newNote });
+  // 2026-10-03: planMirror → backend v2026-10-03a+ splices the [plan] line into
+  // the Sheet row's CURRENT notes (keeps duration) instead of overwriting them
+  // with this device's possibly-stale copy. Older backends ignore the flag.
+  const planLine = isWorkout ? lines[lines.length - 1] : '';
+  const mirror = { planMirror: true, planLine, unsetIfMachine: !done.length };
+  if (isWorkout) setHabitForDate(date, 'exercise', { done: true, notes: newNote }, mirror);
+  else if (!newNote && !done.length) { if (wasMachineSet) setHabitForDate(date, 'exercise', { done: false, notes: '' }, mirror); }
+  else setHabitForDate(date, 'exercise', { notes: newNote }, mirror);
 }
 
 // ── Streaks ──────────────────────────────────────────────────────────────────
@@ -7787,8 +8047,11 @@ function mergeJournalEntries(local, remote) {
   }
   // Background sheet sync
   if (url) {
+    const jStart = Date.now();
     pullJournalFromSheets().then(remote => {
       if (!remote) return;
+      // 2026-10-03 TOCTOU guard: an entry written during this boot pull wins.
+      if (!_domainQuietSince('journal', jStart)) return;
       const merged = mergeJournalEntries(getJournalDataLocal(), remote);
       saveJournalDataLocal(merged);
       renderJournal();
@@ -7929,11 +8192,15 @@ function mergeJournalEntries(local, remote) {
   setTimeout(updateBackupStatus, 100);
 
   // Re-sync when user returns to the tab (handles multi-device usage)
+  // 2026-10-03: re-arm only after ≥5 min away. Re-arming on EVERY return meant a
+  // cancelled prompt came straight back on each quick tab switch (desktop) —
+  // another "asked me again and again." A real re-open still gets one fresh
+  // chance, and tapping the sync badge always re-arms (manualForceRefresh).
+  let _hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
-    // Coming back to the foreground re-arms the passphrase prompt: a cancelled
-    // prompt stays quiet for the rest of THAT visit, but the next app-open
-    // gets one fresh chance instead of a whole session of silent failures.
-    if (!document.hidden) { _keyPromptCancelled = false; syncOnVisibility(); }
+    if (document.hidden) { _hiddenAt = Date.now(); return; }
+    if (_hiddenAt && Date.now() - _hiddenAt >= 5 * 60 * 1000) _keyPromptCancelled = false;
+    syncOnVisibility();
   });
 
   // Try Sheets sync
@@ -7955,6 +8222,9 @@ function mergeJournalEntries(local, remote) {
     // poll — which is precisely why this bug kept surviving "fixed" in testing).
     // Gate each domain's apply on having no pending writes for that domain.
     const pendingBoot = _pendingByDomain();
+    // Food uses the per-id overlay instead of the domain gate (2026-10-03).
+    const foodSnapBoot = snapshotFoodSync();
+    const bootQuiet = d => _domainQuietSince(d, foodSnapBoot.at);   // TOCTOU guard (see _domainWriteAt)
     const [remote, foodRemote, libraryData, habitsRemote, dexaRemote, skipDatesRemote, deletedPlanRemote] = await Promise.all([
       pullFromSheets(), pullFoodFromSheets(), pullFoodLibraryFromSheets(), pullHabitsFromSheets(),
       pullDexaFromSheets(), pullSkipDatesFromSheets(), pullDeletedPlanIdsFromSheets()
@@ -7963,14 +8233,16 @@ function mergeJournalEntries(local, remote) {
     // seedTodayPlanOnce (below) runs, so the seed diff never re-adds a row that
     // was deleted on another device. Monotonic union — safe with no pending-guard.
     if (deletedPlanRemote) mergeDeletedPlanIds(deletedPlanRemote);
-    if (remote && pendingBoot.weight === 0) {
+    if (remote && pendingBoot.weight === 0 && bootQuiet('weight')) {
       const local = load();
       const merged = mergeEntries(local.entries, remote);
       if (JSON.stringify(merged) !== JSON.stringify(local.entries)) { local.entries=merged; save(local); renderWeight(); }
     }
-    if (foodRemote && pendingBoot.food === 0) {
+    let droppedTodayBoot = null;
+    if (foodRemote) {
       const localFood  = getFoodEntries();
-      const mergedFood = mergeFoodEntries(localFood, foodRemote);
+      const mergedFood = mergeFoodEntries(localFood, foodRemote, foodSnapBoot);
+      droppedTodayBoot = _droppedTodayIds(localFood, mergedFood);
       if (JSON.stringify(mergedFood) !== JSON.stringify(localFood)) {
         saveFoodEntriesDB(mergedFood);
         // RENDER FIX 2026-05-10: re-render food if its tab is active. Without this,
@@ -7981,7 +8253,7 @@ function mergeJournalEntries(local, remote) {
         if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
       }
     }
-    if (habitsRemote && habitsRemote.length && pendingBoot.habit === 0) {
+    if (habitsRemote && habitsRemote.length && pendingBoot.habit === 0 && bootQuiet('habit')) {
       const localHabits = getHabitsData();
       const mergedHabits = mergeHabitsData(localHabits, habitsRemote);
       if (JSON.stringify(mergedHabits) !== JSON.stringify(localHabits)) {
@@ -7992,7 +8264,7 @@ function mergeJournalEntries(local, remote) {
         if (document.getElementById('panel-habits')?.classList.contains('active')) renderHabits();
       }
     }
-    if (dexaRemote && pendingBoot.dexa === 0) {
+    if (dexaRemote && pendingBoot.dexa === 0 && bootQuiet('dexa')) {
       const localDexa = getDexaScans();
       const mergedDexa = mergeDexaScans(localDexa, dexaRemote);
       if (JSON.stringify(mergedDexa) !== JSON.stringify(localDexa)) {
@@ -8003,7 +8275,7 @@ function mergeJournalEntries(local, remote) {
         if (typeof renderDexaSection === 'function') renderDexaSection();
       }
     }
-    if (skipDatesRemote && pendingBoot.skip === 0) {
+    if (skipDatesRemote && pendingBoot.skip === 0 && bootQuiet('skip')) {
       const mergedSkip = mergeSkipDates(skipDatesRemote);
       const localArr   = [...getSkipDates()].sort();
       const mergedArr  = [...mergedSkip].sort();
@@ -8034,6 +8306,12 @@ function mergeJournalEntries(local, remote) {
     // us here, a truthy flag triggers the one-shot corrective re-diff (see
     // seedTodayPlanOnce); a failed library pull (null) does not.
     seedTodayPlanOnce(!!(libraryData && Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length));
+    // 2026-10-03 self-healing seed: if today was already seeded on this device
+    // (so the seed above no-op'd) but the Sheet is missing template rows, fill them.
+    if (foodRemote && deletedPlanRemote && skipDatesRemote) {
+      ensureTodayMealPlan({ heal: true, skipIds: droppedTodayBoot });
+      if (document.getElementById('panel-food')?.classList.contains('active')) renderFood();
+    }
 
     // After Sheets pull, update backup status.
     updateBackupStatus();
