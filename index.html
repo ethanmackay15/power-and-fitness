@@ -2606,19 +2606,28 @@ function activePhases() {
     ? SHARED_CONFIG.phases : DEFAULT_PHASES;
 }
 
-// ── Meal-plan source — REMOVED 2026-08-07 (Ethan's call) ─────────────────────
-// The 2026-07-20 phase auto-switch (autopop from ?type=maintenanceMealPlan
-// during maint/rev phases, with a sticky Settings override in localStorage
-// 'mealPlanSourceOverride_v1') was removed after the per-DEVICE override bit
-// twice post-break (8/02 and 8/07: a device with the override still on 'maint'
-// seeded the maintenance plan on a cut day). The app now ALWAYS autopops from
-// the standard plan (?type=mealplan). The backend ?type=maintenanceMealPlan
-// endpoint and the "Maintenance Daily Meal Plan" Sheet tab are intentionally
-// left in place — to reinstate for the next diet break (9/13), restore from
-// archive/index-2026-08-07-pre-maint-removal.html: mealPlanSourceType() +
-// activePhaseType() + the Settings source row + the second planTemplate fetch
-// in pullFoodLibraryFromSheets(). Boot clears the stale localStorage key on
-// every device so a future reinstatement starts from a clean 'auto' state.
+// ── Meal-plan source — phase-driven (reinstated 2026-10-19) ─────────────────
+// The autopop template follows the Config `phases` calendar: a 'maint' day
+// seeds from the Sheet's "Maintenance Daily Meal Plan" tab
+// (?type=maintenanceMealPlan); every other day (cut / bulk / unknown) seeds
+// from the standard plan (?type=mealplan), as before. Targets follow whichever
+// template is loaded, so plan = target holds in both phases.
+// History: the 2026-07-20 version of this was removed 2026-08-07 because its
+// per-DEVICE sticky Settings override (localStorage 'mealPlanSourceOverride_v1')
+// seeded the maintenance plan on cut days (8/02, 8/07). This version has NO
+// override — the shared Config tab is the only input, so every device agrees.
+// It also tags the in-memory template with its source (_templateSource) and
+// templateIsFresh() refuses a template whose source doesn't match today's
+// phase, so a PWA resident across a phase boundary (e.g. 10/24 → 10/25) can't
+// seed the new day from yesterday's template.
+function activePhaseType(dateStr) {
+  const d = dateStr || today();
+  const ph = activePhases().find(p => d >= p.start && d <= p.end);
+  return ph ? ph.type : null;
+}
+function planSourceFor(dateStr) {
+  return activePhaseType(dateStr) === 'maint' ? 'maint' : 'cut';
+}
 
 function applySharedConfig(cfg) {
   if (!cfg || typeof cfg !== 'object') return;
@@ -3901,7 +3910,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-10-03a';
+const APP_BUILD = '2026-10-19a';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -3911,6 +3920,7 @@ function renderDeviceDiag() {
   const n = k => { try { return (JSON.parse(localStorage.getItem(k) || '[]') || []).length; } catch(e) { return '?'; } };
   el.textContent = 'Device diagnostics\n' +
     'Build: ' + APP_BUILD + '\n' +
+    'Meal plan: ' + (_templateSource === 'maint' ? 'Maintenance' : 'Cut') + ' template' + (templateIsFresh() ? '' : ' (waiting for ' + (planSourceFor(today()) === 'maint' ? 'Maintenance' : 'Cut') + ')') + '\n' +
     'Storage used: ' + Math.round(chars / 1000) + 'K chars\n' +
     'Store created: ' + g(STORE_BORN_KEY) + '\n' +
     'Passphrase saved: ' + (g(API_KEY_LS) !== '—' ? 'yes' : 'NO') + '\n' +
@@ -3918,9 +3928,9 @@ function renderDeviceDiag() {
     'Pending writes: ' + n(PENDING_WRITES_KEY) + ' · failed: ' + n(DEAD_WRITES_KEY);
 }
 
-// refreshMealPlanSourceUI / setMealPlanSource removed 2026-08-07 with the
-// meal-plan source feature (see the removal note at the old mealPlanSourceType
-// site, ~line 2520).
+// refreshMealPlanSourceUI / setMealPlanSource (the Settings override row) were
+// removed 2026-08-07 and stay removed: the 2026-10-19 phase-driven source has
+// no manual override (see planSourceFor, ~line 2620).
 
 const SHEETS_URL_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/;
 
@@ -5023,9 +5033,10 @@ async function syncOnVisibility(forceEvenIfHidden) {
         // exactly what's in the Sheet (incl. snack items the sanitizer dedups).
         setRawPlanTotalsFromTemplate(libraryData.planTemplate);
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
+        _templateSource = libraryData.planSource || 'cut';
       }
       if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) _templateFetchedAt = Date.now();
-      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE, fetchedAt: _templateFetchedAt || 0 })); } catch(e) {}
+      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE, fetchedAt: _templateFetchedAt || 0, source: _templateSource })); } catch(e) {}
       // 2026-09-24 (QC): if an earlier seed bailed on a stale template, seed now
       // that a live one is here — otherwise today stayed unseeded until the Food
       // tab was opened. No-op once the day is seeded (init-date + tombstone guards).
@@ -5344,7 +5355,11 @@ const FOOD_LIBRARY_CACHE_KEY = 'foodLibraryCache_v1';
 // pre-9/13 plan — Beef 96/4, Fish Oil, Sardines 170 — alongside the live one.
 const TEMPLATE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 let _templateFetchedAt = 0;   // ms epoch of the in-memory template's source; 0 = hardcoded fallback
-function templateIsFresh() { return _templateFetchedAt > 0 && (Date.now() - _templateFetchedAt) < TEMPLATE_CACHE_MAX_AGE_MS; }
+let _templateSource = 'cut';  // 'cut' | 'maint' — which Sheet tab the in-memory template came from (2026-10-19)
+function templateIsFresh() {
+  return _templateFetchedAt > 0 && (Date.now() - _templateFetchedAt) < TEMPLATE_CACHE_MAX_AGE_MS
+    && _templateSource === planSourceFor(today());
+}
 // 2026-05-15: cached raw (un-sanitized) plan totals so macro targets survive
 // reloads even before the next sheet sync completes.
 const RAW_PLAN_TOTALS_KEY = 'rawPlanTotals_v1';
@@ -6462,11 +6477,16 @@ function renderFood() {
 
   const container = document.getElementById('food-entries');
   if (!container) return;
+  // 2026-10-19: on a maintenance day the autopop waits (seeds nothing) until the
+  // Maintenance template has loaded — say so on Today instead of failing silently.
+  const planWait = (foodCurrentDate === today() && getSheetsUrl() && planSourceFor(today()) === 'maint' && !templateIsFresh())
+    ? '<div class="food-plan-wait" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,0.14);color:#b45309;font-size:0.82rem;line-height:1.35">Maintenance plan hasn\'t loaded yet, so today isn\'t auto-filled. It retries on every sync; tap the sync badge to retry now.</div>'
+    : '';
   if (groups.length === 0) {
-    container.innerHTML = '<div class="food-empty" style="text-align:center;color:var(--muted);padding:32px 0;font-size:0.88rem">No food logged for this day yet.</div>';
+    container.innerHTML = planWait + '<div class="food-empty" style="text-align:center;color:var(--muted);padding:32px 0;font-size:0.88rem">No food logged for this day yet.</div>';
     return;
   }
-  container.innerHTML = '<div class="food-timeline">' + groups.map(g => {
+  container.innerHTML = planWait + '<div class="food-timeline">' + groups.map(g => {
     const entries = g.entries;
     const mCal = entries.reduce((s,e)=>s+(e.calories||0),0);
     const mP   = entries.reduce((s,e)=>s+(e.protein||0),0);
@@ -6799,13 +6819,28 @@ async function pullFoodLibraryFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
   try {
-    // Library AND autopop template both come from the standard plan. (The
-    // 2026-07-20 phase-aware template swap — maintenance plan during maint/rev
-    // phases — was removed 2026-08-07; see the removal note ~line 2520.)
-    const res  = await noCacheFetch(url + '?type=mealplan');
-    const data = await res.json();
+    // The food LIBRARY (`foods[]` → FOOD_DB) always comes from the full standard
+    // plan — the maintenance tab carries only the foods that plan uses, and
+    // taking its library dropped foods from the dropdown (the 7/21 bug). Only
+    // the autopop TEMPLATE follows the phase (planSourceFor, ~line 2620).
+    if (planSourceFor(today()) !== 'maint') {
+      const res  = await noCacheFetch(url + '?type=mealplan');
+      const data = await res.json();
+      if (!data || !data.ok) return null;
+      return { ...data, planSource: 'cut' };
+    }
+    // Maintenance day: library from ?type=mealplan, template from
+    // ?type=maintenanceMealPlan, fetched in parallel. If the maintenance pull
+    // fails, return the library with NO template — never the cut template — so
+    // the in-memory template keeps its old source and templateIsFresh() holds
+    // the seed until a later sync lands the right one.
+    const getJson = t => noCacheFetch(url + '?type=' + t).then(r => r.json()).catch(() => null);
+    const [data, mdata] = await Promise.all([getJson('mealplan'), getJson('maintenanceMealPlan')]);
     if (!data || !data.ok) return null;
-    return data;
+    if (mdata && mdata.ok && Array.isArray(mdata.planTemplate) && mdata.planTemplate.length) {
+      return { ...data, planTemplate: mdata.planTemplate, planSource: 'maint' };
+    }
+    return { ...data, planTemplate: null, planSource: 'maint' };
   } catch(e) { return null; }
 }
 
@@ -6843,8 +6878,11 @@ function _isStaleRemotePlanEntry(e) {
   if (!isPlan) return false;
   const date = e && e.date;
   if (!date) return false; // can't date-gate without a date; preserve as a safety default
-  // (a) Olive Oil — removed from the plan 2026-05-15.
-  if (e.food_name && /^Olive Oil\b/.test(e.food_name)) {
+  // (a) Olive Oil — removed from the plan 2026-05-15. EXACT name only
+  // (2026-10-19): every legacy row was "Olive Oil"; the old /^Olive Oil\b/
+  // also matched "Olive Oil (By Grams)", which the Maintenance template seeds
+  // at plan-olive-oil-by-grams-es-<date> — every pull dropped that live row.
+  if (e.food_name && String(e.food_name).trim() === 'Olive Oil') {
     return date >= '2026-05-15';
   }
   return false;
@@ -8072,8 +8110,9 @@ function mergeJournalEntries(local, remote) {
 (async function init(){
   const td = today();
 
-  // 2026-08-07: meal-plan source feature removed — clear the per-device sticky
-  // override so no device keeps a stale 'maint' value (the 8/02 + 8/07 bug: a
+  // 2026-08-07: clear the old per-device sticky override (the phase-driven
+  // source reinstated 2026-10-19 has no override and never reads this key)
+  // so no device keeps a stale 'maint' value (the 8/02 + 8/07 bug: a
   // device whose override was still 'maint' seeded the maintenance plan on a
   // cut day; localStorage is per-device, so flipping it on one device never
   // fixed the others).
@@ -8097,6 +8136,8 @@ function mergeJournalEntries(local, remote) {
       if (Array.isArray(cached.planTemplate) && cached.planTemplate.length) {
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(cached.planTemplate);
         if (cached.fetchedAt) _templateFetchedAt = cached.fetchedAt;
+        // Pre-2026-10-19 caches carry no source; they were always the cut plan.
+        _templateSource = cached.source === 'maint' ? 'maint' : 'cut';
       }
     }
   } catch(e) {}
@@ -8291,10 +8332,11 @@ function mergeJournalEntries(local, remote) {
         // Capture raw totals BEFORE sanitization (see other sync handler).
         setRawPlanTotalsFromTemplate(libraryData.planTemplate);
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(libraryData.planTemplate);
+        _templateSource = libraryData.planSource || 'cut';
       }
       // Update cache with fresh data from Sheets
       if (Array.isArray(libraryData.planTemplate) && libraryData.planTemplate.length) _templateFetchedAt = Date.now();
-      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE, fetchedAt: _templateFetchedAt || 0 })); } catch(e) {}
+      try { safeSetItem(FOOD_LIBRARY_CACHE_KEY, JSON.stringify({ foods: FOOD_DB, planTemplate: MEAL_PLAN_TEMPLATE, fetchedAt: _templateFetchedAt || 0, source: _templateSource })); } catch(e) {}
       // Refresh the food dropdown if the food tab is visible
       if (document.getElementById('panel-food').classList.contains('active')) populateFoodSelect();
     }
