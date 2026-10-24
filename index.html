@@ -2425,13 +2425,9 @@
            plan: 12% assumes just +1 lb lean from the 6/27 scan (147.6); 15% assumes
            +0.4 by then (147.0). Weights are DEXA-mass frame — see CSS note.
            2026-07-09: values below are the offline fallback — the live values come
-           from the Config tab (interimDexa/goalDexa) via applySharedConfig. -->
-      <div class="bc-row next">
-        <div class="bc-lbl"><span class="bc-bf" id="bc-next-pct">15%</span><span class="bc-when">next</span></div>
-        <div class="bc-val" id="bc-next-w">182.0</div>
-        <div class="bc-val" id="bc-next-l">147.0</div>
-        <div class="bc-val" id="bc-next-f">27.3</div>
-      </div>
+           from the Config tab (goalDexa) via applySharedConfig.
+           2026-10-24: "next" interim row REMOVED at Ethan's call after the 10/24 scan hit
+           the 13.5% interim; only the 12% goal row remains (Config interimDexa is unused). -->
       <div class="bc-row goal">
         <div class="bc-lbl"><span class="bc-bf" id="bc-goal-pct">12%</span><span class="bc-when">goal</span></div>
         <div class="bc-val" id="bc-goal-w">176.5</div>
@@ -2560,8 +2556,8 @@ const CFG = {
   // OLD scale); back to 0.65 on 9/22 as a deliberate target on the 2,760 anchor.
   goalRate:     0.65,
   bfTarget:     12,
-  lastDexaDate: '2026-06-27',
-  nextDexaDate: '2026-09-12'   // booked 2026-08-03 for 9/12 7:39am (cut-end at the 8/02–9/12 cut→break boundary; 7/18 scan logged)
+  lastDexaDate: '2026-10-24',
+  nextDexaDate: '2026-12-19'   // 2026-10-24: cut-end scan logged (13.4%); next = 12/19, end of the 12/06–12/19 cut
 };
 
 // ─── Shared Config (added 2026-07-09) ─────────────────────────────────────────
@@ -2572,7 +2568,7 @@ const CFG = {
 // and DEFAULT_PHASES below are the offline/first-run fallback only. Keys used
 // here: goalWeightScale → CFG.goalWeight, goalRate → CFG.goalRate,
 // bfTargetPct → CFG.bfTarget, nextDexaDate → CFG.nextDexaDate,
-// phases → journey chip, interimDexa/goalDexa → Body Comp target box.
+// phases → journey chip, goalDexa → Body Comp goal row (interimDexa unused since 10/24).
 const CONFIG_CACHE_KEY = 'sharedConfig_v1';
 let SHARED_CONFIG = null;
 
@@ -2644,10 +2640,6 @@ function applySharedConfig(cfg) {
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = String(v); };
   // lb cells keep the table's one-decimal convention (182 → "182.0")
   const setLb  = (id, v) => { const n = Number(v); if (isFinite(n)) setTxt(id, n.toFixed(1)); };
-  if (cfg.interimDexa && typeof cfg.interimDexa === 'object') {
-    setTxt('bc-next-pct', (cfg.interimDexa.bf != null ? cfg.interimDexa.bf + '%' : null));
-    setLb('bc-next-w', cfg.interimDexa.weight); setLb('bc-next-l', cfg.interimDexa.lean); setLb('bc-next-f', cfg.interimDexa.fat);
-  }
   if (cfg.goalDexa && typeof cfg.goalDexa === 'object') {
     setTxt('bc-goal-pct', (cfg.goalDexa.bf != null ? cfg.goalDexa.bf + '%' : null));
     setLb('bc-goal-w', cfg.goalDexa.weight); setLb('bc-goal-l', cfg.goalDexa.lean); setLb('bc-goal-f', cfg.goalDexa.fat);
@@ -2708,7 +2700,8 @@ const DEXA_SEED = [
   {date:'2026-06-06', bf:17.9, total:188.2, fat:33.7, lean:146.7, bmc:7.7},
   {date:'2026-06-27', bf:16.3, total:184.3, fat:30.0, lean:146.6, bmc:7.7},
   {date:'2026-07-18', bf:15.7, total:182.0, fat:28.6, lean:145.7, bmc:7.7},
-  {date:'2026-09-12', bf:15.0, total:179.4, fat:26.9, lean:144.8, bmc:7.6}
+  {date:'2026-09-12', bf:15.0, total:179.4, fat:26.9, lean:144.8, bmc:7.6},
+  {date:'2026-10-24', bf:13.4, total:178.3, fat:23.9, lean:146.8, bmc:7.6}
 ];
 function getDexaScans() {
   try {
@@ -3910,7 +3903,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-10-19a';
+const APP_BUILD = '2026-10-24a';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
