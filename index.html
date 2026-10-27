@@ -2622,9 +2622,18 @@ function activePhaseType(dateStr) {
   const ph = activePhases().find(p => d >= p.start && d <= p.end);
   return ph ? ph.type : null;
 }
-function planSourceFor(dateStr) {
-  return activePhaseType(dateStr) === 'maint' ? 'maint' : 'cut';
+// 2026-10-26: Saturdays in a 'maint' phase seed from their own tab ("Treat Day
+// Meal Plan", ?type=maintenanceSaturdayMealPlan): source 'maintSat'.
+// The backend seed guard mirrors this (seedTemplateFor_).
+function isSaturdayStr(dateStr) {
+  return new Date(dateStr + 'T12:00:00Z').getUTCDay() === 6;
 }
+function planSourceFor(dateStr) {
+  const d = dateStr || today();
+  if (activePhaseType(d) !== 'maint') return 'cut';
+  return isSaturdayStr(d) ? 'maintSat' : 'maint';
+}
+const PLAN_SOURCE_LABEL = { cut: 'Cut', maint: 'Maintenance', maintSat: 'Treat Day' };
 
 function applySharedConfig(cfg) {
   if (!cfg || typeof cfg !== 'object') return;
@@ -3904,7 +3913,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-10-26a';
+const APP_BUILD = '2026-10-26b';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -3914,7 +3923,7 @@ function renderDeviceDiag() {
   const n = k => { try { return (JSON.parse(localStorage.getItem(k) || '[]') || []).length; } catch(e) { return '?'; } };
   el.textContent = 'Device diagnostics\n' +
     'Build: ' + APP_BUILD + '\n' +
-    'Meal plan: ' + (_templateSource === 'maint' ? 'Maintenance' : 'Cut') + ' template' + (templateIsFresh() ? '' : ' (waiting for ' + (planSourceFor(today()) === 'maint' ? 'Maintenance' : 'Cut') + ')') + '\n' +
+    'Meal plan: ' + (PLAN_SOURCE_LABEL[_templateSource] || 'Cut') + ' template' + (templateIsFresh() ? '' : ' (waiting for ' + PLAN_SOURCE_LABEL[planSourceFor(today())] + ')') + '\n' +
     'Storage used: ' + Math.round(chars / 1000) + 'K chars\n' +
     'Store created: ' + g(STORE_BORN_KEY) + '\n' +
     'Passphrase saved: ' + (g(API_KEY_LS) !== '—' ? 'yes' : 'NO') + '\n' +
@@ -5349,7 +5358,7 @@ const FOOD_LIBRARY_CACHE_KEY = 'foodLibraryCache_v1';
 // pre-9/13 plan — Beef 96/4, Fish Oil, Sardines 170 — alongside the live one.
 const TEMPLATE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 let _templateFetchedAt = 0;   // ms epoch of the in-memory template's source; 0 = hardcoded fallback
-let _templateSource = 'cut';  // 'cut' | 'maint' — which Sheet tab the in-memory template came from (2026-10-19)
+let _templateSource = 'cut';  // 'cut' | 'maint' | 'maintSat' — which Sheet tab the in-memory template came from (2026-10-19; maintSat 2026-10-26)
 function templateIsFresh() {
   return _templateFetchedAt > 0 && (Date.now() - _templateFetchedAt) < TEMPLATE_CACHE_MAX_AGE_MS
     && _templateSource === planSourceFor(today());
@@ -6473,8 +6482,8 @@ function renderFood() {
   if (!container) return;
   // 2026-10-19: on a maintenance day the autopop waits (seeds nothing) until the
   // Maintenance template has loaded — say so on Today instead of failing silently.
-  const planWait = (foodCurrentDate === today() && getSheetsUrl() && planSourceFor(today()) === 'maint' && !templateIsFresh())
-    ? '<div class="food-plan-wait" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,0.14);color:#b45309;font-size:0.82rem;line-height:1.35">Maintenance plan hasn\'t loaded yet, so today isn\'t auto-filled. It retries on every sync; tap the sync badge to retry now.</div>'
+  const planWait = (foodCurrentDate === today() && getSheetsUrl() && planSourceFor(today()) !== 'cut' && !templateIsFresh())
+    ? '<div class="food-plan-wait" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,0.14);color:#b45309;font-size:0.82rem;line-height:1.35">' + PLAN_SOURCE_LABEL[planSourceFor(today())] + ' plan hasn\'t loaded yet, so today isn\'t auto-filled. It retries on every sync; tap the sync badge to retry now.</div>'
     : '';
   if (groups.length === 0) {
     container.innerHTML = planWait + '<div class="food-empty" style="text-align:center;color:var(--muted);padding:32px 0;font-size:0.88rem">No food logged for this day yet.</div>';
@@ -6817,7 +6826,8 @@ async function pullFoodLibraryFromSheets() {
     // plan — the maintenance tab carries only the foods that plan uses, and
     // taking its library dropped foods from the dropdown (the 7/21 bug). Only
     // the autopop TEMPLATE follows the phase (planSourceFor, ~line 2620).
-    if (planSourceFor(today()) !== 'maint') {
+    const src = planSourceFor(today());
+    if (src === 'cut') {
       const res  = await noCacheFetch(url + '?type=mealplan');
       const data = await res.json();
       if (!data || !data.ok) return null;
@@ -6829,12 +6839,14 @@ async function pullFoodLibraryFromSheets() {
     // the in-memory template keeps its old source and templateIsFresh() holds
     // the seed until a later sync lands the right one.
     const getJson = t => noCacheFetch(url + '?type=' + t).then(r => r.json()).catch(() => null);
-    const [data, mdata] = await Promise.all([getJson('mealplan'), getJson('maintenanceMealPlan')]);
+    // Maintenance Saturday = Treat Day (2026-10-26): same, from ?type=maintenanceSaturdayMealPlan.
+    const tplType = src === 'maintSat' ? 'maintenanceSaturdayMealPlan' : 'maintenanceMealPlan';
+    const [data, mdata] = await Promise.all([getJson('mealplan'), getJson(tplType)]);
     if (!data || !data.ok) return null;
     if (mdata && mdata.ok && Array.isArray(mdata.planTemplate) && mdata.planTemplate.length) {
-      return { ...data, planTemplate: mdata.planTemplate, planSource: 'maint' };
+      return { ...data, planTemplate: mdata.planTemplate, planSource: src };
     }
-    return { ...data, planTemplate: null, planSource: 'maint' };
+    return { ...data, planTemplate: null, planSource: src };
   } catch(e) { return null; }
 }
 
@@ -8131,7 +8143,7 @@ function mergeJournalEntries(local, remote) {
         MEAL_PLAN_TEMPLATE = sanitizePlanTemplate(cached.planTemplate);
         if (cached.fetchedAt) _templateFetchedAt = cached.fetchedAt;
         // Pre-2026-10-19 caches carry no source; they were always the cut plan.
-        _templateSource = cached.source === 'maint' ? 'maint' : 'cut';
+        _templateSource = (cached.source === 'maint' || cached.source === 'maintSat') ? cached.source : 'cut';
       }
     }
   } catch(e) {}
