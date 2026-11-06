@@ -1123,6 +1123,39 @@
     .food-macro-f { color: var(--macro-f); font-weight: 600; }
     .food-macro-c { color: var(--macro-c); font-weight: 600; }
     .food-entry-qty { color: #6b7280; }
+    /* 2026-11-06: "Estimate" flag — macros guessed (bakery, restaurant), not
+       read off a nutrition-facts label. Quiet amber pill; label rows unmarked. */
+    .food-est-badge {
+      display: inline-block; vertical-align: 2px;
+      margin-left: 6px; padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(217,119,6,.12); color: #b45309;
+      font-size: 10px; font-weight: 700; letter-spacing: .04em;
+      text-transform: lowercase;
+    }
+    .food-est-toggle {
+      display: flex; align-items: center; gap: 8px;
+      margin: -2px 0 12px; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink);
+      letter-spacing: 0; text-transform: none;   /* override the global label caps */
+      user-select: none;
+    }
+    .food-est-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--warn); cursor: pointer; flex-shrink: 0; }
+    .food-est-toggle .fet-hint { font-weight: 400; color: var(--dim); font-size: 12px; }
+    .food-est-toggle > span:not(.fet-hint) { white-space: nowrap; }
+    .food-est-inline {
+      display: inline-flex; align-items: center; gap: 4px; margin-left: 6px;
+      font-size: 12px; font-weight: 600; color: #b45309; cursor: pointer;
+      letter-spacing: 0; text-transform: none;
+    }
+    .food-est-inline input { width: 14px; height: 14px; margin: 0; accent-color: var(--warn); }
+    .macro-est-line {
+      grid-column: 1 / -1;
+      font-family: var(--font); font-size: 12px; color: var(--dim);
+      padding: 0 2px;
+    }
+    .macro-est-line[hidden] { display: none; }
+    .macro-est-line strong { color: #b45309; font-weight: 600; }
 
     .food-entry-actions {
       display: flex; align-items: center; gap: 4px;
@@ -2198,6 +2231,8 @@
           <div class="macro-top-label" style="color:var(--macro-c)">C</div>
           <div class="macro-top-vals"><span class="mtv-current" id="val-carbs">0</span></div>
         </div>
+        <!-- 2026-11-06: share of the day's calories that are estimates -->
+        <div class="macro-est-line" id="food-est-line" hidden></div>
       </div>
     </div>
     <!-- Hidden elements for backward compatibility -->
@@ -2227,6 +2262,13 @@
 
       <!-- Macro preview -->
       <div class="food-preview" id="food-preview" style="margin-bottom:12px">Select a food to see its macros</div>
+
+      <!-- 2026-11-06: estimate flag (macros guessed, not from a nutrition label) -->
+      <label class="food-est-toggle" for="food-estimate">
+        <input type="checkbox" id="food-estimate">
+        <span>Estimate</span>
+        <span class="fet-hint">no nutrition label</span>
+      </label>
 
       <!-- Meal + Add button -->
       <div class="food-meal-row" style="display:flex;gap:8px;align-items:center">
@@ -2311,6 +2353,11 @@
           <input type="number" id="cf-fat" placeholder="0" min="0" step="0.1" />
         </div>
       </div>
+      <label class="food-est-toggle" for="cf-estimate" style="margin:4px 0 12px">
+        <input type="checkbox" id="cf-estimate">
+        <span>Estimated macros</span>
+        <span class="fet-hint">pre-ticks Estimate when logged</span>
+      </label>
       <button class="btn" onclick="saveCustomFood()" style="width:100%;margin-top:4px">Save Food</button>
     </div>
   </div>
@@ -3913,7 +3960,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-10-26b';
+const APP_BUILD = '2026-11-06a';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -6137,6 +6184,7 @@ function onFoodSelect() {
   if (!food) return;
   document.getElementById('food-unit-label').textContent = food.unit;
   document.getElementById('food-qty').value = food.serving;
+  const est = document.getElementById('food-estimate'); if (est) est.checked = false;
   updateFoodPreview();
 }
 
@@ -6188,6 +6236,10 @@ function logFood() {
     carbs:    +(food.c * r).toFixed(1),
     fat:      +(food.f * r).toFixed(1),
   };
+  // 2026-11-06: estimate flag. Sent only when ticked; a label-derived entry
+  // carries no field (backend leaves the Estimate cell blank).
+  const estBox = document.getElementById('food-estimate');
+  if (estBox && estBox.checked) { entry.estimate = true; estBox.checked = false; }
   const entries = getFoodEntries();
   entries.push(entry);
   saveFoodEntriesDB(entries);
@@ -6208,6 +6260,9 @@ function logFood() {
 // App Review #13 (2026-05-22): toggle disclosure on a food entry row. Tapping
 // the ⋯ button reveals the row's action icons (clock/edit/delete). Tapping
 // another row's ⋯ closes any open row first so only one is open at a time.
+// Autopop rows (deterministic plan-* ids) never carry the estimate flag.
+function isPlanEntryId(id) { return String(id || '').indexOf('plan-') === 0; }
+
 function toggleFoodEntryActions(id) {
   const target = document.getElementById(`frow-${id}`);
   if (!target) return;
@@ -6241,6 +6296,7 @@ function editFoodEntry(id) {
     style="width:72px;padding:2px 6px;border:1.5px solid var(--primary);border-radius:6px;font-size:0.82rem"
     onkeydown="if(event.key==='Enter')saveFoodEdit('${id}')">
     ${entry.unit}
+    ${isPlanEntryId(id) ? '' : `<label class="food-est-inline" title="Macros are an estimate, not from a nutrition label"><input type="checkbox" id="ee-${id}" ${entry.estimate ? 'checked' : ''}> est.</label>`}
     <button class="btn-save" onclick="saveFoodEdit('${id}')" title="Save">✓</button>`;
   document.getElementById('eq-'+id).select();
 }
@@ -6277,10 +6333,18 @@ function saveFoodEdit(id) {
     f = +(food.f * r).toFixed(1);
   }
   entries[idx] = {...old, qty:newQty, calories:cal, protein:p, carbs:c, fat:f};
+  // 2026-11-06: estimate flag from the inline checkbox (manual rows only). The
+  // write always carries an explicit boolean so un-ticking clears the Sheet cell.
+  const estBox = document.getElementById('ee-' + id);
+  let payload = entries[idx];
+  if (estBox && !isPlanEntryId(id)) {
+    if (estBox.checked) entries[idx].estimate = true; else delete entries[idx].estimate;
+    payload = {...entries[idx], estimate: !!estBox.checked};
+  }
   saveFoodEntriesDB(entries);
   renderFood();
   // Phase 2: enqueue the granular updateFood write (syncFood upserts by id).
-  enqueueWrite('updateFood', entries[idx]);
+  enqueueWrite('updateFood', payload);
   showToast('✓ Updated');
 }
 
@@ -6426,6 +6490,16 @@ function renderFood() {
   setVal('val-protein', Math.round(totP));
   setVal('val-carbs',   Math.round(totC));
   setVal('val-fat',     Math.round(totF));
+  // 2026-11-06: how much of the day is estimated (hidden with the totals).
+  const estRows = dayEntries.filter(e => e.estimate && !isPlanEntryId(e.id));
+  const estLine = document.getElementById('food-est-line');
+  if (estLine) {
+    const estCal = Math.round(estRows.reduce((s,e)=>s+(e.calories||0),0));
+    estLine.hidden = !estRows.length;
+    estLine.innerHTML = estRows.length
+      ? `incl. <strong>~${estCal.toLocaleString()} cal estimated</strong> · ${estRows.length} item${estRows.length === 1 ? '' : 's'} without a nutrition label`
+      : '';
+  }
   // Keep the bar's visibility matched to the reveal flag (don't change the flag —
   // see toggleMacroReveal: a peek survives logging another meal).
   applyMacroReveal();
@@ -6498,7 +6572,7 @@ function renderFood() {
     const rows = entries.map(e => `
       <div class="food-entry-row" id="frow-${e.id}">
         <div class="food-entry-info">
-          <span class="food-entry-name">${esc(e.food_name)}</span>
+          <span class="food-entry-name">${esc(e.food_name)}${e.estimate && !isPlanEntryId(e.id) ? '<span class="food-est-badge" title="Estimated macros, not from a nutrition label">est.</span>' : ''}</span>
           <div class="food-entry-detail">
             <span class="fd-cal">${e.calories}<span class="cal-flame">🔥</span></span>
             <span class="fd-p">${e.protein}P</span>
@@ -6542,6 +6616,7 @@ function closeCustomFoodModal() {
   ['cf-name','cf-serving','cf-unit','cf-cal','cf-protein','cf-carbs','cf-fat'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
+  const cfEst = document.getElementById('cf-estimate'); if (cfEst) cfEst.checked = false;
 }
 
 // 2026-05-16 audit fix: previously the DEXA modal, custom food modal, and
@@ -6593,10 +6668,15 @@ async function saveCustomFood() {
   // the Sheet, silently vanishing the custom food from the dropdown.
   enqueueWrite('addFoodToLibrary', food);
 
+  // 2026-11-06: an "estimated macros" library food pre-ticks Estimate for the
+  // entry about to be logged (read before closeCustomFoodModal resets it).
+  const cfEstBox = document.getElementById('cf-estimate');
+  const preTickEstimate = !!(cfEstBox && cfEstBox.checked);
   closeCustomFoodModal();
   populateFoodSelect();
   document.getElementById('food-select').value = food.id;
   onFoodSelect();
+  if (preTickEstimate) { const fe = document.getElementById('food-estimate'); if (fe) fe.checked = true; }
   showToast(`✓ Added "${name}" to your foods`);
 }
 
