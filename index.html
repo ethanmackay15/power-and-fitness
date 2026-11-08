@@ -1432,31 +1432,101 @@
     .train-foot b { color: var(--hot); }
 
     /* ════ HABITS TAB ════ */
+    /* Journal day navigator — 2026-11-07: compacted and moved into the Journal
+       card header (it scopes only the journal; the habit grid pages by week). */
     .habit-nav {
-      display: flex; align-items: center; justify-content: center; gap: 18px;
-      margin-bottom: 18px;
+      display: flex; align-items: center; justify-content: flex-end; gap: 6px;
     }
     .habit-nav-btn {
       background: var(--bg2); border: 1px solid var(--border);
       color: var(--dim);
       font-family: var(--font);
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 500;
-      width: 36px; height: 36px;
+      width: 28px; height: 28px; padding: 0; line-height: 1;
       cursor: pointer;
-      border-radius: 10px;
-      box-shadow: var(--shadow-card);
+      border-radius: 8px;
     }
-    .habit-nav-btn:hover { border-color: #c9cede; box-shadow: var(--shadow-card); color: var(--hot); }
+    .habit-nav-btn:hover { border-color: #c9cede; color: var(--hot); }
     .habit-nav-date {
       font-family: var(--font);
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 600;
       color: var(--ink);
       text-shadow: none;
-      letter-spacing: .02em;
-      min-width: 140px; text-align: center;
+      min-width: 92px; text-align: center;
     }
+
+    /* Habit grid (2026-11-07, ported from Growth v9 and re-skinned Clean Light).
+       One block per habit: name above a full-width 7-cell strip. Done = the
+       accent (indigo; pink on treat days via body.sat), blank = hairline gray.
+       No red/missed state on purpose. Weekly-aim line turns green + ✓ when met. */
+    .hg-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .hg-week-nav { display: flex; align-items: center; gap: 4px; }
+    .hg-nav-btn {
+      width: 28px; height: 28px; border-radius: 8px; padding: 0;
+      border: 1px solid var(--border); background: var(--bg2);
+      font-family: var(--font); font-size: 15px; line-height: 1; color: var(--dim);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex: 0 0 auto;
+    }
+    .hg-nav-btn:hover:not(:disabled) { border-color: #c9cede; color: var(--hot); }
+    .hg-nav-btn:disabled { opacity: .35; cursor: default; }
+    .hg-week-label {
+      background: none; border: none; cursor: pointer;
+      font-family: var(--font); font-size: 11px; font-weight: 600;
+      letter-spacing: .11em; text-transform: uppercase; color: var(--dim);
+      min-width: 112px; text-align: center; padding: 4px 2px;
+    }
+    .hg-week-label.past { color: var(--hot); }
+    .hg-edit-btn {
+      background: none; border: none; cursor: pointer; padding: 4px 0;
+      font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--hot);
+    }
+    .hg-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .hg-day { text-align: center; padding-bottom: 2px; }
+    .hg-day .dow { display: block; font-size: 11px; font-weight: 600; color: var(--dim); letter-spacing: .04em; }
+    .hg-day .dom {
+      display: block; font-size: 14px; font-weight: 600; color: var(--dim);
+      width: 26px; height: 26px; line-height: 26px; margin: 1px auto 0;
+    }
+    .hg-day.today .dow { color: var(--hot); }
+    .hg-day.today .dom { color: #fff; background: var(--hot); border-radius: 8px; font-weight: 700; }
+    .hg-block { margin-top: 16px; }
+    .hg-block:first-child { margin-top: 10px; }
+    .hg-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; min-height: 22px; }
+    .hg-title {
+      font-size: 15px; font-weight: 600; color: var(--ink);
+      text-transform: capitalize; letter-spacing: -.005em;
+      overflow-wrap: anywhere;
+    }
+    .hg-title-row .habit-remove-btn { width: 24px; height: 24px; font-size: 12px; line-height: 1; padding: 0; }
+    .hg-cell {
+      height: 40px; border: none; border-radius: 8px; padding: 0; cursor: pointer;
+      background: var(--border-soft);
+      transition: background .12s;
+    }
+    .hg-cell:hover { background: #e6e9ee; }
+    .hg-cell.today { box-shadow: inset 0 0 0 1.5px var(--hot-soft), inset 0 0 0 2px rgba(79,82,224,.28); }
+    .hg-cell.done, .hg-cell.done:hover { background: var(--hot); box-shadow: none; }
+    .hg-cell:active { filter: brightness(.95); }
+    .hg-goal {
+      display: flex; align-items: center; gap: 8px; margin-top: 6px;
+      font-size: 12px; font-weight: 600; color: var(--dim);
+    }
+    .hg-goal.met { color: var(--good); }
+    .hg-step-btn {
+      width: 26px; height: 26px; border-radius: 7px; padding: 0;
+      border: 1px solid var(--border); background: var(--panel); color: var(--ink);
+      font-family: var(--font); font-size: 14px; font-weight: 600; line-height: 1;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .hg-step-btn:hover:not(:disabled) { border-color: #c9cede; color: var(--hot); }
+    .hg-step-btn:disabled { opacity: .35; cursor: default; }
+    .hg-empty { text-align: center; color: var(--dim); padding: 18px 0 4px; font-size: 13px; }
 
     /* Nightly Check-In (NRC) card */
     #nrc-card {
@@ -2506,28 +2576,54 @@
 
   </div><!-- /panel-weight -->
   <!-- ════════════════════════════════════════════════
-       PANEL: Journal (habits UI removed 2026-08-23 — habits live in Growth)
+       PANEL: Habits (habit grid + Journal)
+       2026-08-23: habits UI moved out to the Growth app; tab became Journal.
+       2026-11-07: habits moved BACK (Ethan's call) — Growth v9's 7-day grid
+       ported in on top of Power's existing habits data layer; tab relabeled
+       Habits. Journal card stays below the grid.
   ════════════════════════════════════════════════ -->
   <div class="panel" id="panel-habits">
 
-    <!-- Day navigator -->
-    <div class="habit-nav">
-      <button class="habit-nav-btn" onclick="habitNavDay(-1)" aria-label="Previous day">‹</button>
-      <span class="habit-nav-date" id="habit-nav-label">Today</span>
-      <button class="habit-nav-btn" onclick="habitNavDay(1)" aria-label="Next day">›</button>
+    <!-- Habit grid (ported from Growth v9, 2026-11-07): one row per habit, name
+         above a 7-cell strip (trailing 7 days, today rightmost). Tap a cell to
+         toggle that day. Green/blank only — no red "missed" state on purpose.
+         Cell/stepper/remove clicks are delegated from #hg-grid via data-*
+         attributes (no habit names inside inline handlers — see renderHabitGrid). -->
+    <div class="card" id="habits-card">
+      <div class="hg-head">
+        <div class="hg-week-nav">
+          <button class="hg-nav-btn" onclick="hgNavWeek(1)" aria-label="Previous week">‹</button>
+          <button class="hg-week-label" id="hg-week-label" onclick="hgJumpToCurrentWeek()" title="Tap to jump back to today">Last 7 Days</button>
+          <button class="hg-nav-btn" id="hg-fwd-btn" onclick="hgNavWeek(-1)" aria-label="Next week">›</button>
+        </div>
+        <button class="hg-edit-btn" id="hg-edit-btn" onclick="hgToggleEditMode()">Edit</button>
+      </div>
+      <div class="hg-row" id="hg-day-header"></div>
+      <div id="hg-grid"></div>
+      <div class="habit-add-row">
+        <input class="habit-add-input" id="habit-add-input" type="text" placeholder="Add habit…"
+               autocapitalize="none" autocomplete="off"
+               onkeydown="if(event.key==='Enter')hgAddHabit()" />
+        <button class="habit-add-btn" onclick="hgAddHabit()">Add</button>
+      </div>
     </div>
 
-    <!-- Habits UI removed 2026-08-23: habits now live in the Growth app
-         (ethanmackay15.github.io/growth). This tab keeps only the day-nav +
-         Journal. The habits DATA layer + Sheet sync stay in this file — the
-         Train tab's exercise mirror writes through setHabitForDate, and
-         ?type=habits remains diagnostic-load-bearing. Nightly Check-In
-         (abandoned 2026-05-23) fully deleted same day. -->
-    <!-- Journal    <!-- Journal — free-form notes timestamped to-the-minute, cross-referenced
-         with WHOOP / weight / habits when answering personal-assistant questions -->
+    <!-- The habits DATA layer + Sheet sync never left this file — the Train
+         tab's exercise mirror writes through setHabitForDate, and the grid
+         above now reads/writes the same store. Nightly Check-In (abandoned
+         2026-05-23) fully deleted same day. -->
+    <!-- Journal — free-form notes timestamped to-the-minute, cross-referenced
+         with WHOOP / weight / habits when answering personal-assistant questions.
+         2026-11-07: the day navigator moved INTO this card's header (it only
+         ever scoped the journal; the grid above has its own week paging). -->
     <div class="card" id="journal-card">
       <div class="journal-header">
         <h2>Journal</h2>
+        <div class="habit-nav">
+          <button class="habit-nav-btn" onclick="habitNavDay(-1)" aria-label="Previous day">‹</button>
+          <span class="habit-nav-date" id="habit-nav-label">Today</span>
+          <button class="habit-nav-btn" onclick="habitNavDay(1)" aria-label="Next day">›</button>
+        </div>
       </div>
       <div class="journal-input-row">
         <textarea id="journal-input" rows="2" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter')addJournalNote()"></textarea>
@@ -3960,7 +4056,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-11-06a';
+const APP_BUILD = '2026-11-07a';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -4680,6 +4776,7 @@ function exportData() {
   data.skipDates = [...getSkipDates()];
   data.habitsData = getHabitsData();
   data.habitsList = getHabitsList();
+  data.habitGoals = getHabitGoals();   // 2026-11-07: weekly aims (device-local)
   data.journalEntries = getJournalDataLocal();
   data.dexaScans = getDexaScans();
   data.trainingLog = getTrainingData();
@@ -4719,6 +4816,9 @@ function importData(e) {
       }
       if (Array.isArray(parsed.habitsList)) {
         saveHabitsList(parsed.habitsList);
+      }
+      if (parsed.habitGoals && typeof parsed.habitGoals === 'object' && !Array.isArray(parsed.habitGoals)) {
+        safeSetItem(HABIT_GOALS_KEY, JSON.stringify(parsed.habitGoals));
       }
       // 9/04 additions — restore the stores exportData now writes (absent in
       // older backups; each guarded).
@@ -7053,24 +7153,105 @@ function mergeFoodEntries(local, remote, snap) {
 
 // ─── Habits ──────────────────────────────────────────────────────────────────
 const HABITS_KEY = 'habits_tracker_v1';
-const HABITS_LIST_KEY = 'habits_list_v1';
+// 2026-11-07: habit grid returned from Growth. The device-local habit LIST and
+// weekly AIMS get fresh Power-prefixed keys (the Sheet only stores logged rows,
+// never the list). The old 'habits_list_v1' (last edited before the 8/23 move
+// to Growth) is left in place, unread — Growth's list is the current one and
+// seeds this one on first boot (see ensureHabitsListSeeded).
+const HABITS_LIST_KEY        = 'power_habits_list_v2';     // [ habitName, ... ]
+const HABIT_GOALS_KEY        = 'power_habit_goals_v1';     // { habitName: timesPerWeek } — device-local, like the list
+const HABITS_LIST_SEEDED_KEY = 'power_habits_list_seeded_v1';
+// Growth's keys (same origin, ethanmackay15.github.io) — read-only seed sources.
+const GROWTH_HABITS_LIST_KEY = 'growth_habits_list_v1';
+const GROWTH_HABIT_GOALS_KEY = 'growth_habit_goals_v1';
 // Vacuums removed from default tracking 2026-05-31 — folded into the Weekly
 // Training Plan (Thursday "Vacuum"). Historical vacuum rows remain untouched in
 // the Sheet; the tile stops rendering on fresh devices, and persists on any
 // device that customized its habit list until removed via the in-app habit
 // editor (same retirement approach used for water on 2026-05-13).
-const DEFAULT_HABITS = ['exercise', 'meditation', 'stretch'];
+// 2026-11-07: fallback only — the first-boot seed (Growth list ∪
+// last-60-day Sheet habits) normally decides the list.
+const DEFAULT_HABITS = ['meditation', 'stretch'];
+// 2026-11-07 (same day, Ethan): exercise is NOT shown in the grid — the Train tab
+// records each workout in detail, so a checkbox is redundant. The Train mirror
+// still writes `exercise` rows (the Dashboard reads them for the split chip);
+// they're just filtered out of the list on read, like Growth's HIDDEN_HABITS.
+const HIDDEN_HABITS = ['exercise'];
+// Weekly-aim seeds for habits with no stored aim. meditation/stretch mirror
+// Growth's GOAL_SEED so an un-customized aim reads the same as it did there.
+const HABIT_GOAL_SEED = { meditation: 4, stretch: 2 };
+const HABIT_DEFAULT_GOAL = 3;
 let habitViewDate = today();
 
 // Countable-habit machinery (water as oz/bottles) was removed 2026-05-05.
 // Water habit removed entirely from default tracking 2026-05-13. Historical
 // water entries remain in the Sheet for reference but no longer render in UI.
 
+function _readJsonKey(key, fallback) {
+  try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; }
+  catch(e) { return fallback; }
+}
 function getHabitsList() {
-  try { return JSON.parse(localStorage.getItem(HABITS_LIST_KEY)) || [...DEFAULT_HABITS]; }
-  catch(e) { return [...DEFAULT_HABITS]; }
+  const list = _readJsonKey(HABITS_LIST_KEY, null);
+  return Array.isArray(list) ? list.filter(h => typeof h === 'string' && h && !HIDDEN_HABITS.includes(h)) : [...DEFAULT_HABITS];
 }
 function saveHabitsList(list) { safeSetItem(HABITS_LIST_KEY, JSON.stringify(list)); }
+
+// First boot on a device (2026-11-07): seed the list from Growth's stored list
+// (if this browser ran Growth) ∪ any habit (minus HIDDEN_HABITS) with a row in the last 60
+// days of the local Sheet mirror; seed aims from Growth's stored goals. Until
+// the mirror holds any habit rows (fresh device, pull not landed yet) the list
+// is written provisionally WITHOUT the seeded flag, so the first sync re-runs
+// the seed and folds the Sheet's habits in (unioned with anything added
+// meanwhile). Called at the top of every renderHabitGrid() — the habits merges
+// already repaint the tab when it's active, so no separate post-merge hook.
+function ensureHabitsListSeeded() {
+  try { if (localStorage.getItem(HABITS_LIST_SEEDED_KEY)) return; } catch(e) { return; }
+  const growthList  = _readJsonKey(GROWTH_HABITS_LIST_KEY, []);
+  const growthGoals = _readJsonKey(GROWTH_HABIT_GOALS_KEY, {});
+  const current     = _readJsonKey(HABITS_LIST_KEY, []);
+  const data = getHabitsData();
+  const cutoff = shiftDate(today(), -60);
+  const recent = new Set();
+  Object.keys(data).forEach(d => {
+    if (d < cutoff) return;
+    Object.keys(data[d] || {}).forEach(h => { if (h && h !== 'undefined') recent.add(h); });
+  });
+  const list = [];
+  const add = h => { h = String(h || '').trim().toLowerCase(); if (h && h !== 'undefined' && !HIDDEN_HABITS.includes(h) && !list.includes(h)) list.push(h); };
+  (Array.isArray(current) ? current : []).forEach(add);
+  (Array.isArray(growthList) ? growthList : []).forEach(add);
+  [...recent].sort().forEach(add);
+  saveHabitsList(list);
+  // Aims: copy Growth's stored goals for listed habits (never overwrite one set here).
+  if (growthGoals && typeof growthGoals === 'object') {
+    const g = getHabitGoals();
+    let changed = false;
+    list.forEach(h => {
+      const v = growthGoals[h];
+      if (!(h in g) && typeof v === 'number' && v >= 1 && v <= 7) { g[h] = v; changed = true; }
+    });
+    if (changed) safeSetItem(HABIT_GOALS_KEY, JSON.stringify(g));
+  }
+  if (Object.keys(data).length) safeSetItem(HABITS_LIST_SEEDED_KEY, '1');
+}
+
+// ─── Weekly aims (times per 7 days, per habit) ───────────────────────────────
+function getHabitGoals() {
+  const g = _readJsonKey(HABIT_GOALS_KEY, {});
+  return (g && typeof g === 'object' && !Array.isArray(g)) ? g : {};
+}
+function getHabitGoal(habit) {
+  const g = getHabitGoals()[habit];
+  if (typeof g === 'number' && g >= 1 && g <= 7) return g;
+  return HABIT_GOAL_SEED[habit] !== undefined ? HABIT_GOAL_SEED[habit] : HABIT_DEFAULT_GOAL;
+}
+function adjustHabitGoal(habit, delta) {
+  const g = getHabitGoals();
+  g[habit] = Math.min(7, Math.max(1, getHabitGoal(habit) + delta));
+  safeSetItem(HABIT_GOALS_KEY, JSON.stringify(g));
+  renderHabitGrid();
+}
 
 function getHabitsData() {
   try { return JSON.parse(localStorage.getItem(HABITS_KEY)) || {}; }
@@ -7118,16 +7299,169 @@ function habitNavDay(delta) {
   renderHabits();
 }
 
-// ── Render habits (thinned 2026-08-23) ──────────────────────────────────────
-// Habits UI moved to the Growth app; this tab is now Journal-only. Kept under
-// the old name because ~6 call sites (switchTab, sync repaints, day rollover)
-// still invoke renderHabits() to refresh the active panel.
+// ── Render habits tab ────────────────────────────────────────────────────────
+// 2026-08-23 thinned to Journal-only (habits UI moved to Growth); 2026-11-07
+// the habit grid is back on top. ~6 call sites (switchTab, sync repaints, day
+// rollover, Train mirror) invoke renderHabits() to refresh the whole panel.
 function renderHabits() {
   const td = today();
   if (typeof setHeaderDateLabel === 'function') setHeaderDateLabel(habitViewDate);
   const label = document.getElementById('habit-nav-label');
   if (label) label.textContent = (habitViewDate === td) ? 'Today' : fmtDate(habitViewDate);
+  renderHabitGrid();
   if (typeof renderJournal === 'function') renderJournal();
+}
+
+// ── Habit grid (ported from Growth v9, 2026-11-07) ──────────────────────────
+// Rows = the device-local habit list; columns = a trailing 7-day window ending
+// (today − 7·hgWeekOffset). Trailing windows, not calendar weeks. Back chevron
+// is unbounded, forward stops at the current window, the label jumps home.
+// Every cell is tappable, so paging back = backfill. Reads and writes go
+// through the SAME store + queue as the Train mirror (getHabitsData /
+// setHabitForDate) — no second sync path.
+let hgWeekOffset = 0;
+let hgEditMode = false;
+
+function hgWindowDates() {
+  const td = today();
+  const out = [];
+  for (let i = 6; i >= 0; i--) out.push(shiftDate(td, -i - hgWeekOffset * 7));
+  return out;
+}
+function hgNavWeek(deltaBack) {
+  hgWeekOffset = Math.max(0, hgWeekOffset + deltaBack);
+  renderHabitGrid();
+}
+function hgJumpToCurrentWeek() {
+  if (hgWeekOffset === 0) return;
+  hgWeekOffset = 0;
+  renderHabitGrid();
+}
+function hgToggleEditMode() {
+  hgEditMode = !hgEditMode;
+  renderHabitGrid();
+}
+
+function renderHabitGrid() {
+  const grid = document.getElementById('hg-grid');
+  if (!grid) return;
+  ensureHabitsListSeeded();
+  const td = today();
+  const days = hgWindowDates();
+  const habits = getHabitsList();
+  const data = getHabitsData();
+
+  const label = document.getElementById('hg-week-label');
+  if (label) {
+    const short = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    label.textContent = hgWeekOffset === 0 ? 'Last 7 Days' : short(days[0]) + ' – ' + short(days[6]);
+    label.classList.toggle('past', hgWeekOffset !== 0);
+  }
+  const fwd = document.getElementById('hg-fwd-btn');
+  if (fwd) fwd.disabled = (hgWeekOffset === 0);
+  const editBtn = document.getElementById('hg-edit-btn');
+  if (editBtn) editBtn.textContent = hgEditMode ? 'Done' : 'Edit';
+
+  const head = document.getElementById('hg-day-header');
+  if (head) head.innerHTML = days.map(d => {
+    const dt = new Date(d + 'T12:00:00');
+    return '<div class="hg-day' + (d === td ? ' today' : '') + '">' +
+             '<span class="dow">' + dt.toLocaleDateString('en-US', { weekday: 'narrow' }) + '</span>' +
+             '<span class="dom">' + dt.getDate() + '</span>' +
+           '</div>';
+  }).join('');
+
+  if (!habits.length) {
+    grid.innerHTML = '<div class="hg-empty">No habits yet. Add one below.</div>';
+    return;
+  }
+  // Habit names ride in data-habit attributes (HTML-escaped by esc) and are read
+  // back via dataset in the delegated click handler — never interpolated into
+  // inline JS, so apostrophes/backslashes/quotes in a name can't break a handler
+  // (the Growth v8 "don't snooze" bug).
+  grid.innerHTML = habits.map(h => {
+    const hA = esc(h);
+    let doneCount = 0;
+    const cells = days.map(d => {
+      const done = !!(data[d] && data[d][h] && data[d][h].done);
+      if (done) doneCount++;
+      return '<button class="hg-cell' + (done ? ' done' : '') + (d === td ? ' today' : '') + '"' +
+               ' data-act="toggle" data-habit="' + hA + '" data-date="' + d + '"' +
+               ' aria-pressed="' + done + '"' +
+               ' aria-label="' + hA + ' ' + fmtDate(d) + (done ? ' — done, tap to unmark' : ' — tap to mark done') + '"' +
+               ' title="' + fmtDate(d) + (done ? ' ✓' : '') + '"></button>';
+    }).join('');
+    const goal = getHabitGoal(h);
+    const met = doneCount >= goal;
+    const goalLine = hgEditMode
+      ? '<div class="hg-goal">Aim' +
+          '<button class="hg-step-btn" data-act="goal" data-delta="-1" data-habit="' + hA + '"' + (goal <= 1 ? ' disabled' : '') + ' aria-label="Lower aim for ' + hA + '">−</button>' +
+          '<span>' + goal + '× / week</span>' +
+          '<button class="hg-step-btn" data-act="goal" data-delta="1" data-habit="' + hA + '"' + (goal >= 7 ? ' disabled' : '') + ' aria-label="Raise aim for ' + hA + '">+</button>' +
+        '</div>'
+      : '<div class="hg-goal' + (met ? ' met' : '') + '">' + doneCount + ' of ' + goal +
+          (hgWeekOffset === 0 ? ' this week' : '') + (met ? ' ✓' : '') + '</div>';
+    return '<div class="hg-block">' +
+             '<div class="hg-title-row">' +
+               (hgEditMode ? '<button class="habit-remove-btn" data-act="remove" data-habit="' + hA + '" aria-label="Remove habit ' + hA + '">✕</button>' : '') +
+               '<span class="hg-title">' + hA + '</span>' +
+             '</div>' +
+             '<div class="hg-row">' + cells + '</div>' +
+             goalLine +
+           '</div>';
+  }).join('');
+}
+
+// One delegated listener for every grid button (cells, aim steppers, remove).
+(function wireHabitGrid() {
+  const grid = document.getElementById('hg-grid');
+  if (!grid) return;
+  grid.addEventListener('click', ev => {
+    const btn = ev.target.closest('button[data-act]');
+    if (!btn || !grid.contains(btn)) return;
+    const habit = btn.dataset.habit;
+    if (!habit) return;
+    const act = btn.dataset.act;
+    if (act === 'toggle')      toggleHabitCell(habit, btn.dataset.date);
+    else if (act === 'goal')   adjustHabitGoal(habit, parseInt(btn.dataset.delta, 10) || 0);
+    else if (act === 'remove') removeHabitFromList(habit);
+  });
+})();
+
+// Toggle sends ONLY { done }: setHabitForDate Object.assigns onto the existing
+// row, so its notes (incl. the Train tab's "[plan] Focus" mirror line on
+// `exercise`) and duration ride along unchanged in the setHabit payload.
+function toggleHabitCell(habit, date) {
+  if (!habit || !/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return;
+  const cur = getHabitsForDate(date)[habit];
+  setHabitForDate(date, habit, { done: !(cur && cur.done) });
+  renderHabitGrid();
+}
+
+function hgAddHabit() {
+  const input = document.getElementById('habit-add-input');
+  if (!input) return;
+  const name = input.value.trim().toLowerCase();
+  if (!name) return;
+  if (name === 'undefined') { showToast('Pick another name'); return; }
+  if (HIDDEN_HABITS.includes(name)) { showToast('Workouts are tracked in the Train tab'); return; }
+  const list = getHabitsList();
+  if (list.includes(name)) { showToast('Habit already exists'); return; }
+  list.push(name);
+  saveHabitsList(list);
+  input.value = '';
+  renderHabitGrid();
+  showToast('✓ Added "' + name + '"');
+}
+
+function removeHabitFromList(habit) {
+  if (!confirm('Remove "' + habit + '" from your habits? (History stays in the Sheet.)')) return;
+  saveHabitsList(getHabitsList().filter(h => h !== habit));
+  const g = getHabitGoals();
+  if (habit in g) { delete g[habit]; safeSetItem(HABIT_GOALS_KEY, JSON.stringify(g)); }
+  // Logged rows stay in the local mirror + Sheet — the habit just leaves the grid.
+  renderHabitGrid();
+  showToast('Removed "' + habit + '"');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

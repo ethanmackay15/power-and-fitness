@@ -32,7 +32,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font-family:var(--font);
     -webkit-font-smoothing:antialiased;padding:24px 30px 50px;line-height:1.4}
-  .wrap{max-width:1180px;margin:0 auto}
+  .wrap{max-width:1320px;margin:0 auto}   /* v105: 1180 → 1320 so day cells get wider too */
   header.top{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin-bottom:18px}
   .brand{display:flex;align-items:center;gap:14px}
   .brand .appicon{width:46px;height:46px;border-radius:10px;flex-shrink:0;
@@ -57,7 +57,18 @@
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 16px;margin-bottom:16px;box-shadow:var(--shadow-card)}
   .legend .it{display:flex;align-items:center;gap:7px}
   .legend.legend-below{margin:16px 0 0}
-  .goals{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:16px;box-shadow:var(--shadow-card)}
+  .toprow{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+  @media(max-width:760px){.toprow{grid-template-columns:1fr}}
+  .goals,.notesbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow-card);min-width:0}
+  .nf{display:flex;gap:6px;flex-wrap:wrap}
+  .nf input{font:inherit;font-size:13px;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--panel2);min-width:0}
+  .nf input[type=date]{flex:none;width:140px}
+  .nf input[type=text]{flex:1 1 160px}
+  .nf input:focus{outline:2px solid rgba(79,82,224,.25);border-color:var(--maint)}
+  .nf button{font:inherit;font-size:13px;font-weight:600;color:#fff;background:var(--maint);border:0;border-radius:8px;padding:6px 14px;cursor:pointer}
+  .nf button:disabled{opacity:.5;cursor:default}
+  .nmsg{font-size:11px;color:var(--muted);min-height:14px;margin-top:4px}
+  .nmsg.err{color:var(--cut)}
   .goalshead{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;margin-bottom:8px}
   .goals ol{list-style:none;counter-reset:g;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
   .goals li{counter-increment:g;font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap}
@@ -77,7 +88,7 @@
 
   /* plan area: minimap + calendar */
   .planarea{display:flex;gap:16px;align-items:flex-start}
-  .miniwrap{width:96px;flex:none;position:sticky;top:14px}
+  .miniwrap{width:44px;flex:none;position:sticky;top:14px}   /* v107: 96 → 44px (Ethan: narrower) */
   .minilabel{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);text-align:center;margin-bottom:6px}
   .minimap{position:relative;height:74vh;background:var(--panel);border:1px solid var(--line);border-radius:12px;
     overflow:hidden;cursor:pointer;user-select:none;box-shadow:var(--shadow-card)}
@@ -121,8 +132,6 @@
   .revealbtn:hover{background:rgba(194,116,10,.20)}
   .revealbtn:active{transform:translateY(1px)}
   .wswt .pd{color:var(--faint);font-weight:400;font-size:8px;text-transform:uppercase;letter-spacing:.04em}
-  .dexabf{font-size:9.5px;font-weight:800;color:var(--gold);letter-spacing:.01em;line-height:1.15;margin-top:1px}
-  .dexabf .l2{font-weight:600;font-size:8.5px;opacity:.92}
   .molab{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:4px;padding-right:6px;text-align:right;line-height:1.1}
   .molab .mo{font-size:11px;font-weight:700;color:var(--muted)}
   .pwk{font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;white-space:nowrap;border:1px solid transparent}
@@ -131,25 +140,35 @@
   .pwk.rev{background:var(--rev-bg);color:var(--rev);border-color:rgba(5,150,105,.28)}
   .pwk.bulk{background:var(--bulkph-bg);color:var(--bulkph);border-color:rgba(16,185,129,.30)}
   .pwk .pwt{opacity:.6;font-weight:600}
-  .day{background:var(--panel2);border:1px solid var(--line);border-radius:8px;min-height:62px;padding:5px 6px;position:relative;display:flex;flex-direction:column}
+  .day{background:var(--panel2);border:1px solid var(--line);border-radius:8px;height:var(--cell-h);padding:6px 7px 6px;position:relative;display:flex;flex-direction:column;overflow:hidden;min-width:0}
   .day.cut{background:var(--cut-bg)} .day.maint{background:var(--maint-bg)} .day.rev{background:var(--rev-bg)} .day.bulk{background:var(--bulkph-bg)}
   .day.empty{background:transparent;border:1px dashed var(--line)}
   .day.today{border:2px solid var(--gold);box-shadow:0 0 0 2px rgba(194,116,10,.20)}
-  .dnum{font-size:10px;color:var(--faint);font-weight:600}
+  .dnum{font-size:11px;color:var(--faint);font-weight:600;line-height:1.25}
   .day.first .dnum{color:var(--ink)}
-  .wt{font-size:15px;font-weight:700;margin-top:auto;letter-spacing:-.02em}
-  .cal{font-size:10.5px;color:var(--muted);margin-top:1px}
+  .wtrow{display:flex;flex-direction:column;align-items:flex-start;row-gap:1px;margin-top:3px;line-height:1.15}   /* v106: weight and calories on separate lines; v109: right under the date */
+  .wt{font-size:16px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .cal{font-size:11px;color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
   .cal.hi{color:var(--cut)} .cal.lo{color:var(--bulk)}
   .dexaDot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px rgba(194,116,10,.25)}
   .skipMark{position:absolute;inset:0;border-radius:8px;pointer-events:none;
     background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(20,24,40,.05) 4px,rgba(20,24,40,.05) 6px)}
-  .milestone{font-size:9px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:.03em;line-height:1.1}
-  .cellnote{font-size:8.5px;font-weight:700;color:var(--muted);letter-spacing:.02em;line-height:1.15;margin-top:1px}
-  .cellnote.strat{color:var(--ink);font-weight:800}
-  .cellnote.event{color:var(--gold);font-weight:800}
-  .cellnote.life{color:var(--life);font-weight:800}   /* v93: Designing My Life milestones */
-  .phasestart{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;line-height:1.05}
-  .phasestart.cut{color:var(--cut)} .phasestart.maint{color:var(--maint)} .phasestart.rev{color:var(--rev)} .phasestart.bulk{color:var(--bulkph)}
+  /* v108: standardized day-cell notes (phase start, DEXA, annotations) */
+  .notes{display:flex;flex-direction:column;gap:2px;margin-top:4px;min-width:0}
+  .notes:empty{display:none}
+  /* v109: hover / tap detail card */
+  #dayTip{position:fixed;z-index:50;display:none;width:230px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;box-shadow:0 8px 24px rgba(20,24,40,.14);font-size:12px;color:var(--ink);pointer-events:none}
+  #dayTip .dt-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+  #dayTip .dt-ph{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  #dayTip .dt-ph.cut{color:var(--cut)} #dayTip .dt-ph.maint,#dayTip .dt-ph.rev{color:var(--maint)} #dayTip .dt-ph.bulk{color:var(--bulkph)}
+  #dayTip .dt-stats{display:flex;gap:14px;margin-top:6px;color:var(--muted)} #dayTip .dt-stats b{color:var(--ink);font-size:14px}
+  #dayTip .dt-sec{margin-top:9px;margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  #dayTip .dt-line{font-size:12px;line-height:1.4;color:var(--ink)}   /* v110: notes + habits share one plain style */
+  #dayTip .dt-empty{margin-top:6px;color:var(--faint)}
+  .day[data-date]{cursor:default}
+  .note{display:flex;font-size:9.5px;font-weight:600;color:#4d5562;line-height:1.2;min-width:0}   /* v110: plain text, no kind dots/colors */
+  .note span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   .twocol{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
   @media(max-width:760px){.twocol{grid-template-columns:1fr}}
@@ -191,10 +210,66 @@
   .hbcap{font-size:11px;color:var(--muted);margin-top:7px}
   .hbcap b{color:var(--ink)}
   #paceChart svg{display:block;width:100%;height:auto}
+
+  /* v105: day cells grew (fixed height so every week row is the same height — the
+     minimap + scroll math assume uniform rows) and now carry the day's completed
+     habits as chips under weight/calories. Row 1 = the training split (from the
+     exercise habit's "[plan] …" note), row 2 = everything else, capped with "+N". */
+  :root{--cell-h:124px}
+  .habits{margin-top:auto;padding-top:3px;height:36px;display:flex;flex-direction:column;gap:3px;min-width:0}
+  .hrow{display:flex;gap:3px;min-width:0}
+  .hchip{flex:0 1 auto;min-width:0;font-size:9.5px;font-weight:600;line-height:14px;height:15px;padding:0 5px;border-radius:4px;
+    background:rgba(255,255,255,.62);border:1px solid rgba(20,24,40,.07);color:#4d5562;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hchip.more{flex:none;background:transparent;border:1px dashed rgba(20,24,40,.18);color:var(--muted);padding:0 4px}
+  .hmini{display:none}
+  .legend .sw.habit{width:auto;height:15px;padding:0 5px;font-size:9.5px;line-height:13px;font-weight:700;color:var(--ink);background:#fff;border:1px solid rgba(20,24,40,.10)}
+
+  /* Phone: the 7-day grid has ~35px per cell, so cells go compact — weight over
+     calories, notes clamp, and habits collapse to the split's first word + "+N". */
+  @media(max-width:640px){
+    :root{--cell-h:96px}
+    body{padding:14px 12px 40px}
+    .planarea{gap:6px}
+    .miniwrap{width:22px;top:8px}
+    .minilabel,.hint{display:none}
+    .minimap{border-radius:7px}
+    .calscroll{padding:0 4px 8px;border-radius:10px}
+    .calhead,.week{grid-template-columns:24px repeat(7,minmax(0,1fr)) 44px;gap:2px}
+    .week{margin-top:2px}
+    .calhead{padding:8px 0 4px}
+    .calhead .dow{font-size:8px;letter-spacing:0}
+    .calhead .wsh{font-size:7px;letter-spacing:0}
+    .molab{padding-right:1px;gap:2px}
+    .molab .mo{font-size:8.5px}
+    .pwk{font-size:7px;padding:0 2px;border-radius:3px}
+    .day{padding:3px 3px 3px;border-radius:5px}
+    .day.today{border-width:1.5px;box-shadow:none}
+    .dnum{font-size:8.5px}
+    .notes{gap:1px;margin-top:1px}
+    .note{font-size:7px;gap:2px}
+    .wtrow{flex-direction:column;align-items:flex-start;padding-top:1px}
+    .wt{font-size:10.5px;letter-spacing:-.03em}
+    .cal{font-size:8.5px}
+    .dexaDot{top:3px;right:3px;width:5px;height:5px}
+    .habits{height:21px;margin-top:2px}
+    .hrows{display:none}
+    .hmini{display:flex;flex-direction:column;gap:1px;min-width:0}
+    .hm{font-size:7.5px;font-weight:600;line-height:10px;color:#4d5562;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hm.more{color:var(--muted);font-weight:600}
+    .wsum{padding:3px 3px;border-radius:5px}
+    .wsavg{font-size:10.5px}
+    .wsk{font-size:6.5px;letter-spacing:0}
+    .wswt{font-size:9px;margin-top:3px;padding-top:3px}
+    .wswt .pd{display:none}
+    .revealbtn{font-size:7px;padding:3px 3px;border-radius:5px}
+    .legend{gap:10px;padding:10px 12px}
+  }
 </style>
 </head>
 <body>
 <!-- CHANGELOG (moved out of the visible footer in v95, newest first):
+v115 · 2026-11-07 · Past-day diagonal removed (Ethan: the today highlight + logged weights already show which days are done). · v114 · 2026-11-07 · Notes box is add-only (Ethan): the upcoming-notes list and its × delete are removed. Edit or delete notes in the Sheet's Calendar Notes tab. · v113 · 2026-11-07 · Hand-written NOTES → Sheet migration support: the 33 NOTES entries are copied to the Calendar Notes tab as ids 'legacy-YYYY-MM-DD' (outputs/calendar-notes-migration-2026-11-07.py). Once any legacy row is present, note text comes only from the Sheet (deletes in the box stick); before that, NOTES text renders as a fallback. NOTES keeps its paint override (10/24 Feast Day blue). Cached Sheet notes paint on first render. · v112 · 2026-11-07 · <b>Notes box</b> to the right of Goals: pick a date, type a note, Add. Saved to the Sheet's new "Calendar Notes" tab (needs Apps Script <b>v2026-11-07a</b>: ?type=calendarNotes, setCalendarNote, deleteCalendarNote). Past-day mark changed from a full X to a single diagonal (top right → bottom left; Ethan: the X was too noisy). Added notes render in the day cells + hover card alongside the hand-written NOTES; upcoming notes are listed in the box with × to delete. Last good pull cached in localStorage (planDashCalNotes_v1). Cells always carry a .notes slot (hidden when empty) so a new note repaints in place. · v111 · 2026-11-07 · Past days get a faint full X (corner to corner, ~9% opacity, 1px non-scaling SVG stroke) marking them done. Today and future days stay clean. · v110 · 2026-11-07 · Notes and habits visually standardized (Ethan): no colored dots, no special exercise chip; cell notes are plain gray text, every habit chip is the same neutral chip, and the hover card lists notes and habits as plain lines. · v109 · 2026-11-07 · Day cells reordered: date → weight → calories → notes → habits (habits pinned to the bottom). <b>Hover card</b> (tap on touch): full detail for a day — weight, calories, every note in full (DEXA with fat/lean), every habit with its full note. Per-chip/per-note title tooltips removed (the card replaces them). · v108 · 2026-11-07 · <b>Standardized day-cell notes</b> (Ethan): phase starts, DEXA results/planned scans and all NOTES annotations now render as one notes section under the date, each a kind-colored dot + one line of plain text (no emojis; DEXA shows "DEXA · 13.4% BF", fat/lean on hover). Old milestone / phasestart / dexabf / cellnote styles removed. · v107 · 2026-11-07 · Full-timeline minimap narrowed 96 → 44px (Ethan); its label wraps to two lines. Phone width unchanged (22px). · v106 · 2026-11-07 · Weight and calories on separate lines in each day cell (Ethan). · v105 · 2026-11-07 · <b>Bigger day cells with each day's completed habits</b> (Ethan: the board is becoming his whole-life dashboard, habit tracking moves into the Power app). Board widened 1180 → 1320px; cells are a fixed 124px tall (96px on phones) so every week row is the same height and the minimap/scroll math stays linear. Weight and calories now share one line; under them sit habit chips from a new best-effort ?type=habits pull (done = "true", any case). The exercise chip shows the Train-tab split from its "[plan] …" note (e.g. Push (Chest)) with an indigo dot; other habits follow (meditation, reading, stretch, vacuums, audiobook, ab roller, then anything new alphabetically), long names ellipsize and extras collapse to "+N" (hover for the full list). The habits pull never blocks the board: it paints when it lands, falls back to habits saved in the last-good cache (planDashCache_v1.habits), and the footer says so if it does. Phones get a compact grid (no horizontal clipping): weight over calories, notes clamped, habits as the split's first word + "+N". Legend gains a Habits entry. Pre-change copy: archive/plan-dashboard-v104-2026-11-07-pre-habits.html.
 v104 · 2026-11-07 · Title → "The Dashboard" (Ethan). · v103 · 2026-11-07 · Full-timeline minimap markers removed (DEXA, Notice Day, Building Notice, New Chapter), Ethan's call. Phase colors + today line stay; the calendar cells still show those dates. · v102 · 2026-11-07 · Goals stacked vertically, one per line, reworded shorter (Ethan): Regain focus · Get a new job · Finish Sierra · Date someone great · 12% body fat · Love music again · Learn to farm. · v101 · 2026-11-07 · Title → "The Calendar &amp; The Goals" (Ethan's wording). · v100 · 2026-11-07 · <b>Renamed "Calendar &amp; Goals"</b> (was "Plan Dashboard"; filename unchanged so the bookmark still works). It now covers all of Ethan's goals, not just body comp. Top weight / body-fat / goal-target chips REMOVED (setChips made null-safe; GOAL still feeds the harvest bar). A concise numbered <b>Goals</b> list sits where the legend was (focus · finish Sierra · new job · date someone great · 12% BF · music · learn to farm). Legend moved below the calendar, above Progress. Plan: a physical whiteboard calendar, photographed regularly and mirrored here. Pre-change copy: archive/plan-dashboard-v99-2026-11-07-pre-calendar-goals.html. · v99 · 2026-11-05 · Weekly-average calorie chip is phase-aware (Ethan: maint wk 1's 2,743 shouldn't be red). Cut weeks unchanged (red ≥ maintenance, green ≤ 2,600). Maintenance/bulk weeks: neutral at maintenance, red only at ≥ MAINT_CAL + 250, no green. Week phase = majority of its days.
 v98 · 2026-10-26 · Reinstated the 2-wk cut 12/06–12/19 + 12/19 DEXA (Ethan: wants it to look forward to; sub-13% goal). Baked PHASES back to maint 10/25–12/05 → cut 12/06–12/19 → maint 12/20–1/16. Live phases still come from the Config tab.
 v97 · 2026-10-25 · Pulled the 12/06–12/19 cut and the 12/19 DEXA (Ethan: wants no cut on the horizon for now). Baked PHASES fallback now one maintenance block 10/25 → 1/16; MILESTONES_RAW drops 12/19. Live phases still come from the Config tab.
@@ -210,6 +285,8 @@ v96 · 2026-10-24 · 10/24 cut-end DEXA (13.4% / 23.9 fat / 146.8 lean) added to
 
   <!-- v100: goals list (Ethan, 11/07) replaces the top weight / BF / goal-target chips;
        the phase legend moved below the calendar. -->
+  <!-- v112: Goals + Notes side by side (stack on phones) -->
+  <div class="toprow">
   <div class="goals">
     <div class="goalshead">Goals</div>
     <ol>
@@ -221,6 +298,17 @@ v96 · 2026-10-24 · 10/24 cut-end DEXA (13.4% / 23.9 fat / 146.8 lean) added to
       <li>Love music again</li>
       <li>Learn to farm</li>
     </ol>
+  </div>
+  <!-- v112: add day notes (saved to the Sheet's "Calendar Notes" tab) -->
+  <div class="notesbox">
+    <div class="goalshead">Notes</div>
+    <form id="noteForm" class="nf" autocomplete="off">
+      <input type="date" id="noteDate" required>
+      <input type="text" id="noteText" placeholder="e.g. Surgery + Deload Start" maxlength="80" required>
+      <button type="submit" id="noteAdd">Add</button>
+    </form>
+    <div class="nmsg" id="noteMsg"></div>
+  </div>
   </div>
 
   <!-- v86: TEMPORARY step-push card. Shown 10/04–10/24 only; loadSteps() keeps it
@@ -235,7 +323,7 @@ v96 · 2026-10-24 · 10/24 cut-end DEXA (13.4% / 23.9 fat / 146.8 lean) added to
 
   <div class="planarea">
     <div class="miniwrap">
-      <div class="minilabel">Full&nbsp;timeline</div>
+      <div class="minilabel">Full timeline</div>
       <div class="minimap" id="minimap">
         <div class="miniweeks" id="miniweeks"></div>
         <div class="mininow" id="mininow"></div>
@@ -258,6 +346,7 @@ v96 · 2026-10-24 · 10/24 cut-end DEXA (13.4% / 23.9 fat / 146.8 lean) added to
     <div class="it"><span class="sw skip"></span> Skip day</div>
     <div class="it"><span class="sw tbd"></span> Not yet planned</div>
     <div class="it"><span class="sw life"></span> Life plan</div>
+    <div class="it"><span class="sw habit">Push</span> Habits done (training split first)</div>
   </div>
 
   <!-- v62: Progress card. Below the calendar deliberately — the Power app's weight
@@ -273,7 +362,7 @@ v96 · 2026-10-24 · 10/24 cut-end DEXA (13.4% / 23.9 fat / 146.8 lean) added to
     <div id="paceChart" style="margin-top:16px"></div>
   </div>
 
-  <p style="font-size:11px;color:var(--faint);margin-top:16px"><span id="dataStatus">Loading live data…</span> · v104</p>
+  <p style="font-size:11px;color:var(--faint);margin-top:16px"><span id="dataStatus">Loading live data…</span> · v115</p>
 </div>
 
 <script>
@@ -765,7 +854,7 @@ function paintTodayCal(todayCal){
   if(DAILY[TODAY]&&DAILY[TODAY].skip) return;   // skip day → unreliable total, don't paint it (matches the calendar-cell rule)
   const cls=todayCal>=DAY_CAL_RED?'hi':(todayCal<=2350?'lo':'');
   let el=cell.querySelector('.cal.revealcal');
-  if(!el){ el=document.createElement('div'); cell.appendChild(el); }
+  if(!el){ el=document.createElement('div'); (cell.querySelector('.wtrow')||cell).appendChild(el); }   // v105: into the weight row
   el.className='cal revealcal '+cls;
   el.textContent=todayCal.toLocaleString();
 }
@@ -780,19 +869,32 @@ function setChips(c){   // v100: header chips removed; kept null-safe for the ca
 // offline open in a fresh browser context (and no longer needs periodic re-baking).
 const CACHE_KEY='planDashCache_v1';
 function saveCache(model){
+  // v105: keep the cached habits (they're saved by loadHabits on their own schedule)
+  let prevHab=null; try{ const o=JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); if(o&&o.habits) prevHab={habits:o.habits, habitsSavedAt:o.habitsSavedAt}; }catch(e){}
   try{ localStorage.setItem(CACHE_KEY, JSON.stringify({
-    savedAt:new Date().toLocaleString(), daily:model.daily, dexadata:model.dexadata, chips:model.chips})); }catch(e){}
+    savedAt:new Date().toLocaleString(), daily:model.daily, dexadata:model.dexadata, chips:model.chips, ...(prevHab||{})})); }catch(e){}
+}
+function saveHabitsCache(map){   // v105: merge the last good habits pull into the same last-good cache
+  try{ const o=JSON.parse(localStorage.getItem(CACHE_KEY)||'null')||{};
+    o.habits=map; o.habitsSavedAt=new Date().toLocaleString();
+    localStorage.setItem(CACHE_KEY, JSON.stringify(o)); }catch(e){}
+}
+function loadHabitsCache(){
+  try{ const o=JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); if(o&&o.habits&&typeof o.habits==='object') return {map:o.habits, asOf:o.habitsSavedAt||o.savedAt||''}; }catch(e){}
+  return null;
 }
 function loadCache(){
   try{ const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
     if(c&&c.daily&&c.dexadata&&c.chips) return c; }catch(e){}
   return null;
 }
+let _lastStatusArgs=null;
 function setStatus(live, asOf, offline){
+  _lastStatusArgs=[live, asOf, offline];
   const el=document.getElementById('dataStatus'); if(!el) return;
   // v61: the footer used to say "Live" even when the Config-tab pull had failed and
   // phases/goal were rendering from the baked fallback — surface that mixed state.
-  const cfgNote=cfgLive?'':' · ⚠ plan config: baked fallback (Config-tab fetch failed'+(cfgErr?': '+cfgErr:'')+')';
+  const cfgNote=(cfgLive?'':' · ⚠ plan config: baked fallback (Config-tab fetch failed'+(cfgErr?': '+cfgErr:'')+')')+habStatusNote();
   const why=(offline&&offline.err)?' · reason: '+offline.err:'';   // v83
   if(live){ const pn=(offline&&offline.partial)?' · ⚠ partly live: '+offline.partial.join(', ')+' from your last sync ('+offline.err+')':'';
     el.textContent='Live from the Power sheet · loaded '+asOf+pn+cfgNote; return; }
@@ -883,9 +985,214 @@ function renderSteps(m,today){
   document.getElementById('stepBars').innerHTML=`<div class="splot">${bars}</div><div class="slabs">${labs}</div>`;
 }
 
+// ── v105: completed habits in each day cell ─────────────────────────────────────
+// Best-effort pull of ?type=habits (Power app / Growth data layer), separate from
+// loadLive like loadConfig and loadSteps: it never blocks or breaks the board. It
+// renders as soon as it lands (cells are fixed-height, so nothing shifts), and on a
+// failed pull falls back to the habits saved in the last-good cache.
+// Shape: {date, habit, done:"true"/"FALSE", notes, duration, updated}. The exercise
+// habit's notes carry the Train-tab split as "[plan] Push (Chest)" (sometimes with
+// free-text cardio after a ";"), so the chip shows the split, not "exercise".
+let HABITS={};                          // 'YYYY-MM-DD' → [{h, n}] (done habits only)
+let habState={phase:'loading', err:'', asOf:''};
+const HABIT_ORDER=['exercise','meditation','reading','stretch','vacuums','active audiobook','ab roller','water'];
+function escH(x){ return String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function habitsFromEntries(entries, today){
+  const m={};
+  (entries||[]).forEach(e=>{
+    if(!e||!e.habit) return;
+    const done=(e.done===true)||String(e.done).trim().toLowerCase()==='true';
+    if(!done) return;
+    const ds=normDate(e.date); if(ds<CAL_START||ds>today) return;
+    const h=String(e.habit).trim(); if(!h) return;
+    const arr=(m[ds]=m[ds]||[]);
+    const ex=arr.find(x=>x.h.toLowerCase()===h.toLowerCase());
+    if(ex){ if(!ex.n&&e.notes) ex.n=String(e.notes); return; }
+    arr.push({h, n:String(e.notes||'').slice(0,240)});
+  });
+  return m;
+}
+async function loadHabits(){
+  try{
+    const j=await fetchType('habits');
+    const map=habitsFromEntries(j.entries, localToday());
+    saveHabitsCache(map);
+    return {map, phase:'live'};
+  }catch(e){
+    const err=(e&&e.message)||String(e); try{console.warn('[plan-dashboard] habits pull failed:',e);}catch(_){}
+    const c=loadHabitsCache();
+    return c?{map:c.map, phase:'cache', err, asOf:c.asOf}:{map:{}, phase:'none', err};
+  }
+}
+function habStatusNote(){
+  if(habState.phase==='cache') return ' · ⚠ habits from your last sync ('+habState.asOf+'; '+habState.err+')';
+  if(habState.phase==='none') return ' · ⚠ habits unavailable ('+habState.err+')';
+  return '';
+}
+// Training split from the exercise note: "[plan] Legs (Glutes and Hams); bike…" → "Legs (Glutes & Hams)".
+// Notes without a [plan] tag (older free-text ones) use their first clause.
+function exerciseLabel(notes){
+  const n=String(notes||'');
+  const m=n.match(/\[plan\]\s*([^;\n]+)/i);
+  let t=m?m[1]:(n.split(/[;\n]/)[0]||'');
+  t=t.replace(/\[plan\]/ig,'').replace(/\s+and\s+/ig,' & ').replace(/\s+/g,' ').trim();
+  return t||'Exercise';
+}
+function habitLabel(h){ const t=String(h).trim(); return t.charAt(0).toUpperCase()+t.slice(1); }
+function sortedHabits(list){
+  const rank=h=>{const i=HABIT_ORDER.indexOf(h.toLowerCase()); return i<0?HABIT_ORDER.length:i;};
+  return list.slice().sort((a,b)=>rank(a.h)-rank(b.h)||a.h.localeCompare(b.h));
+}
+// ── v112: Calendar Notes (Notes box) ─────────────────────────────────────────
+// Notes Ethan adds from the box at the top, stored in the Sheet's "Calendar Notes"
+// tab (?type=calendarNotes; setCalendarNote / deleteCalendarNote, backend
+// v2026-11-07a). They render with the hand-written NOTES. Last good pull is cached
+// so an offline open still shows them.
+let CAL_NOTES={};            // 'YYYY-MM-DD' → [{id, text, pending?}]
+let calNotesReady=false;
+// v113: the hand-written NOTES were copied into the Sheet with ids 'legacy-YYYY-MM-DD'
+// (outputs/calendar-notes-migration-2026-11-07.py). Once any such row is seen, the
+// Sheet is the only source of note TEXT (so deleting one in the box sticks); NOTES
+// keeps only its `paint` color override (Feast Day).
+let notesMigrated=false;
+function refreshMigrated(){ notesMigrated=Object.values(CAL_NOTES).some(l=>(l||[]).some(n=>String(n.id).indexOf('legacy-')===0)); }
+try{ const c=JSON.parse(localStorage.getItem('planDashCalNotes_v1')||'null'); if(c&&typeof c==='object'){ CAL_NOTES=c; refreshMigrated(); } }catch(e){}   // paint the cached notes on first render
+const CAL_NOTES_LS='planDashCalNotes_v1';
+function notesInner(notes){ return notes.map(n=>`<div class="note"><span>${escH(n.t)}</span></div>`).join(''); }
+function calNotesFromEntries(entries){ const m={}; (entries||[]).forEach(e=>{ const d=normDate(e.date); if(!e.id||!e.text||!/^\d{4}-\d{2}-\d{2}$/.test(d)) return; (m[d]=m[d]||[]).push({id:String(e.id),text:String(e.text)}); }); return m; }
+function repaintDayNotes(ds){ const el=document.querySelector(`.day[data-date="${ds}"] .notes`); if(el) el.innerHTML=notesInner(dayNotes(ds)); }
+function repaintAllNotes(){ document.querySelectorAll('.day[data-date] .notes').forEach(el=>{ el.innerHTML=notesInner(dayNotes(el.parentElement.dataset.date)); }); }
+function saveCalNotesCache(){ try{ localStorage.setItem(CAL_NOTES_LS,JSON.stringify(CAL_NOTES)); }catch(e){} }
+function noteMsg(t,err){ const m=document.getElementById('noteMsg'); if(m){ m.textContent=t||''; m.className='nmsg'+(err?' err':''); } }
+function fmtNoteDate(ds){ const d=new Date(ds+'T00:00:00Z'); return DOW_FULL[d.getUTCDay()]+' '+(d.getUTCMonth()+1)+'/'+d.getUTCDate()+(ds.slice(0,4)!==localToday().slice(0,4)?'/'+ds.slice(2,4):''); }
+async function loadCalNotes(){
+  try{
+    const j=await fetchType('calendarNotes');
+    CAL_NOTES=calNotesFromEntries(j.entries); calNotesReady=true; refreshMigrated(); saveCalNotesCache();
+  }catch(e){
+    const msg=(e&&e.message)||String(e);
+    try{ const c=JSON.parse(localStorage.getItem(CAL_NOTES_LS)||'null'); if(c&&typeof c==='object'){ CAL_NOTES=c; refreshMigrated(); } }catch(_){}
+    calNotesReady=true;
+    noteMsg(/unknown type/i.test(msg)?'Notes need the backend update (Apps Script v2026-11-07a) — redeploy, then reload.':'Couldn’t load notes ('+msg+'); showing your last sync.',true);
+  }
+  repaintAllNotes();
+}
+// POST through the same passphrase. Apps Script 302s to googleusercontent; fetch
+// follows it as a GET (text/plain body avoids a CORS preflight), same as the app.
+async function postAction(body){
+  const send=async(key)=>{ const r=await fetch(WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...body,key}),redirect:'follow'});
+    if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); };
+  const k=getApiKey(); let j=await send(k);
+  if(j&&j.ok===false&&j.error==='unauthorized'){ const k2=await recoverApiKey(k); if(k2) j=await send(k2); }
+  if(!j||j.ok===false) throw new Error((j&&j.error)||'write failed');
+  return j;
+}
+function initNotesBox(){
+  const form=document.getElementById('noteForm'), dIn=document.getElementById('noteDate'), tIn=document.getElementById('noteText'), btn=document.getElementById('noteAdd');
+  if(!form) return;
+  dIn.value=localToday();
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const date=dIn.value, text=tIn.value.trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!text) return;
+    const id='n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const note={id,text,pending:true};
+    (CAL_NOTES[date]=CAL_NOTES[date]||[]).push(note);
+    repaintDayNotes(date); tIn.value=''; btn.disabled=true; noteMsg('Saving…');
+    try{ await postAction({action:'setCalendarNote',entry:{id,date,text}}); delete note.pending; saveCalNotesCache(); noteMsg('Saved '+fmtNoteDate(date)+'.'); }
+    catch(err){ CAL_NOTES[date]=CAL_NOTES[date].filter(n=>n!==note); if(!CAL_NOTES[date].length) delete CAL_NOTES[date]; tIn.value=text;
+      noteMsg('Not saved: '+((err&&err.message)||err)+(/unknown|invalid action/i.test(String(err&&err.message))?' (backend needs the v2026-11-07a redeploy)':''),true); }
+    finally{ btn.disabled=false; repaintDayNotes(date); }
+  });
+ 
+}
+// v108/v109: one standardized list of a day's notes — phase start, DEXA (result or
+// planned scan), then the NOTES annotation. Used by the cell and the hover card.
+function dayNotes(cds){
+  const notes=[];
+  const pp=PHASES.find(x=>x.start===cds); if(pp) notes.push({k:'ph-'+pp.type,t:pp.short+' starts'});
+  if(DEXADATA[cds]){const x=DEXADATA[cds];notes.push({k:'dexa',t:`DEXA · ${x.bf}% BF`,full:`DEXA · ${x.bf}% BF · ${x.fat} lb fat · ${x.lean} lb lean`});}
+  else if(MILESTONES[cds]) notes.push({k:'dexa',t:MILESTONES[cds]});
+  if(NOTES[cds]&&!notesMigrated) notes.push({k:NOTES[cds].k,t:NOTES[cds].t});   // v113: hand-written NOTES are a fallback until the Sheet holds the migrated copies
+  (CAL_NOTES[cds]||[]).forEach(n=>notes.push({k:'custom',t:n.text}));   // v112: notes added from the Notes box
+  return notes;
+}
+// v109: hover card with the day's full detail (tap on touch screens).
+const DOW_FULL=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function dayDetailHtml(ds){
+  const d=new Date(ds+'T00:00:00Z'), p=phaseOf(ds), rec=DAILY[ds]||{};
+  let h=`<div class="dt-h"><b>${DOW_FULL[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}</b>${p?`<span class="dt-ph ${p.type}">${escH(p.short)}</span>`:''}</div>`;
+  const stats=[];
+  if(rec.w!==undefined) stats.push(`<span><b>${rec.w.toFixed(1)}</b> lb</span>`);
+  if(rec.skip) stats.push('<span>skip day</span>');
+  else if(ds===TODAY) stats.push('<span>calories in progress</span>');
+  else if(rec.c!==undefined) stats.push(`<span><b>${rec.c.toLocaleString()}</b> cal</span>`);
+  if(stats.length) h+=`<div class="dt-stats">${stats.join('')}</div>`;
+  const notes=dayNotes(ds);
+  if(notes.length) h+=`<div class="dt-sec">Notes</div>`+notes.map(n=>`<div class="dt-line">${escH(n.full||n.t)}</div>`).join('');
+  const hab=sortedHabits(HABITS[ds]||[]);
+  if(hab.length) h+=`<div class="dt-sec">Habits</div>`+hab.map(x=>{const isEx=x.h.toLowerCase()==='exercise';
+    const t=isEx?('Exercise · '+(String(x.n||'').replace(/\[plan\]\s*/ig,'').trim()||'done')):(habitLabel(x.h)+(x.n?' · '+x.n:''));
+    return `<div class="dt-line">${escH(t)}</div>`;}).join('');
+  if(!stats.length&&!notes.length&&!hab.length) h+='<div class="dt-empty">Nothing logged</div>';
+  return h;
+}
+function initDayTip(){
+  const tip=document.createElement('div'); tip.id='dayTip'; document.body.appendChild(tip);
+  let cur=null, shownAt=0;
+  const show=(cell)=>{
+    cur=cell; shownAt=Date.now(); tip.innerHTML=dayDetailHtml(cell.dataset.date); tip.style.display='block';
+    const r=cell.getBoundingClientRect(), tw=tip.offsetWidth, th=tip.offsetHeight;
+    let x=r.right+8; if(x+tw>window.innerWidth-8) x=r.left-tw-8; if(x<8) x=Math.max(8,Math.min(window.innerWidth-tw-8,r.left));
+    let y=r.top; if(y+th>window.innerHeight-8) y=window.innerHeight-th-8; if(y<8) y=8;
+    tip.style.left=x+'px'; tip.style.top=y+'px';
+  };
+  const hide=()=>{cur=null; tip.style.display='none';};
+  const cal=document.getElementById('cal');
+  // mousemove (not mouseover) so the card comes back after a scroll hid it, without leaving the cell first
+  cal.addEventListener('mousemove',e=>{if(e.pointerType&&e.pointerType!=='mouse')return; const c=e.target.closest('.day[data-date]'); if(c&&c!==cur) show(c);});
+  cal.addEventListener('mouseleave',hide);
+  // Tap: a second tap on the same day closes it (a tap's synthetic mousemove may already have opened it, hence the 400ms guard)
+  cal.addEventListener('click',e=>{const c=e.target.closest('.day[data-date]'); if(!c) return; if(c===cur&&e.pointerType!=='mouse'&&Date.now()-shownAt>400) hide(); else show(c);});
+  document.addEventListener('click',e=>{if(cur&&!e.target.closest('#cal')) hide();});
+  document.getElementById('calscroll').addEventListener('scroll',hide,{passive:true});
+}
+function habitsHtml(ds){
+  const list=HABITS[ds]; if(!list||!list.length) return '';
+  const items=sortedHabits(list);
+  const exI=items.findIndex(x=>x.h.toLowerCase()==='exercise');
+  const ex=exI>=0?items[exI]:null, others=items.filter((_,i)=>i!==exI);
+  const chip=(x)=>{ const isEx=x.h.toLowerCase()==='exercise';
+    const label=isEx?exerciseLabel(x.n):habitLabel(x.h);
+    return `<span class="hchip">${escH(label)}</span>`; };
+  const more=(n,rest)=>`<span class="hchip more">+${n}</span>`;
+  // Two fixed rows: row 1 = split (or the first two habits), row 2 = up to two more + "+N".
+  let r1=[], r2=[], rest=[];
+  if(ex){ r1=[ex]; r2=others.slice(0,2); rest=others.slice(r2.length); }
+  else  { r1=others.slice(0,2); const tail=others.slice(2); r2=tail.slice(0,2); rest=tail.slice(r2.length); }
+  let h='<div class="hrows">';
+  h+=`<div class="hrow">${r1.map(chip).join('')}</div>`;
+  if(r2.length||rest.length) h+=`<div class="hrow">${r2.map(chip).join('')}${rest.length?more(rest.length,rest):''}</div>`;
+  h+='</div>';
+  // Phone: first word of the split (or the first habit) + "+N"
+  const lead=ex?exerciseLabel(ex.n).split(/[\s(]/)[0]:habitLabel(others[0].h);
+  const n=items.length-1;
+  h+=`<div class="hmini"><div class="hm">${escH(lead)}</div>${n>0?`<div class="hm more">+${n}</div>`:''}</div>`;
+  return h;
+}
+function paintHabits(){
+  document.querySelectorAll('.day[data-date] .habits').forEach(el=>{
+    const ds=el.parentElement.dataset.date; el.innerHTML=habitsHtml(ds);
+  });
+}
+
 async function init(){
   let model, live=true, offline=null;
+  try{ initDayTip(); }catch(e){}        // v109: hover/tap detail card
+  try{ initNotesBox(); }catch(e){}      // v112: Notes box
+  const notesDone=loadCalNotes();       // v112: Calendar Notes — independent, repaints cells when it lands
   loadSteps();                         // v86: temporary step-push card — independent, never blocks the board
+  const habDone=loadHabits();          // v105: habits — independent, painted whenever it lands
   const cfgDone=loadConfig();          // v23: config rides alongside the data pull
   try { model=await loadLive();
         if(model.partial) offline={kind:'partial', partial:model.partial, err:model.partialErr};
@@ -908,6 +1215,11 @@ async function init(){
   setChips(model.chips); setStatus(live, model.today, offline);
   render(); positionToday();
   renderProgress();                    // v62: harvest bar + pace chart (works offline too — uses DAILY/DEXADATA)
+  habDone.then(r=>{                    // v105: attached after render, so the cells exist when this runs
+    HABITS=r.map||{}; habState={phase:r.phase, err:r.err||'', asOf:r.asOf||''};
+    try{ paintHabits(); }catch(e){ try{console.warn('[plan-dashboard] habits paint failed:',e);}catch(_){} }
+    if(_lastStatusArgs) setStatus(..._lastStatusArgs);
+  });
 }
 
 // v59: the "You're close" principles bullet tracks live — 3/21/26 cut-start scan → latest
@@ -1077,23 +1389,26 @@ weeks.forEach(wk=>{
     const paint=(NOTES[cds]&&NOTES[cds].paint)||(p&&p.type);   // NOTES.paint = color-only override (Feast Day)
     cell.className='day'+(paint?' '+paint:'')+(cds===TODAY?' today':'');
     if(cds===TODAY)cell.id='todayCell';   // so revealWeek() can paint today's cal number in on click
+    cell.dataset.date=cds;                // v105: paintHabits() finds cells by date
     if(cd.getUTCDate()===1||cds===CAL_START)cell.classList.add('first');
     const dn=(cd.getUTCDate()===1)?MONTHS[cd.getUTCMonth()]+' 1':String(cd.getUTCDate());
     let html=`<div class="dnum">${dn}</div>`;
-    if(MILESTONES[cds]) html+=`<div class="milestone">${MILESTONES[cds]==='DEXA'?'DEXA':MILESTONES[cds]}</div>`;
-    else {const pp=PHASES.find(x=>x.start===cds);if(pp)html+=`<div class="phasestart ${pp.type}">${pp.short} ▸</div>`;}
-    if(DEXADATA[cds]){const x=DEXADATA[cds];html+=`<div class="dexabf">${x.bf}% BF<div class="l2">${x.fat} fat · ${x.lean} lean</div></div>`;}
-    if(NOTES[cds]){const nn=NOTES[cds];html+=`<div class="cellnote ${nn.k}">${nn.ic?nn.ic+' ':''}${nn.t}</div>`;}
     const rec=DAILY[cds];
+    let wrow='';   // v105: weight + calories share one baseline row (wraps to two on phones)
     if(rec){
-      if(rec.w!==undefined){html+=`<div class="wt">${rec.w.toFixed(1)}</div>`;wtSum+=rec.w;wtN++;}
+      if(rec.w!==undefined){wrow+=`<div class="wt">${rec.w.toFixed(1)}</div>`;wtSum+=rec.w;wtN++;}
       // Show the per-day calorie number only on NON-skip days: a skip day's food
       // log is unreliable (autopop plan + maybe one manual item, understating true
       // intake), so its total is misleading — the hatch mark already flags the day.
       // (Skip days were already excluded from the weekly average on the next line.)
-      if(rec.c!==undefined&&!rec.skip){const cls=rec.c>=DAY_CAL_RED?'hi':(rec.c<=2350?'lo':'');html+=`<div class="cal ${cls}">${rec.c.toLocaleString()}</div>`;}
+      if(rec.c!==undefined&&!rec.skip){const cls=rec.c>=DAY_CAL_RED?'hi':(rec.c<=2350?'lo':'');wrow+=`<div class="cal ${cls}">${rec.c.toLocaleString()}</div>`;}
       if(rec.c!==undefined&&!rec.skip&&cds!==TODAY){wkTot+=rec.c;wkN++;}
     }
+    if(wrow||cds<=TODAY) html+=`<div class="wtrow">${wrow}</div>`;
+    // v109: order is date → weight → calories → notes → habits (Ethan); full detail is in the hover card.
+    const notes=dayNotes(cds);
+    html+=`<div class="notes">${notesInner(notes)}</div>`;   // v112: always present so added notes repaint in place
+    if(cds<=TODAY) html+=`<div class="habits">${habitsHtml(cds)}</div>`;   // v105: filled by paintHabits() when the habits pull lands
     cell.innerHTML=html;
     if(dexaSet.has(cds)){const dot=document.createElement('div');dot.className='dexaDot';dot.title='DEXA';cell.appendChild(dot);}
     if(rec&&rec.skip){const sm=document.createElement('div');sm.className='skipMark';cell.appendChild(sm);}
