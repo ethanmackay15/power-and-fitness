@@ -2266,9 +2266,9 @@
 
   <!-- Bottom Tab Navigation (fixed) -->
   <div class="tabs">
-    <button class="tab tab-active" id="tab-weight" onclick="switchTab('weight')">Weight</button>
+    <button class="tab" id="tab-weight" onclick="switchTab('weight')">Weight</button>
     <button class="tab" id="tab-food"   onclick="switchTab('food')">Food</button>
-    <button class="tab" id="tab-habits" onclick="switchTab('habits')">Journal</button>
+    <button class="tab tab-active" id="tab-habits" onclick="switchTab('habits')">Journal</button>
     <button class="tab" id="tab-train"  onclick="switchTab('train')">Train</button>
   </div>
 
@@ -2445,7 +2445,7 @@
   </div>
 
   <!-- ════ PANEL: Daily Weight ════ -->
-  <div class="panel active" id="panel-weight">
+  <div class="panel" id="panel-weight">
 
 
     <!-- Journey chip -->
@@ -2594,7 +2594,7 @@
        ported in on top of Power's existing habits data layer; tab relabeled
        Habits. Journal card stays below the grid.
   ════════════════════════════════════════════════ -->
-  <div class="panel" id="panel-habits">
+  <div class="panel active" id="panel-habits">   <!-- 2026-11-07: Journal (habits + journal) is the boot tab again (Ethan) -->
 
     <!-- Habit grid (ported from Growth v9, 2026-11-07): one row per habit, name
          above a 7-cell strip (trailing 7 days, today rightmost). Tap a cell to
@@ -2671,10 +2671,7 @@
       <div id="train-today-card"></div>
     </div>
 
-    <div class="card" style="margin-top:18px">
-      <h2>The Week</h2>
-      <div id="train-week" class="train-week"></div>
-    </div>
+    <!-- 2026-11-07: "The Week" card removed (Ethan). renderTraining() null-guards #train-week. -->
 
     <div class="train-foot">Checking an exercise logs it to the <b>Training Log</b> tab and summarizes into your <b>exercise</b> habit note.</div>
 
@@ -4072,7 +4069,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-11-07c';
+const APP_BUILD = '2026-11-07d';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
