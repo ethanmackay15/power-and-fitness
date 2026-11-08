@@ -1849,6 +1849,7 @@
     }
     .habit-add-input {
       flex: 1;
+      min-width: 0;   /* 2026-11-07: let it shrink so the target picker + Add fit at phone width */
       background: var(--panel);
       color: var(--ink);
       border: 1px solid var(--border);
@@ -1872,6 +1873,17 @@
       transition: background .12s;
     }
     .habit-add-btn:hover { background: #4347cf; }
+    /* 2026-11-07: weekly target picked when the habit is added */
+    .habit-add-goal {
+      flex: none;
+      background: var(--panel);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 14px;
+      padding: 0 8px;
+    }
 
     /* 7-Day Goals — streak ring grid */
     .streak-grid {
@@ -2604,6 +2616,10 @@
         <input class="habit-add-input" id="habit-add-input" type="text" placeholder="Add habit…"
                autocapitalize="none" autocomplete="off"
                onkeydown="if(event.key==='Enter')hgAddHabit()" />
+        <select class="habit-add-goal" id="habit-add-goal" aria-label="Weekly target">
+          <option value="1">1× / wk</option><option value="2">2× / wk</option><option value="3" selected>3× / wk</option>
+          <option value="4">4× / wk</option><option value="5">5× / wk</option><option value="6">6× / wk</option><option value="7">7× / wk</option>
+        </select>
         <button class="habit-add-btn" onclick="hgAddHabit()">Add</button>
       </div>
     </div>
@@ -4056,7 +4072,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-11-07a';
+const APP_BUILD = '2026-11-07b';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -7449,9 +7465,14 @@ function hgAddHabit() {
   if (list.includes(name)) { showToast('Habit already exists'); return; }
   list.push(name);
   saveHabitsList(list);
+  // 2026-11-07: store the weekly target chosen in the add row (was always the default 3)
+  const goalSel = document.getElementById('habit-add-goal');
+  const goal = goalSel ? Math.min(7, Math.max(1, parseInt(goalSel.value, 10) || HABIT_DEFAULT_GOAL)) : HABIT_DEFAULT_GOAL;
+  const g = getHabitGoals(); g[name] = goal; safeSetItem(HABIT_GOALS_KEY, JSON.stringify(g));
   input.value = '';
+  if (goalSel) goalSel.value = String(HABIT_DEFAULT_GOAL);
   renderHabitGrid();
-  showToast('✓ Added "' + name + '"');
+  showToast('✓ Added "' + name + '" · ' + goal + '× / week');
 }
 
 function removeHabitFromList(habit) {
