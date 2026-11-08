@@ -2673,7 +2673,7 @@
 
     <!-- 2026-11-07: "The Week" card removed (Ethan). renderTraining() null-guards #train-week. -->
 
-    <div class="train-foot">Checking an exercise logs it to the <b>Training Log</b> tab and summarizes into your <b>exercise</b> habit note.</div>
+    <!-- 2026-11-07: footer explainer removed (Ethan). The mechanics still hold: checks write to the Training Log tab, and the day's workout mirrors into the hidden `exercise` habit, which the Power Dashboard reads for its split chip. -->
 
   </div><!-- /panel-train -->
 
@@ -4069,7 +4069,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-11-07d';
+const APP_BUILD = '2026-11-07e';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -7602,6 +7602,15 @@ function planDayByFocus(focus) { return getTrainingPlan().find(d => (d.focus || 
 // Priority: explicit local selection → inferred from any checked-off exercise's
 // stored focus (so it resolves across devices via the Training Log even when the
 // selection map itself hasn't synced) → none (user hasn't picked yet).
+// 2026-11-07: unit for the Train tab's single number per exercise. Cardio workouts
+// and cardio machines log minutes; pull-ups/chin-ups/dips/push-ups/ab roller log reps (the
+// Pullups convention since 11/02); everything else is max weight in lb.
+function trainingUnitFor(exercise, focus) {
+  const n = String(exercise || '');
+  if (/pull-?\s?ups?|chin-?\s?ups?|\bdips?\b|push-?\s?ups?|ab roller/i.test(n)) return 'reps';
+  if (String(focus || '').toLowerCase() === 'cardio' || /stair|treadmill|elliptical|bike|cycl|\brun|walk|swim|rower|rowing machine/i.test(n)) return 'min';
+  return 'lb';
+}
 function selectedWorkoutForDate(date) {
   const sel = getTrainingSelection()[date];
   const dmap = getTrainingData()[date] || {};
@@ -7715,15 +7724,19 @@ function renderTraining() {
         const allMax = maxByEx[e];
         const hasMax = (allMax != null && isFinite(allMax));
         const wtPh   = hasMax ? fmtWtLabel(allMax) : 'max';
+        // 2026-11-07: the one number is lb for lifts, minutes for cardio, reps for
+        // bodyweight moves (same Sheet column; only the label changes).
+        const unit   = trainingUnitFor(e, day && day.focus);
+        const unitWord = unit === 'min' ? 'Minutes' : (unit === 'reps' ? 'Reps' : 'Max weight in pounds');
         const wtAria = hasMax
-          ? `Max weight in pounds for ${e} (all-time best ${fmtWtLabel(allMax)})`
-          : `Max weight in pounds for ${e}`;
+          ? `${unitWord} for ${e} (all-time best ${fmtWtLabel(allMax)})`
+          : `${unitWord} for ${e}`;
         const wtInput = on ? `<span class="train-wt-wrap">
             <input class="train-wt" type="number" inputmode="decimal" min="0" max="2000" step="0.5"
               placeholder="${attrEsc(wtPh)}" value="${attrEsc(wtVal)}"
               onchange="setTrainingWeight('${jsAttrEsc(e)}', this.value)"
               aria-label="${attrEsc(wtAria)}">
-            <span class="train-wt-unit">lb</span>
+            <span class="train-wt-unit">${unit}</span>
           </span>` : '';
         return `<div class="train-ex-row">
           <button class="train-ex ${on ? 'on' : ''}" onclick="toggleTrainingExercise('${jsAttrEsc(e)}')" aria-label="${on ? 'Uncheck ' : 'Check '}${esc(e)}">
