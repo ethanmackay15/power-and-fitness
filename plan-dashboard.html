@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Power Dashboard</title>
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-growth-32.png">
-<link rel="apple-touch-icon" href="appicon-growth-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="appicon-cleanlight-180.png">
 <meta name="theme-color" content="#f4f5f7">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -112,26 +113,11 @@
   .calscroll{flex:1;height:74vh;overflow-y:auto;background:var(--panel);border:1px solid var(--line);
     border-radius:12px;padding:0 16px 16px;scroll-behavior:auto;box-shadow:var(--shadow-card)}
   .calscroll::-webkit-scrollbar{width:9px} .calscroll::-webkit-scrollbar-thumb{background:#d4d8e0;border-radius:6px}
-  .calhead{position:sticky;top:0;background:var(--panel);z-index:8;display:grid;grid-template-columns:58px repeat(7,1fr) 84px;gap:5px;
+  .calhead{position:sticky;top:0;background:var(--panel);z-index:8;display:grid;grid-template-columns:58px repeat(7,1fr);gap:5px;
     padding:12px 0 6px;border-bottom:1px solid var(--line)}
   .calhead .dow{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);text-align:center}
-  .calhead .wsh{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);text-align:right;align-self:center}
-  .week{display:grid;grid-template-columns:58px repeat(7,1fr) 84px;gap:5px;margin-top:5px}
-  .wsum{border-radius:8px;padding:5px 7px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;
+  .week{display:grid;grid-template-columns:58px repeat(7,1fr);gap:5px;margin-top:5px}
     background:var(--panel2);border:1px solid var(--line)}
-  .wsum.empty{background:transparent;border:1px dashed var(--line)}
-  .wsavg{font-size:14px;font-weight:700;letter-spacing:-.02em}
-  .wsavg.pend{color:var(--faint);font-weight:600}   /* v120: weekly average no longer red/green */
-  .wsk{font-size:8px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);margin-top:1px}
-  .wsk .pd{opacity:.7}
-  .wswt{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:6px;padding-top:5px;border-top:1px solid var(--line);width:100%;text-align:right}
-  .wswt.pend{color:var(--faint);font-weight:600}
-  .revealbtn{background:rgba(194,116,10,.10);border:1px solid rgba(194,116,10,.42);color:var(--gold);
-    font-size:10px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;letter-spacing:.03em;
-    font-family:inherit;text-transform:uppercase;line-height:1.1}
-  .revealbtn:hover{background:rgba(194,116,10,.20)}
-  .revealbtn:active{transform:translateY(1px)}
-  .wswt .pd{color:var(--faint);font-weight:400;font-size:8px;text-transform:uppercase;letter-spacing:.04em}
   .molab{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:4px;padding-right:6px;text-align:right;line-height:1.1}
   .molab .mo{font-size:11px;font-weight:700;color:var(--muted)}
   .pwk{font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;white-space:nowrap;border:1px solid transparent}
@@ -235,11 +221,10 @@
     .minilabel,.hint{display:none}
     .minimap{border-radius:7px}
     .calscroll{padding:0 4px 8px;border-radius:10px}
-    .calhead,.week{grid-template-columns:24px repeat(7,minmax(0,1fr)) 44px;gap:2px}
+    .calhead,.week{grid-template-columns:24px repeat(7,minmax(0,1fr));gap:2px}
     .week{margin-top:2px}
     .calhead{padding:8px 0 4px}
     .calhead .dow{font-size:8px;letter-spacing:0}
-    .calhead .wsh{font-size:7px;letter-spacing:0}
     .molab{padding-right:1px;gap:2px}
     .molab .mo{font-size:8.5px}
     .pwk{font-size:7px;padding:0 2px;border-radius:3px}
@@ -257,19 +242,13 @@
     .hmini{display:flex;flex-direction:column;gap:1px;min-width:0}
     .hm{font-size:7.5px;font-weight:600;line-height:10px;color:#4d5562;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .hm.more{color:var(--muted);font-weight:600}
-    .wsum{padding:3px 3px;border-radius:5px}
-    .wsavg{font-size:10.5px}
-    .wsk{font-size:6.5px;letter-spacing:0}
-    .wswt{font-size:9px;margin-top:3px;padding-top:3px}
-    .wswt .pd{display:none}
-    .revealbtn{font-size:7px;padding:3px 3px;border-radius:5px}
     .legend{gap:10px;padding:10px 12px}
   }
 </style>
 </head>
 <body>
 <!-- CHANGELOG (moved out of the visible footer in v95, newest first):
-v120 · 2026-11-07 · Calorie numbers are no longer colored (Ethan): day-cell calories and the weekly average both render in the normal ink/gray; the hi/lo classes remain, but no CSS colors them. · v119 · 2026-11-07 · Icon → the Growth green icon (Ethan): favicon-growth-32.png, appicon-growth-180.png (apple-touch), appicon-growth-512.png (header), copied from projects/Growth/outputs so they deploy with the board. · v118 · 2026-11-07 · Title → "Power Dashboard" (Ethan). · v117 · 2026-11-07 · Reverted v116's colored habit dots back to v115's text chips (Ethan: dots too complicated to keep scalable as habits change). Also dropped the stale "Life plan" legend entry (teal life notes were removed in v108). v116 kept at archive/plan-dashboard-v116-2026-11-07-dots.html. · v116 · 2026-11-07 · (reverted) habit dots. · v115 · 2026-11-07 · Past-day diagonal removed (Ethan: the today highlight + logged weights already show which days are done). · v114 · 2026-11-07 · Notes box is add-only (Ethan): the upcoming-notes list and its × delete are removed. Edit or delete notes in the Sheet's Calendar Notes tab. · v113 · 2026-11-07 · Hand-written NOTES → Sheet migration support: the 33 NOTES entries are copied to the Calendar Notes tab as ids 'legacy-YYYY-MM-DD' (outputs/calendar-notes-migration-2026-11-07.py). Once any legacy row is present, note text comes only from the Sheet (deletes in the box stick); before that, NOTES text renders as a fallback. NOTES keeps its paint override (10/24 Feast Day blue). Cached Sheet notes paint on first render. · v112 · 2026-11-07 · <b>Notes box</b> to the right of Goals: pick a date, type a note, Add. Saved to the Sheet's new "Calendar Notes" tab (needs Apps Script <b>v2026-11-07a</b>: ?type=calendarNotes, setCalendarNote, deleteCalendarNote). Past-day mark changed from a full X to a single diagonal (top right → bottom left; Ethan: the X was too noisy). Added notes render in the day cells + hover card alongside the hand-written NOTES; upcoming notes are listed in the box with × to delete. Last good pull cached in localStorage (planDashCalNotes_v1). Cells always carry a .notes slot (hidden when empty) so a new note repaints in place. · v111 · 2026-11-07 · Past days get a faint full X (corner to corner, ~9% opacity, 1px non-scaling SVG stroke) marking them done. Today and future days stay clean. · v110 · 2026-11-07 · Notes and habits visually standardized (Ethan): no colored dots, no special exercise chip; cell notes are plain gray text, every habit chip is the same neutral chip, and the hover card lists notes and habits as plain lines. · v109 · 2026-11-07 · Day cells reordered: date → weight → calories → notes → habits (habits pinned to the bottom). <b>Hover card</b> (tap on touch): full detail for a day — weight, calories, every note in full (DEXA with fat/lean), every habit with its full note. Per-chip/per-note title tooltips removed (the card replaces them). · v108 · 2026-11-07 · <b>Standardized day-cell notes</b> (Ethan): phase starts, DEXA results/planned scans and all NOTES annotations now render as one notes section under the date, each a kind-colored dot + one line of plain text (no emojis; DEXA shows "DEXA · 13.4% BF", fat/lean on hover). Old milestone / phasestart / dexabf / cellnote styles removed. · v107 · 2026-11-07 · Full-timeline minimap narrowed 96 → 44px (Ethan); its label wraps to two lines. Phone width unchanged (22px). · v106 · 2026-11-07 · Weight and calories on separate lines in each day cell (Ethan). · v105 · 2026-11-07 · <b>Bigger day cells with each day's completed habits</b> (Ethan: the board is becoming his whole-life dashboard, habit tracking moves into the Power app). Board widened 1180 → 1320px; cells are a fixed 124px tall (96px on phones) so every week row is the same height and the minimap/scroll math stays linear. Weight and calories now share one line; under them sit habit chips from a new best-effort ?type=habits pull (done = "true", any case). The exercise chip shows the Train-tab split from its "[plan] …" note (e.g. Push (Chest)) with an indigo dot; other habits follow (meditation, reading, stretch, vacuums, audiobook, ab roller, then anything new alphabetically), long names ellipsize and extras collapse to "+N" (hover for the full list). The habits pull never blocks the board: it paints when it lands, falls back to habits saved in the last-good cache (planDashCache_v1.habits), and the footer says so if it does. Phones get a compact grid (no horizontal clipping): weight over calories, notes clamped, habits as the split's first word + "+N". Legend gains a Habits entry. Pre-change copy: archive/plan-dashboard-v104-2026-11-07-pre-habits.html.
+v121 · 2026-11-08 · Icon back to the Power app icon (Ethan): favicon-32/16.png, appicon-cleanlight-180.png (apple-touch), appicon-cleanlight-v1-2026-07-18.png (header). Weekly-averages column removed for more calendar room (Ethan); each week's cal/day + weight averages now show in Saturday's hover card ("Week so far" for the current week, today's calories still held out). The Saturday Reveal button went with the column. Pre-change copy: archive/plan-dashboard-v120-2026-11-08-pre-weekcol-removal.html. · v120 · 2026-11-07 · Calorie numbers are no longer colored (Ethan): day-cell calories and the weekly average both render in the normal ink/gray; the hi/lo classes remain, but no CSS colors them. · v119 · 2026-11-07 · Icon → the Growth green icon (Ethan): favicon-growth-32.png, appicon-growth-180.png (apple-touch), appicon-growth-512.png (header), copied from projects/Growth/outputs so they deploy with the board. · v118 · 2026-11-07 · Title → "Power Dashboard" (Ethan). · v117 · 2026-11-07 · Reverted v116's colored habit dots back to v115's text chips (Ethan: dots too complicated to keep scalable as habits change). Also dropped the stale "Life plan" legend entry (teal life notes were removed in v108). v116 kept at archive/plan-dashboard-v116-2026-11-07-dots.html. · v116 · 2026-11-07 · (reverted) habit dots. · v115 · 2026-11-07 · Past-day diagonal removed (Ethan: the today highlight + logged weights already show which days are done). · v114 · 2026-11-07 · Notes box is add-only (Ethan): the upcoming-notes list and its × delete are removed. Edit or delete notes in the Sheet's Calendar Notes tab. · v113 · 2026-11-07 · Hand-written NOTES → Sheet migration support: the 33 NOTES entries are copied to the Calendar Notes tab as ids 'legacy-YYYY-MM-DD' (outputs/calendar-notes-migration-2026-11-07.py). Once any legacy row is present, note text comes only from the Sheet (deletes in the box stick); before that, NOTES text renders as a fallback. NOTES keeps its paint override (10/24 Feast Day blue). Cached Sheet notes paint on first render. · v112 · 2026-11-07 · <b>Notes box</b> to the right of Goals: pick a date, type a note, Add. Saved to the Sheet's new "Calendar Notes" tab (needs Apps Script <b>v2026-11-07a</b>: ?type=calendarNotes, setCalendarNote, deleteCalendarNote). Past-day mark changed from a full X to a single diagonal (top right → bottom left; Ethan: the X was too noisy). Added notes render in the day cells + hover card alongside the hand-written NOTES; upcoming notes are listed in the box with × to delete. Last good pull cached in localStorage (planDashCalNotes_v1). Cells always carry a .notes slot (hidden when empty) so a new note repaints in place. · v111 · 2026-11-07 · Past days get a faint full X (corner to corner, ~9% opacity, 1px non-scaling SVG stroke) marking them done. Today and future days stay clean. · v110 · 2026-11-07 · Notes and habits visually standardized (Ethan): no colored dots, no special exercise chip; cell notes are plain gray text, every habit chip is the same neutral chip, and the hover card lists notes and habits as plain lines. · v109 · 2026-11-07 · Day cells reordered: date → weight → calories → notes → habits (habits pinned to the bottom). <b>Hover card</b> (tap on touch): full detail for a day — weight, calories, every note in full (DEXA with fat/lean), every habit with its full note. Per-chip/per-note title tooltips removed (the card replaces them). · v108 · 2026-11-07 · <b>Standardized day-cell notes</b> (Ethan): phase starts, DEXA results/planned scans and all NOTES annotations now render as one notes section under the date, each a kind-colored dot + one line of plain text (no emojis; DEXA shows "DEXA · 13.4% BF", fat/lean on hover). Old milestone / phasestart / dexabf / cellnote styles removed. · v107 · 2026-11-07 · Full-timeline minimap narrowed 96 → 44px (Ethan); its label wraps to two lines. Phone width unchanged (22px). · v106 · 2026-11-07 · Weight and calories on separate lines in each day cell (Ethan). · v105 · 2026-11-07 · <b>Bigger day cells with each day's completed habits</b> (Ethan: the board is becoming his whole-life dashboard, habit tracking moves into the Power app). Board widened 1180 → 1320px; cells are a fixed 124px tall (96px on phones) so every week row is the same height and the minimap/scroll math stays linear. Weight and calories now share one line; under them sit habit chips from a new best-effort ?type=habits pull (done = "true", any case). The exercise chip shows the Train-tab split from its "[plan] …" note (e.g. Push (Chest)) with an indigo dot; other habits follow (meditation, reading, stretch, vacuums, audiobook, ab roller, then anything new alphabetically), long names ellipsize and extras collapse to "+N" (hover for the full list). The habits pull never blocks the board: it paints when it lands, falls back to habits saved in the last-good cache (planDashCache_v1.habits), and the footer says so if it does. Phones get a compact grid (no horizontal clipping): weight over calories, notes clamped, habits as the split's first word + "+N". Legend gains a Habits entry. Pre-change copy: archive/plan-dashboard-v104-2026-11-07-pre-habits.html.
 v104 · 2026-11-07 · Title → "The Dashboard" (Ethan). · v103 · 2026-11-07 · Full-timeline minimap markers removed (DEXA, Notice Day, Building Notice, New Chapter), Ethan's call. Phase colors + today line stay; the calendar cells still show those dates. · v102 · 2026-11-07 · Goals stacked vertically, one per line, reworded shorter (Ethan): Regain focus · Get a new job · Finish Sierra · Date someone great · 12% body fat · Love music again · Learn to farm. · v101 · 2026-11-07 · Title → "The Calendar &amp; The Goals" (Ethan's wording). · v100 · 2026-11-07 · <b>Renamed "Calendar &amp; Goals"</b> (was "Plan Dashboard"; filename unchanged so the bookmark still works). It now covers all of Ethan's goals, not just body comp. Top weight / body-fat / goal-target chips REMOVED (setChips made null-safe; GOAL still feeds the harvest bar). A concise numbered <b>Goals</b> list sits where the legend was (focus · finish Sierra · new job · date someone great · 12% BF · music · learn to farm). Legend moved below the calendar, above Progress. Plan: a physical whiteboard calendar, photographed regularly and mirrored here. Pre-change copy: archive/plan-dashboard-v99-2026-11-07-pre-calendar-goals.html. · v99 · 2026-11-05 · Weekly-average calorie chip is phase-aware (Ethan: maint wk 1's 2,743 shouldn't be red). Cut weeks unchanged (red ≥ maintenance, green ≤ 2,600). Maintenance/bulk weeks: neutral at maintenance, red only at ≥ MAINT_CAL + 250, no green. Week phase = majority of its days.
 v98 · 2026-10-26 · Reinstated the 2-wk cut 12/06–12/19 + 12/19 DEXA (Ethan: wants it to look forward to; sub-13% goal). Baked PHASES back to maint 10/25–12/05 → cut 12/06–12/19 → maint 12/20–1/16. Live phases still come from the Config tab.
 v97 · 2026-10-25 · Pulled the 12/06–12/19 cut and the 12/19 DEXA (Ethan: wants no cut on the horizon for now). Baked PHASES fallback now one maintenance block 10/25 → 1/16; MILESTONES_RAW drops 12/19. Live phases still come from the Config tab.
@@ -278,7 +257,7 @@ v96 · 2026-10-24 · 10/24 cut-end DEXA (13.4% / 23.9 fat / 146.8 lean) added to
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <img class="appicon" src="appicon-growth-512.png" alt="Power Dashboard icon">
+      <img class="appicon" src="appicon-cleanlight-v1-2026-07-18.png" alt="Power Dashboard icon">
       <h1>Power Dashboard</h1>
     </div>
   </header>
@@ -361,7 +340,7 @@ v96 · 2026-10-24 · 10/24 cut-end DEXA (13.4% / 23.9 fat / 146.8 lean) added to
     <div id="paceChart" style="margin-top:16px"></div>
   </div>
 
-  <p style="font-size:11px;color:var(--faint);margin-top:16px"><span id="dataStatus">Loading live data…</span> · v120</p>
+  <p style="font-size:11px;color:var(--faint);margin-top:16px"><span id="dataStatus">Loading live data…</span> · v121</p>
 </div>
 
 <script>
@@ -540,11 +519,9 @@ const FALLBACK_CHIPS={weight:179.4, dexaBf:13.4, dexaDate:'2026-10-24', fatToLos
 const SNAPSHOT_ASOF='2026-09-06';
 // Populated by init() — from live data when reachable, else the fallback snapshot.
 let TODAY, DAILY, DEXA, DEXADATA, dexaSet, MILESTONES;
-let TODAY_CAL=null;                 // today's logged calories (held out of the daily map; used by the reveal)
 // (v40 2026-08-01: tombstone filtering moved server-side into ?type=foodDailyTotals,
 //  so the client no longer pulls deletedPlanIds or maintains a DELETED_PLAN_IDS set.)
-let revealCurrentWeek=false;        // ephemeral: the Saturday "reveal verdict" click, resets on reload
-let curWeekVerdict=null;            // computed averages for the in-progress week
+let WEEK_SUM={};                    // v121: weekly averages keyed by the week's Saturday; shown in that day's hover card
 
 /* ---------- LIVE DATA ---------- */
 function localToday(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
@@ -790,72 +767,14 @@ async function loadLive(){
       dexaBf:lastDx?lastDx.bf:cache.chips.dexaBf, dexaDate:lastDx?normDate(lastDx.date):cache.chips.dexaDate,
       fatToLose:lastDx?Math.max(0,Math.round(lastDx.fat-GOAL.fat)):cache.chips.fatToLose}};
 }
-// Weekly-verdict rendering (shared by completed weeks and the revealed in-progress week)
-function verdictHtml(v){
-  let h='';
-  // v99: phase-aware. Cut weeks: red at maintenance, green ≤2,600 (unchanged). Maintenance/bulk
-  // weeks: eating at maintenance IS the target, so neutral; red only at a clear overshoot
-  // (≥ MAINT_CAL + MAINT_WEEK_RED_MARGIN), never green (Ethan, 11/05: 2,743 vs 2,700 isn't red).
-  if(v.calAvg!=null){const cut=!v.ph||v.ph==='cut';
-    const cls=cut?(v.calAvg>=MAINT_CAL?'hi':(v.calAvg<=2600?'lo':''))
-                 :(v.calAvg>=MAINT_CAL+MAINT_WEEK_RED_MARGIN?'hi':'');
-    h+=`<div class="wsavg ${cls}">${v.calAvg.toLocaleString()}</div><div class="wsk">cal/day${v.calDays<7?'<span class="pd"> · '+v.calDays+'d</span>':''}</div>`;}
-  if(v.wtAvg!=null){h+=`<div class="wswt">${v.wtAvg}<span class="pd"> lb avg</span></div>`;}
+// v121: the week's averages live in Saturday's hover card (the weekly column is gone).
+// The current week shows its days so far; today's calories stay held out until the day closes.
+function weekSumHtml(v){
+  if(!v||(v.calAvg==null&&v.wtAvg==null)) return '';
+  let h=`<div class="dt-sec">${v.inProgress?'Week so far':'Week average'}</div>`;
+  if(v.calAvg!=null) h+=`<div class="dt-line"><b>${v.calAvg.toLocaleString()}</b> cal/day${v.calDays<7?' · '+v.calDays+' day'+(v.calDays===1?'':'s'):''}</div>`;
+  if(v.wtAvg!=null) h+=`<div class="dt-line"><b>${v.wtAvg}</b> lb</div>`;
   return h;
-}
-function revealBtnHtml(){
-  return `<button class="revealbtn" onclick="revealWeek()" title="Done eating? Reveal this week's averages.">Reveal ▸</button>`
-       + `<div class="wsk pd" style="margin-top:4px">in progress</div>`;
-}
-// Build the in-progress week's verdict from the stored raw bases + fresh today values.
-function buildCurVerdict(todayCal, todayWt){
-  const v=curWeekVerdict||{calTot:0,calN:0,wtSumBase:0,wtNBase:0,todaySkip:false};
-  const incC=(todayCal!=null && !v.todaySkip);
-  const cTot=v.calTot+(incC?todayCal:0), cN=v.calN+(incC?1:0);
-  const wSum=v.wtSumBase+(todayWt!=null?todayWt:0), wN=v.wtNBase+(todayWt!=null?1:0);
-  return { calAvg:(cN>0?Math.round(cTot/cN):null), calDays:cN, ph:v.ph,
-           wtAvg:(wN>0?(wSum/wN).toFixed(1):null) };
-}
-// Ephemeral Saturday reveal — re-pulls TODAY's calories + weigh-in from the sheet at click time
-// (so it's accurate no matter when the page loaded), folds them into the week, and updates only
-// this cell. Resets on reload; the week finalizes on its own once the calendar passes Saturday.
-async function revealWeek(){
-  _keyPromptCancelled=false; // an explicit Reveal click re-arms the passphrase prompt after an earlier Cancel
-  revealCurrentWeek=true;
-  const el=document.getElementById('curWeekSum'); if(!el) return;
-  el.innerHTML=`<div class="wsavg pend">…</div><div class="wsk">finalizing</div>`;
-  let todayCal=TODAY_CAL, todayWt=(DAILY[TODAY]&&DAILY[TODAY].w!=null)?DAILY[TODAY].w:null;
-  try{
-    const [f,w]=await Promise.all([fetchFoodTotals(),fetchType('weight')]);
-    const tc=(f&&f.totals)?f.totals[TODAY]:null;   // server-summed, tombstone-filtered
-    if(tc!=null) todayCal=Math.round(Number(tc)||0);
-    const tw=(w.entries||[]).find(e=>normDate(e.date)===TODAY && e.weight!==''&&e.weight!=null);
-    if(tw) todayWt=Math.round(Number(tw.weight)*10)/10;
-  }catch(e){
-    // v57: re-pull failed — do NOT dress the morning's autopop total up as the
-    // finalized verdict (today's calories are unfinalized until re-pulled).
-    // Restore the button so the reveal can be retried.
-    el.innerHTML=`<button class="revealbtn" onclick="revealWeek()" title="Re-pull failed — try again.">Reveal ▸</button><div class="wsk">re-pull failed — try again</div>`;
-    revealCurrentWeek=false;
-    return;
-  }
-  el.innerHTML=verdictHtml(buildCurVerdict(todayCal, todayWt));
-  paintTodayCal(todayCal);   // also lock the treat-day's own calorie number into its calendar cell
-}
-// Paint today's finalized calorie total into its own day cell on reveal. The cell
-// normally hides today's number (autopop plan, not finalized); clicking Reveal is the
-// "done eating" signal, so we surface the same daily figure that appears on tomorrow's
-// reload — using the SAME todayCal folded into the weekly average, so cell + avg agree.
-// Idempotent (replaces any prior painted value); mirrors the past-day cell's cal markup
-// + color thresholds (hi ≥ maintenance, lo ≤ 2350). Resets on reload like the rest of reveal.
-function paintTodayCal(todayCal){
-  const cell=document.getElementById('todayCell'); if(!cell||todayCal==null) return;
-  if(DAILY[TODAY]&&DAILY[TODAY].skip) return;   // skip day → unreliable total, don't paint it (matches the calendar-cell rule)
-  const cls=todayCal>=DAY_CAL_RED?'hi':(todayCal<=2350?'lo':'');
-  let el=cell.querySelector('.cal.revealcal');
-  if(!el){ el=document.createElement('div'); (cell.querySelector('.wtrow')||cell).appendChild(el); }   // v105: into the weight row
-  el.className='cal revealcal '+cls;
-  el.textContent=todayCal.toLocaleString();
 }
 function setChips(c){   // v100: header chips removed; kept null-safe for the cache/fallback callers
   if(!document.getElementById('chipWeightV')) return;
@@ -1133,8 +1052,9 @@ function dayDetailHtml(ds){
   if(hab.length) h+=`<div class="dt-sec">Habits</div>`+hab.map(x=>{const isEx=x.h.toLowerCase()==='exercise';
     const t=isEx?('Exercise · '+(String(x.n||'').replace(/\[plan\]\s*/ig,'').trim()||'done')):(habitLabel(x.h)+(x.n?' · '+x.n:''));
     return `<div class="dt-line">${escH(t)}</div>`;}).join('');
-  if(!stats.length&&!notes.length&&!hab.length) h+='<div class="dt-empty">Nothing logged</div>';
-  return h;
+  const wk=(d.getUTCDay()===6)?weekSumHtml(WEEK_SUM[ds]):'';
+  if(!stats.length&&!notes.length&&!hab.length&&!wk) h+='<div class="dt-empty">Nothing logged</div>';
+  return h+wk;
 }
 function initDayTip(){
   const tip=document.createElement('div'); tip.id='dayTip'; document.body.appendChild(tip);
@@ -1207,7 +1127,6 @@ async function init(){
   }
   await cfgDone;                       // PHASES/GOAL/MAINT_CAL settled before render
   DAILY=model.daily; DEXADATA=model.dexadata; TODAY=model.today;
-  TODAY_CAL=(model.todayCal!==undefined?model.todayCal:null);
   DEXA=Object.keys(DEXADATA).sort(); dexaSet=new Set(DEXA);
   MILESTONES={}; Object.keys(MILESTONES_RAW).forEach(d=>{ if(!DEXADATA[d]) MILESTONES[d]=MILESTONES_RAW[d]; });
   updateCloseBullet();                 // v59: after GOAL (cfgDone) + DEXADATA are settled
@@ -1357,7 +1276,6 @@ document.getElementById('mininow').style.top=(fracOf(TODAY)*100)+'%';
 /* ---------- CALENDAR ---------- */
 const ch=document.getElementById('calhead');
 DOW.forEach(x=>{const e=document.createElement('div');e.className='dow';e.textContent=x;ch.appendChild(e);});
-const wsh=document.createElement('div');wsh.className='wsh';wsh.innerHTML='Weekly<br>averages';ch.appendChild(wsh);
 const cal=document.getElementById('cal');
 let prevMonth=-1;
 weeks.forEach(wk=>{
@@ -1387,7 +1305,6 @@ weeks.forEach(wk=>{
     const p=phaseOf(cds), future=cds>TODAY;
     const paint=(NOTES[cds]&&NOTES[cds].paint)||(p&&p.type);   // NOTES.paint = color-only override (Feast Day)
     cell.className='day'+(paint?' '+paint:'')+(cds===TODAY?' today':'');
-    if(cds===TODAY)cell.id='todayCell';   // so revealWeek() can paint today's cal number in on click
     cell.dataset.date=cds;                // v105: paintHabits() finds cells by date
     if(cd.getUTCDate()===1||cds===CAL_START)cell.classList.add('first');
     const dn=(cd.getUTCDate()===1)?MONTHS[cd.getUTCMonth()]+' 1':String(cd.getUTCDate());
@@ -1413,35 +1330,12 @@ weeks.forEach(wk=>{
     if(rec&&rec.skip){const sm=document.createElement('div');sm.className='skipMark';cell.appendChild(sm);}
     week.appendChild(cell);
   }
-  // weekly summary cell (right of Saturday)
-  const inProgress=(iso(wk)<=TODAY && TODAY<=iso(addDays(wk,6))); // current week not yet complete
-  // v99: the week's phase = the phase of most of its days (a week straddling a boundary goes with the majority)
-  const wkPhase=(()=>{const n={};for(let i=0;i<7;i++){const p=phaseOf(iso(addDays(wk,i)));const t=p?p.type:'none';n[t]=(n[t]||0)+1;}
-    const top=Object.keys(n).sort((a,b)=>n[b]-n[a])[0];return top==='none'?null:top;})();
-  const sum=document.createElement('div');
+  // v121: weekly averages → Saturday's hover card (WEEK_SUM). Today's calories are already held out above.
   if(wkN>0||wtN>0){
-    sum.className='wsum';
-    if(inProgress){
-      sum.id='curWeekSum';
-      // Store the week's RAW base totals with TODAY excluded (calories are held out per the
-      // standing rule; today's weigh-in is subtracted out too). The reveal then re-pulls fresh
-      // values for today at click time and folds them in — so it's accurate whenever clicked.
-      const twLoad=(DAILY[TODAY]&&DAILY[TODAY].w!=null)?DAILY[TODAY].w:null;
-      curWeekVerdict={ calTot:wkTot, calN:wkN,
-                       wtSumBase:wtSum-(twLoad!=null?twLoad:0), wtNBase:wtN-(twLoad!=null?1:0),
-                       todaySkip:!!(DAILY[TODAY]&&DAILY[TODAY].skip), ph:wkPhase };
-      sum.innerHTML = revealCurrentWeek
-        ? verdictHtml(buildCurVerdict(TODAY_CAL, twLoad))
-        : revealBtnHtml();
-    }else{
-      const v={ calAvg:(wkN>0?Math.round(wkTot/wkN):null), calDays:wkN, ph:wkPhase,
-                wtAvg:(wtN>0?(wtSum/wtN).toFixed(1):null) };
-      sum.innerHTML=verdictHtml(v);
-    }
-  }else{
-    sum.className='wsum empty';
+    const inProgress=(iso(wk)<=TODAY && TODAY<=iso(addDays(wk,6)));
+    WEEK_SUM[iso(addDays(wk,6))]={ calAvg:(wkN>0?Math.round(wkTot/wkN):null), calDays:wkN,
+                                   wtAvg:(wtN>0?(wtSum/wtN).toFixed(1):null), inProgress };
   }
-  week.appendChild(sum);
   cal.appendChild(week);
 });
 } // end render()
