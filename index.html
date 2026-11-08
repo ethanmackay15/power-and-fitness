@@ -4072,7 +4072,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-11-07b';
+const APP_BUILD = '2026-11-07c';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -7607,8 +7607,14 @@ function planDayByFocus(focus) { return getTrainingPlan().find(d => (d.focus || 
 // selection map itself hasn't synced) → none (user hasn't picked yet).
 function selectedWorkoutForDate(date) {
   const sel = getTrainingSelection()[date];
-  if (sel) { const d = planDayByKey(sel); if (d) return d; }
   const dmap = getTrainingData()[date] || {};
+  if (sel) {
+    const d = planDayByKey(sel);
+    // 2026-11-07: the selection is device-local; if the logged rows (from the Sheet)
+    // belong to a different workout, the logged work wins over a stale selection.
+    const foci = Object.keys(dmap).filter(ex => dmap[ex] && dmap[ex].done && dmap[ex].focus).map(ex => dmap[ex].focus);
+    if (d && (!foci.length || foci.indexOf(d.focus) !== -1)) return d;
+  }
   for (const ex in dmap) {
     const f = dmap[ex] && dmap[ex].done && dmap[ex].focus;
     if (f) { const d = planDayByFocus(f); if (d) return d; }
@@ -7801,6 +7807,15 @@ function selectTrainingWorkout(dayKey) {
 
   const newDay = planDayByKey(dayKey);
   const newExs = (newDay && Array.isArray(newDay.exercises)) ? newDay.exercises : [];
+  // 2026-11-07 fix: switching workouts used to delete every logged exercise outside
+  // the new workout WITHOUT asking. That silently erased the 11/04 leg lift when
+  // "Full Upper" was picked on that date two days later. Now it asks first.
+  const dropping = Object.keys(dmap).filter(ex => dmap[ex] && dmap[ex].done && newExs.indexOf(ex) === -1);
+  if (dropping.length) {
+    const when = fmtDate(date);
+    const label = newDay ? (newDay.focus || newDay.day) : dayKey;
+    if (!confirm('Switch ' + when + ' to ' + label + '?\n\nThis deletes ' + dropping.length + ' logged exercise' + (dropping.length === 1 ? '' : 's') + ' from ' + when + ':\n• ' + dropping.join('\n• ') + '\n\n(Check the date — logging a different day? Go back to Today first.)')) return;
+  }
   Object.keys(dmap).forEach(ex => {
     if (dmap[ex] && dmap[ex].done && newExs.indexOf(ex) === -1) {
       const focus = dmap[ex].focus || '';
