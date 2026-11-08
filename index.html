@@ -3623,6 +3623,7 @@ function _coalesceKey(op, payload) {
     case 'setSkipDay':                  return 'skip:' + payload.date;
     case 'setDeletedPlanId':            return 'deletedplan:' + payload.id;
     case 'addFoodToLibrary':            return 'foodlib:' + payload.id;
+    case 'setHabitList':                return 'habitlist:all';   // 2026-11-08: one row = the whole list; newest wins
     default:                            return null;
   }
 }
@@ -3713,6 +3714,7 @@ function _opToPayload(op, payload) {
     case 'setSkipDay':               return { action: 'setSkipDay',                entry: payload };
     case 'setDeletedPlanId':         return { action: 'setDeletedPlanId',          entry: payload };
     case 'addFoodToLibrary':         return { action: 'addFoodToLibrary',          food:  payload };
+    case 'setHabitList':             return { action: 'setHabitList',              list:  payload.list, goals: payload.goals };
     default: throw new Error('Unknown queue op: ' + op);
   }
 }
@@ -4069,7 +4071,7 @@ function toggleSettings() {
 // a last-quota entry = storage-full. Remove once the 9/24 bugs are settled.
 // Build marker (2026-10-03): shown first in Device diagnostics so a stale tab
 // or PWA still running old code is visible at a glance. Bump on every deploy.
-const APP_BUILD = '2026-11-07e';
+const APP_BUILD = '2026-11-08a';
 const STORE_BORN_KEY = 'device_store_born_v1';
 try { if (!localStorage.getItem(STORE_BORN_KEY)) localStorage.setItem(STORE_BORN_KEY, new Date().toISOString()); } catch(e) {}
 function renderDeviceDiag() {
@@ -7174,6 +7176,11 @@ const HABITS_KEY = 'habits_tracker_v1';
 const HABITS_LIST_KEY        = 'power_habits_list_v2';     // [ habitName, ... ]
 const HABIT_GOALS_KEY        = 'power_habit_goals_v1';     // { habitName: timesPerWeek } — device-local, like the list
 const HABITS_LIST_SEEDED_KEY = 'power_habits_list_seeded_v1';
+// 2026-11-08: set once this device has merged its list with the Sheet's "Habit List"
+// tab (backend v2026-11-08a). From then on the Sheet's list wins on every pull, and
+// edits here are pushed to it (setHabitList). Unset = old backend or not yet pulled:
+// the list stays device-local, as before, and nothing is pushed.
+const HABITS_LIST_SHEET_SYNCED_KEY = 'power_habits_list_sheet_synced_v1';
 // Growth's keys (same origin, ethanmackay15.github.io) — read-only seed sources.
 const GROWTH_HABITS_LIST_KEY = 'growth_habits_list_v1';
 const GROWTH_HABIT_GOALS_KEY = 'growth_habit_goals_v1';
@@ -7220,6 +7227,7 @@ function saveHabitsList(list) { safeSetItem(HABITS_LIST_KEY, JSON.stringify(list
 // already repaint the tab when it's active, so no separate post-merge hook.
 function ensureHabitsListSeeded() {
   try { if (localStorage.getItem(HABITS_LIST_SEEDED_KEY)) return; } catch(e) { return; }
+  if (habitListSheetSynced()) { safeSetItem(HABITS_LIST_SEEDED_KEY, '1'); return; }   // the Sheet list already decided it
   const growthList  = _readJsonKey(GROWTH_HABITS_LIST_KEY, []);
   const growthGoals = _readJsonKey(GROWTH_HABIT_GOALS_KEY, {});
   const current     = _readJsonKey(HABITS_LIST_KEY, []);
@@ -7263,6 +7271,7 @@ function adjustHabitGoal(habit, delta) {
   const g = getHabitGoals();
   g[habit] = Math.min(7, Math.max(1, getHabitGoal(habit) + delta));
   safeSetItem(HABIT_GOALS_KEY, JSON.stringify(g));
+  pushHabitListToSheet();
   renderHabitGrid();
 }
 
@@ -7468,6 +7477,7 @@ function hgAddHabit() {
   const g = getHabitGoals(); g[name] = goal; safeSetItem(HABIT_GOALS_KEY, JSON.stringify(g));
   input.value = '';
   if (goalSel) goalSel.value = String(HABIT_DEFAULT_GOAL);
+  pushHabitListToSheet();
   renderHabitGrid();
   showToast('✓ Added "' + name + '" · ' + goal + '× / week');
 }
@@ -7478,6 +7488,7 @@ function removeHabitFromList(habit) {
   const g = getHabitGoals();
   if (habit in g) { delete g[habit]; safeSetItem(HABIT_GOALS_KEY, JSON.stringify(g)); }
   // Logged rows stay in the local mirror + Sheet — the habit just leaves the grid.
+  pushHabitListToSheet();
   renderHabitGrid();
   showToast('Removed "' + habit + '"');
 }
@@ -7996,11 +8007,82 @@ function calcTotal30(habit) {
 // (renderHabitStreaks / renderHabitHeatmap deleted 2026-08-23 — grid lives in Growth.)
 
 // ── Habits Sheets Sync ───────────────────────────────────────────────────────
+// ── Habit list shared across devices (2026-11-08, backend v2026-11-08a) ──────
+// The list + weekly targets live in the Sheet's "Habit List" tab. First contact
+// on a device MERGES (Sheet list, then this device's extras; Sheet target wins),
+// and pushes the union if it differs, so desktop and phone converge without
+// losing a habit either one added while lists were device-local. After that the
+// Sheet's list simply wins on every pull, except while this device has its own
+// list write queued or just made (same TOCTOU guard as the other domains).
+function habitListSheetSynced() {
+  try { return !!localStorage.getItem(HABITS_LIST_SHEET_SYNCED_KEY); } catch (e) { return false; }
+}
+function _habitListPayload() {
+  const list = getHabitsList();
+  const goals = {};
+  list.forEach(h => { goals[h] = getHabitGoal(h); });
+  return { list, goals };
+}
+function pushHabitListToSheet() {
+  // Only once the backend is known to have the Habit List tab. On an old
+  // backend setHabitList is an "Unknown action", which would dead-letter.
+  if (!habitListSheetSynced() || !getSheetsUrl()) return;
+  enqueueWrite('setHabitList', _habitListPayload());
+}
+function _habitListWritePending() {
+  const has = q => (q || []).some(i => i && i.op === 'setHabitList');
+  return has(_readQueue()) || has(_readDeadLetter());
+}
+let _habitListSyncInFlight = null;
+function syncHabitListFromSheet() {
+  if (_habitListSyncInFlight) return _habitListSyncInFlight;
+  _habitListSyncInFlight = (async () => {
+    const url = getSheetsUrl();
+    if (!url) return;
+    const t0 = Date.now();
+    let data;
+    try { data = await (await noCacheFetch(url + '?type=habitList')).json(); } catch (e) { return; }
+    if (!data || !data.ok || !Array.isArray(data.list)) return;   // old backend: stay device-local
+    if (_habitListWritePending() || !_domainQuietSince('habitlist', t0)) return;
+    const norm = h => String(h || '').trim().toLowerCase();
+    const sheetList = data.list.map(norm).filter(h => h && h !== 'undefined' && !HIDDEN_HABITS.includes(h));
+    const sheetGoals = (data.goals && typeof data.goals === 'object') ? data.goals : {};
+    const okGoal = v => typeof v === 'number' && v >= 1 && v <= 7;
+    const before = JSON.stringify(_habitListPayload());
+    let list, goals, push = false;
+    if (!habitListSheetSynced()) {
+      ensureHabitsListSeeded();   // fold in this device's first-boot seed before merging
+      const local = getHabitsList(), localGoals = getHabitGoals();
+      list = [...sheetList];
+      local.forEach(h => { if (!list.includes(h)) list.push(h); });
+      goals = {};
+      list.forEach(h => {
+        if (okGoal(sheetGoals[h])) goals[h] = sheetGoals[h];
+        else if (okGoal(localGoals[h])) goals[h] = localGoals[h];
+      });
+      push = list.length !== sheetList.length || list.some(h => !okGoal(sheetGoals[h]));
+      safeSetItem(HABITS_LIST_SHEET_SYNCED_KEY, '1');
+      safeSetItem(HABITS_LIST_SEEDED_KEY, '1');
+    } else {
+      list = sheetList;
+      goals = {};
+      list.forEach(h => { if (okGoal(sheetGoals[h])) goals[h] = sheetGoals[h]; });
+    }
+    saveHabitsList(list);
+    safeSetItem(HABIT_GOALS_KEY, JSON.stringify(goals));
+    if (push) pushHabitListToSheet();
+    if (JSON.stringify(_habitListPayload()) !== before
+        && document.getElementById('panel-habits')?.classList.contains('active')) renderHabitGrid();
+  })().finally(() => { _habitListSyncInFlight = null; });
+  return _habitListSyncInFlight;
+}
+
 // ── Habit Insights removed 2026-05-26 (section deleted — broken render + unused) ──
 
 async function pullHabitsFromSheets() {
   const url = getSheetsUrl();
   if (!url) return null;
+  syncHabitListFromSheet();   // 2026-11-08: fire-and-forget; rides every habits pull (boot, resume, poll, manual)
   try {
     const res = await noCacheFetch(url + '?type=habits');
     const data = await res.json();
